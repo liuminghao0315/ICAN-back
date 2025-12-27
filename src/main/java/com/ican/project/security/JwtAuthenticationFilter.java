@@ -1,6 +1,7 @@
 package com.ican.project.security;
 
 import com.ican.project.model.common.Code;
+import com.ican.project.model.common.NotFilterPaths;
 import com.ican.project.model.common.Result;
 import com.ican.project.utils.JwtUtil;
 import com.ican.project.utils.ResponseUtil;
@@ -23,10 +24,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private RedisTemplate<String,Object> redisTemplate;
 
+    @Autowired
+    private NotFilterPaths notFilterPaths;
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request){
         String path = request.getServletPath();
-        return path.startsWith("/auth/")||path.startsWith("/test/");
+        for (String skipPath : notFilterPaths.accuratePaths) {
+            if(skipPath.equals(path)){
+                return true;
+            }
+        }
+        for (String skipPath : notFilterPaths.startWithPathsInFilter) {
+            if(path.startsWith(skipPath)){
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

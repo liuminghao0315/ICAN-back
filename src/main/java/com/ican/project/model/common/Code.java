@@ -6,6 +6,12 @@ public class Code {
     //注册时——邮箱已存在
     public static final Integer EMAIL_EXISTS = 2;
 
+    //获取验证码时——邮箱不为系统支持的邮箱
+    public static final Integer EMAIL_NOT_SUPPORT = 3;
+
+    //注册时——验证码不存在或失效
+    public static final Integer VERIFY_CODE_NOT_EXISTS = 4;
+
     //成功
     public static final Integer SUCCESS = 200;
 

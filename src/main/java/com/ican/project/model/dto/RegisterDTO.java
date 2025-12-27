@@ -11,11 +11,13 @@ public class RegisterDTO {
     private String username;
     private String password;
     private String email;
+    private String verifyCode;
 
     public RegisterDTO trimMe(){
         this.username = this.username.trim();
         this.password = this.password.trim();
         this.email = this.email.trim();
+        this.verifyCode = this.verifyCode.trim();
         return this;
     }
 }

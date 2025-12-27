@@ -1,5 +1,8 @@
 package com.ican.project.utils;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import java.util.Properties;
 import javax.mail.Authenticator;
 import javax.mail.Message;
@@ -9,8 +12,15 @@ import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
-public class Mail {
-    public void sendMail(){
+@Component
+public class MailUtil {
+    @Value("${qqMail.sender}")
+    private String sender;
+
+    @Value("${qqMail.smtpCode}")
+    private String smtpCode;
+
+    public void sendQQMail(String to, String subject, String content) {
         try {
             final String SSL_FACTORY = "javax.net.ssl.SSLSocketFactory";
 
@@ -30,19 +40,19 @@ public class Mail {
                 //身份认证
                 protected PasswordAuthentication getPasswordAuthentication() {
                     //1.账户 授权码
-                    return new PasswordAuthentication("xxxxxxx@qq.com", "xxxx");
+                    return new PasswordAuthentication(sender, smtpCode);
                 }
             });
             //建立邮件对象
             MimeMessage message = new MimeMessage(session);
             //2.设置邮件的发件人
-            message.setFrom(new InternetAddress("xxxxxxx@qq.com"));
+            message.setFrom(new InternetAddress(sender));
             //3.设置邮件的收件人
-            message.setRecipients(Message.RecipientType.TO, "xxxxxxx@qq.com");
+            message.setRecipients(Message.RecipientType.TO, to);
             //设置邮件的主题
-            message.setSubject("通过javamail发出！！！");
+            message.setSubject(subject);
             //文本部分
-            message.setContent("文本邮件测试", "text/html;charset=UTF-8");
+            message.setContent(content, "text/html;charset=UTF-8");
             message.saveChanges();
             //发送邮件
             Transport.send(message);

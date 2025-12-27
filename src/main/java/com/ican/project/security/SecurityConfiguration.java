@@ -1,5 +1,6 @@
 package com.ican.project.security;
 
+import com.ican.project.model.common.NotFilterPaths;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,9 +14,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
@@ -24,13 +23,23 @@ public class SecurityConfiguration {
     @Autowired
     private JwtAuthenticationFilter jwtFilter;
 
+    @Autowired
+    private NotFilterPaths notFilterPaths;
+    @Autowired
+    private UserDetailsService userDetailsService;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(requests->requests
-                .requestMatchers("/auth/login").permitAll()
-                .requestMatchers("/auth/register").permitAll()
-                        .requestMatchers(("/test/**")).permitAll()
-        .anyRequest().authenticated())
+        http.authorizeHttpRequests(requests -> {
+                            for (String skipPath : notFilterPaths.accuratePaths) {
+                                requests.requestMatchers(skipPath).permitAll();
+                            }
+                            for (String skipPath : notFilterPaths.startWithPathsInConfig) {
+                                requests.requestMatchers(skipPath).permitAll();
+                            }
+                            requests.anyRequest().authenticated();
+                        }
+                )
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
@@ -44,9 +53,6 @@ public class SecurityConfiguration {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    @Autowired
-    private UserDetailsService userDetailsService;
 
     @Bean
     public AuthenticationManager authenticationManager() {
