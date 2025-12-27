@@ -1,6 +1,7 @@
 package com.ican.project.model.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,9 +10,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "统一响应结果")
 public class Result<T> {
+    @Schema(description = "响应码", example = "200")
     private Integer code;
+    @Schema(description = "响应消息", example = "操作成功")
     private String message;
+    @Schema(description = "响应数据")
     private T data;
 
     public Result(Integer code, String message) {

@@ -7,7 +7,9 @@ import com.ican.project.model.entity.User;
 import com.ican.project.service.LogoutService;
 import com.ican.project.service.MailService;
 import com.ican.project.service.UserService;
-import com.ican.project.utils.CodeUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@Tag(name = "账户管理", description = "账户相关接口，包括登出、密码重置等功能")
 public class AccountController {
     @Autowired
     private LogoutService logoutService;
@@ -28,12 +31,15 @@ public class AccountController {
     private UserService userService;
 
     @GetMapping("/account/logout")
+    @Operation(summary = "用户登出", description = "用户登出接口，清除登录状态")
     public Result<?> logout() {
         return logoutService.logout();
     }
 
     @GetMapping("/account/sendMailToResetPwd")
-    public Result<?> sendMailToResetPwd(@RequestParam("username")String username){
+    @Operation(summary = "发送密码重置邮件", description = "向用户邮箱发送密码重置验证码邮件")
+    public Result<?> sendMailToResetPwd(
+            @Parameter(description = "用户名", required = true) @RequestParam("username")String username){
         List<User> users = userMapper.selectByMap(Map.of("name", username));
         if(users==null || users.isEmpty()){
             return Result.fail(Code.USER_NOT_EXISTS,"用户不存在");
@@ -50,7 +56,10 @@ public class AccountController {
     }
 
     @GetMapping("/account/resetPwd")
-    public Result<?> resetPwd(@RequestParam("verifyCode")String verifyCode,@RequestParam("newPwd")String newPwd){
+    @Operation(summary = "重置密码", description = "通过验证码重置用户密码")
+    public Result<?> resetPwd(
+            @Parameter(description = "验证码", required = true) @RequestParam("verifyCode")String verifyCode,
+            @Parameter(description = "新密码", required = true) @RequestParam("newPwd")String newPwd){
         return userService.resetPwd(verifyCode,newPwd);
     }
 }
