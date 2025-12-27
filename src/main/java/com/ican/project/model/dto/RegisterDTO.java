@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "注册请求DTO")
+@Schema(description = "用户注册请求DTO")
 public class RegisterDTO {
     @Schema(description = "用户名", example = "testuser", requiredMode = Schema.RequiredMode.REQUIRED)
     private String username;

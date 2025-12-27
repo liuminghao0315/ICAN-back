@@ -94,12 +94,13 @@
             <artifactId>mail</artifactId>
             <version>1.4</version>
         </dependency>
-        <!--springdoc-openapi-->
+        <!--springdoc-openapi (Swagger for Spring Boot 3)-->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.2.0</version>
         </dependency>
+
     </dependencies>
     <dependencyManagement>
         <dependencies>

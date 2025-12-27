@@ -9,13 +9,18 @@ import java.util.Arrays;
 public class NotFilterPaths {
     public String[] accuratePaths = new String[]{
             "/account/sendMailToResetPwd",
-            "/account/resetPwd"
+            "/account/resetPwd",
+            "/swagger-ui.html",
+            "/swagger-ui/index.html",
+            "/v3/api-docs"
     };
 
     //格式："/path/"或"/path1/path2/
     public String[] startWithPathsInFilter = new String[]{
             "/auth/",
-            "/test/"
+            "/test/",
+            "/swagger-ui/",
+            "/v3/api-docs/"
     };
     public String[] startWithPathsInConfig;
 

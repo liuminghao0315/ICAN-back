@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@Tag(name = "账户管理", description = "账户相关接口，包括登出、密码重置等功能")
+@Tag(name = "账户管理", description = "账户相关操作接口")
 public class AccountController {
     @Autowired
     private LogoutService logoutService;
@@ -37,9 +37,10 @@ public class AccountController {
     }
 
     @GetMapping("/account/sendMailToResetPwd")
-    @Operation(summary = "发送密码重置邮件", description = "向用户邮箱发送密码重置验证码邮件")
+    @Operation(summary = "发送重置密码邮件", description = "向用户邮箱发送重置密码验证码邮件")
     public Result<?> sendMailToResetPwd(
-            @Parameter(description = "用户名", required = true) @RequestParam("username")String username){
+            @Parameter(description = "用户名", required = true)
+            @RequestParam("username")String username){
         List<User> users = userMapper.selectByMap(Map.of("name", username));
         if(users==null || users.isEmpty()){
             return Result.fail(Code.USER_NOT_EXISTS,"用户不存在");
@@ -58,8 +59,10 @@ public class AccountController {
     @GetMapping("/account/resetPwd")
     @Operation(summary = "重置密码", description = "通过验证码重置用户密码")
     public Result<?> resetPwd(
-            @Parameter(description = "验证码", required = true) @RequestParam("verifyCode")String verifyCode,
-            @Parameter(description = "新密码", required = true) @RequestParam("newPwd")String newPwd){
+            @Parameter(description = "验证码", required = true)
+            @RequestParam("verifyCode")String verifyCode,
+            @Parameter(description = "新密码", required = true)
+            @RequestParam("newPwd")String newPwd){
         return userService.resetPwd(verifyCode,newPwd);
     }
 }
