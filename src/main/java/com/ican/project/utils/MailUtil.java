@@ -56,8 +56,7 @@ public class MailUtil {
             message.saveChanges();
             //发送邮件
             Transport.send(message);
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception ignored) {
         }
     }
 }

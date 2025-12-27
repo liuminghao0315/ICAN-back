@@ -12,6 +12,12 @@ public class Code {
     //注册时——验证码不存在或失效
     public static final Integer VERIFY_CODE_NOT_EXISTS = 4;
 
+    //重置密码时——用户不存在
+    public static final Integer USER_NOT_EXISTS = 5;
+
+    //重置密码时——新旧密码相同
+    public static final Integer NEW_PWD_EQ_OLD = 6;
+
     //成功
     public static final Integer SUCCESS = 200;
 

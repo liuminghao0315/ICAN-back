@@ -19,17 +19,32 @@ public class QQMailServiceImpl implements MailService {
     @Autowired
     private RedisTemplate<String,Object> redisTemplate;
 
+    private final int toRegister = 1;
+
+    private final int toResetPwd = 2;
+
     @Override
     public Result<?> sendMailToRegister(String mailTo) {
+        return sendQQMail(mailTo,toRegister);
+    }
+
+    @Override
+    public Result<?> sendMailToResetPwd(String mailTo) {
+        return sendQQMail(mailTo,toResetPwd);
+    }
+
+    private Result<?> sendQQMail(String mailTo, int type) {
         if (mailTo != null && mailTo.endsWith("@qq.com")) {
             //是qq邮箱
             String verificationCode = CodeUtil.generateCode();
             mailUtil.sendQQMail(mailTo,"您的注册验证码", "您的验证码是：" + verificationCode + "，5分钟内有效。");
-            redisTemplate.opsForValue().set("verifyCode:" + verificationCode, mailTo, 5, TimeUnit.MINUTES);
-            return Result.success(verificationCode);
+            if(type==toRegister){
+                redisTemplate.opsForValue().set("verifyCodeToRegister:" + verificationCode, mailTo, 5, TimeUnit.MINUTES);
+            }else if(type==toResetPwd){
+                redisTemplate.opsForValue().set("verifyCodeToResetPwd:" + verificationCode, mailTo, 5, TimeUnit.MINUTES);
+            }
+            return Result.success("验证码发送成功");
         }
         return Result.fail(Code.EMAIL_NOT_SUPPORT,"不是系统支持的邮箱");
     }
-
-
 }

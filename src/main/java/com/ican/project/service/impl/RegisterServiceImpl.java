@@ -42,14 +42,14 @@ public class RegisterServiceImpl implements RegisterService {
         }
         String emailByCode;
         try{
-            emailByCode = (String) redisTemplate.opsForValue().get("verifyCode:"+verifyCode);
+            emailByCode = (String) redisTemplate.opsForValue().get("verifyCodeToRegister:"+verifyCode);
             if(emailByCode==null||!emailByCode.equals(email)){
                 return Result.fail(Code.VERIFY_CODE_NOT_EXISTS,"验证码过期或不存在");
             }
         }catch (Exception e){
             e.printStackTrace();
         }
-        redisTemplate.delete("verifyCode:"+verifyCode);
+        redisTemplate.delete("verifyCodeToRegister:"+verifyCode);
         userMapper.insert(new User(username,passwordEncoder.encode(password),email));
         return Result.success(registerDTO);
     }

@@ -8,7 +8,8 @@ import java.util.Arrays;
 @Component
 public class NotFilterPaths {
     public String[] accuratePaths = new String[]{
-            ""
+            "/account/sendMailToResetPwd",
+            "/account/resetPwd"
     };
 
     //格式："/path/"或"/path1/path2/
