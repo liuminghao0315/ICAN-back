@@ -24,8 +24,8 @@ public class LoginServiceImpl implements LoginService {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-//    @Value("${jwt-expire-minutes}")
-    private long expire = 5;
+    @Value("${jwt-expire-minutes}")
+    private long expire;
 
     @Override
     public Result<?> checkLogin(LoginDTO loginDTO) {
