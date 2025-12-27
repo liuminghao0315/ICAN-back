@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 必须对应你的 Mapper 接口全路径 -->
+<mapper namespace="com.ican.project.mapper.UserMapper">
+
+    <!--
+        查询用户的所有权限名称
+        resultType: 因为只查一个字段(name)且是字符串，直接用 java.lang.String
+    -->
+    <select id="selectPermsByUserId" resultType="java.lang.String">
+        SELECT DISTINCT p.name
+        FROM `user` u
+                 LEFT JOIN `relate_user_role` rur ON u.id = rur.user_id
+                 LEFT JOIN `relate_role_permission` rrp ON rur.role_id = rrp.role_id
+                 LEFT JOIN `permission` p ON rrp.permission_id = p.id
+        WHERE u.id = #{userId}
+    </select>
+
+</mapper>

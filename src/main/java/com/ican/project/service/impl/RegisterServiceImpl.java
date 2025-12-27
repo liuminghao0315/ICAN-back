@@ -3,18 +3,10 @@ package com.ican.project.service.impl;
 import com.ican.project.mapper.UserMapper;
 import com.ican.project.model.common.Code;
 import com.ican.project.model.common.Result;
-import com.ican.project.model.dto.LoginDTO;
 import com.ican.project.model.dto.RegisterDTO;
 import com.ican.project.model.entity.User;
-import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.RegisterService;
-import com.ican.project.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 

@@ -32,7 +32,7 @@ public class LoginServiceImpl implements LoginService {
         String username = loginDTO.getUsername();
         String password = loginDTO.getPassword();
         UsernamePasswordAuthenticationToken authRequest = UsernamePasswordAuthenticationToken.unauthenticated(username, password);
-        try{
+//        try{
             Authentication authentication = authenticationManager.authenticate(authRequest);
             if(authentication.isAuthenticated()){
                 MyUserDetails user = (MyUserDetails) authentication.getPrincipal();
@@ -41,9 +41,9 @@ public class LoginServiceImpl implements LoginService {
                 String token = JwtUtil.createToken(userId, 1000 * 60 * expire);
                 return Result.success(token);
             }
-        }catch (Exception ex){
-            return Result.authFail();
-        }
+//        }catch (Exception ex){
+//            return Result.authFail();
+//        }
         return Result.authFail();
     }
 }
