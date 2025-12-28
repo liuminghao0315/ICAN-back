@@ -17,12 +17,13 @@ public class RegisterDTO {
     @Schema(description = "用户名", example = "testuser", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "用户名不能为空")
     @Size(min = 2, max = 20, message = "用户名长度必须在2-20个字符之间")
-    @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "用户名只能包含字母、数字和下划线")
+    @Pattern(regexp = "^[a-zA-Z0-9\\u4e00-\\u9fff\\u3400-\\u4db5_.-]+$", message = "用户名只能包含英文字母、数字、汉字、下划线(_)、连字符(-)、点(.)")
     private String username;
     
     @Schema(description = "密码", example = "123456", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 20, message = "密码长度必须在6-20个字符之间")
+    @Pattern(regexp = "^[a-zA-Z0-9!@#$%^&*()_+=\\[\\]{}|;:,.<>?-]+$", message = "密码只能包含英文字母、数字和常用特殊字符（!@#$%^&*()_+-=[]{}|;:,.<>?）")
     private String password;
     
     @Schema(description = "邮箱地址", example = "test@qq.com", requiredMode = Schema.RequiredMode.REQUIRED)

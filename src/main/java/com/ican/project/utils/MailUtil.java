@@ -78,6 +78,8 @@ public class MailUtil {
             props.setProperty("mail.smtp.port", SMTP_PORT);
             props.setProperty("mail.smtp.socketFactory.port", SMTP_PORT);
             props.setProperty("mail.smtp.auth", SMTP_AUTH);
+            // 显式设置发件人地址，确保与认证用户一致（163邮箱要求）
+            props.setProperty("mail.smtp.from", from);
 
             // 建立邮件会话
             Session session = Session.getDefaultInstance(props, new Authenticator() {
@@ -89,8 +91,10 @@ public class MailUtil {
 
             // 建立邮件对象
             MimeMessage message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(from));
-            message.setRecipients(Message.RecipientType.TO, to);
+            // 设置发件人地址（必须与认证用户完全一致，即from参数的值）
+            InternetAddress fromAddress = new InternetAddress(from);
+            message.setFrom(fromAddress);
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
             message.setSubject(subject);
             message.setContent(content, CONTENT_TYPE);
             message.saveChanges();
