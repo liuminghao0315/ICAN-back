@@ -103,6 +103,21 @@ CREATE TABLE IF NOT EXISTS `analysis_result` (
     FOREIGN KEY (`video_id`) REFERENCES `video`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分析结果表';
 
+-- 上传统计表（持久化每天的上传数量，即使视频被删除也保留统计）
+CREATE TABLE IF NOT EXISTS `upload_statistics` (
+    `id` VARCHAR(36) PRIMARY KEY COMMENT '统计ID',
+    `user_id` VARCHAR(36) NOT NULL COMMENT '用户ID',
+    `stat_date` DATE NOT NULL COMMENT '统计日期',
+    `upload_count` INT DEFAULT 0 COMMENT '上传数量',
+    `total_size` BIGINT DEFAULT 0 COMMENT '总上传大小（字节）',
+    `gmt_created` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    
+    UNIQUE KEY `uk_user_date` (`user_id`, `stat_date`),
+    INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_stat_date` (`stat_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='上传统计表';
+
 -- 分片上传记录表（用于断点续传）
 CREATE TABLE IF NOT EXISTS `upload_chunk` (
     `id` VARCHAR(36) PRIMARY KEY COMMENT '分片ID',

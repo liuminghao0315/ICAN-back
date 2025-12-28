@@ -13,6 +13,7 @@ import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.ChunkUploadVO;
 import com.ican.project.model.vo.VideoVO;
 import com.ican.project.service.MinioService;
+import com.ican.project.service.UploadStatisticsService;
 import com.ican.project.service.VideoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,9 @@ public class VideoServiceImpl implements VideoService {
     @Autowired
     private MinioService minioService;
     
+    @Autowired
+    private UploadStatisticsService uploadStatisticsService;
+    
     @Value("${upload.temp-dir:${java.io.tmpdir}/ican-upload-chunks}")
     private String tempDir;
     
@@ -72,13 +76,18 @@ public class VideoServiceImpl implements VideoService {
         }
     }
     
+    // 允许的视频文件扩展名
+    private static final List<String> ALLOWED_EXTENSIONS = List.of(
+            "mp4", "avi", "mov", "wmv", "flv", "mkv", "webm", "m4v", "mpeg", "mpg"
+    );
+    
     @Override
     public ChunkUploadVO checkChunkUpload(String fileIdentifier, String fileName, 
                                           Integer totalChunks, String userId) {
-        // 检查是否已有相同文件（秒传）
-        LambdaQueryWrapper<UploadChunk> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UploadChunk::getFileIdentifier, fileIdentifier);
+        // 验证文件扩展名
+        validateFileExtension(fileName);
         
+        // 获取已上传的分片列表
         List<Integer> uploadedChunks = uploadChunkMapper.getUploadedChunkNumbers(fileIdentifier);
         
         // 检查是否全部上传完成
@@ -113,6 +122,9 @@ public class VideoServiceImpl implements VideoService {
     @Override
     @Transactional
     public ChunkUploadVO uploadChunk(ChunkUploadDTO dto, MultipartFile chunk, String userId) {
+        // 验证文件扩展名
+        validateFileExtension(dto.getFileName());
+        
         String fileIdentifier = dto.getFileIdentifier();
         int chunkNumber = dto.getChunkNumber();
         
@@ -253,6 +265,13 @@ public class VideoServiceImpl implements VideoService {
                     .build();
             videoMapper.insert(video);
             
+            // 记录上传统计（持久化）
+            try {
+                uploadStatisticsService.recordUpload(userId, totalSize);
+            } catch (Exception e) {
+                logger.warn("记录上传统计失败: {}", e.getMessage());
+            }
+            
             // 清理临时文件
             cleanupTempFiles(chunkDirPath);
             
@@ -274,8 +293,12 @@ public class VideoServiceImpl implements VideoService {
     @Override
     @Transactional
     public VideoVO uploadSimple(MultipartFile file, String title, String description, String userId) {
+        String fileName = file.getOriginalFilename();
+        
+        // 验证文件扩展名
+        validateFileExtension(fileName);
+        
         try {
-            String fileName = file.getOriginalFilename();
             String fileExt = FileUtil.extName(fileName);
             String contentType = file.getContentType();
             
@@ -301,6 +324,13 @@ public class VideoServiceImpl implements VideoService {
                     .gmtModified(LocalDateTime.now())
                     .build();
             videoMapper.insert(video);
+            
+            // 记录上传统计（持久化）
+            try {
+                uploadStatisticsService.recordUpload(userId, file.getSize());
+            } catch (Exception e) {
+                logger.warn("记录上传统计失败: {}", e.getMessage());
+            }
             
             logger.info("视频上传成功: videoId={}, fileName={}", video.getId(), fileName);
             
@@ -396,6 +426,19 @@ public class VideoServiceImpl implements VideoService {
                 .status(video.getStatus())
                 .gmtCreated(video.getGmtCreated())
                 .build();
+    }
+    
+    /**
+     * 验证文件扩展名
+     */
+    private void validateFileExtension(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            throw new BusinessException("文件名不能为空");
+        }
+        String extension = FileUtil.extName(fileName);
+        if (extension == null || !ALLOWED_EXTENSIONS.contains(extension.toLowerCase())) {
+            throw new BusinessException("不支持的视频格式，允许的格式: " + String.join(", ", ALLOWED_EXTENSIONS));
+        }
     }
     
     /**
