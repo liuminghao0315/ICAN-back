@@ -1,6 +1,7 @@
 package com.ican.project.security;
 
 import com.ican.project.model.common.Code;
+import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.NotFilterPaths;
 import com.ican.project.model.common.Result;
 import com.ican.project.utils.JwtUtil;
@@ -85,14 +86,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         logger.debug("JWT过滤器处理请求: path={}", path);
 
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
+        String header = request.getHeader(Constants.Http.AUTHORIZATION_HEADER);
+        if (header == null || !header.startsWith(Constants.Http.BEARER_PREFIX)) {
             logger.warn("AccessToken缺失: path={}", path);
             ResponseUtil.write(response, Result.authFail("accessToken缺失"), Code.AUTH_FAILURE);
             return;
         }
 
-        String accessToken = header.replace("Bearer ", "");
+        String accessToken = header.replace(Constants.Http.BEARER_PREFIX, "");
         if (accessToken == null || accessToken.trim().isEmpty()) {
             logger.warn("AccessToken为空: path={}", path);
             ResponseUtil.write(response, Result.authFail("accessToken为空"), Code.AUTH_FAILURE);

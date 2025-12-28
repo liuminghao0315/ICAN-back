@@ -2,6 +2,7 @@ package com.ican.project.service.impl;
 
 import com.ican.project.mapper.UserMapper;
 import com.ican.project.model.common.Code;
+import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.dto.RegisterDTO;
 import com.ican.project.model.entity.User;
@@ -98,7 +99,7 @@ public class RegisterServiceImpl implements RegisterService {
             }
 
             // 验证验证码
-            String verifyCodeKey = "verifyCodeToRegister:" + verifyCode;
+            String verifyCodeKey = Constants.RedisKey.VERIFY_CODE_REGISTER_PREFIX + verifyCode;
             String emailByCode;
             try {
                 Object value = redisTemplate.opsForValue().get(verifyCodeKey);

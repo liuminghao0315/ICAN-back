@@ -1,9 +1,12 @@
 package com.ican.project.exception;
 
+import lombok.Getter;
+
 /**
  * 业务异常类
  * 用于处理业务逻辑中的异常情况
  */
+@Getter
 public class BusinessException extends RuntimeException {
     private final Integer code;
 
@@ -17,8 +20,5 @@ public class BusinessException extends RuntimeException {
         this.code = code;
     }
 
-    public Integer getCode() {
-        return code;
-    }
 }
 

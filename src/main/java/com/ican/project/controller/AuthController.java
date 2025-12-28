@@ -1,6 +1,7 @@
 package com.ican.project.controller;
 
 import com.ican.project.model.common.Code;
+import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.dto.LoginDTO;
 import com.ican.project.model.dto.RegisterDTO;
@@ -86,16 +87,16 @@ public class AuthController {
                 result = Result.fail(Code.INTERNAL_ERROR, "邮件服务未初始化");
             } else {
                 result = switch (mailType) {
-                    case "qq" -> {
-                        MailService service = mailServiceMap.get("qq");
+                    case Constants.Email.QQ_SERVICE_BEAN -> {
+                        MailService service = mailServiceMap.get(Constants.Email.QQ_SERVICE_BEAN);
                         if (service == null) {
                             logger.warn("QQ邮箱服务不存在");
                             yield Result.fail(Code.EMAIL_NOT_SUPPORT, "QQ邮箱服务不可用");
                         }
                         yield service.sendMailToRegister(mailTo);
                     }
-                    case "netease" -> {
-                        MailService service = mailServiceMap.get("netease");
+                    case Constants.Email.NETEASE_SERVICE_BEAN -> {
+                        MailService service = mailServiceMap.get(Constants.Email.NETEASE_SERVICE_BEAN);
                         if (service == null) {
                             logger.warn("网易邮箱服务不存在");
                             yield Result.fail(Code.EMAIL_NOT_SUPPORT, "网易邮箱服务不可用");

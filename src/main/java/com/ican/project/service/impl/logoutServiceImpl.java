@@ -1,5 +1,6 @@
 package com.ican.project.service.impl;
 
+import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.LogoutService;
@@ -47,7 +48,7 @@ public class logoutServiceImpl implements LogoutService {
                 return Result.success("登出成功");
             }
 
-            String redisKey = "userId:" + user.getUser().getId();
+            String redisKey = Constants.RedisKey.USER_ID_PREFIX + user.getUser().getId();
 
             if (redisTemplate == null) {
                 logger.error("Redis模板未初始化");

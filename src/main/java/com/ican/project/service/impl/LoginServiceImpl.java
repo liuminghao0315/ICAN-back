@@ -1,5 +1,6 @@
 package com.ican.project.service.impl;
 
+import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.dto.LoginDTO;
 import com.ican.project.security.MyUserDetails;
@@ -78,7 +79,7 @@ public class LoginServiceImpl implements LoginService {
                     return Result.authFail("用户信息不完整");
                 }
 
-                String userId = "userId:" + user.getUser().getId();
+                String userId = Constants.RedisKey.USER_ID_PREFIX + user.getUser().getId();
                 redisTemplate.opsForValue().set(userId, user, expire, TimeUnit.MINUTES);
                 String token = JwtUtil.createToken(userId, 1000 * 60 * expire);
                 logger.debug("登录成功，生成Token: userId={}", userId);

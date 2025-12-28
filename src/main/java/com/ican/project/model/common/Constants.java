@@ -1,0 +1,92 @@
+package com.ican.project.model.common;
+
+/**
+ * 系统常量类
+ * 统一管理硬编码的字符串常量
+ */
+public class Constants {
+    private Constants() {
+        // 防止实例化
+    }
+
+    /**
+     * Redis Key 前缀
+     */
+    public static class RedisKey {
+        private RedisKey() {}
+
+        /** 用户ID Redis Key 前缀 */
+        public static final String USER_ID_PREFIX = "userId:";
+
+        /** 注册验证码 Redis Key 前缀 */
+        public static final String VERIFY_CODE_REGISTER_PREFIX = "verifyCodeToRegister:";
+
+        /** 重置密码验证码 Redis Key 前缀 */
+        public static final String VERIFY_CODE_RESET_PWD_PREFIX = "verifyCodeToResetPwd:";
+    }
+
+    /**
+     * HTTP 请求相关常量
+     */
+    public static class Http {
+        private Http() {}
+
+        /** Authorization Header 前缀 */
+        public static final String BEARER_PREFIX = "Bearer ";
+
+        /** Authorization Header 名称 */
+        public static final String AUTHORIZATION_HEADER = "Authorization";
+
+        /** Swagger Security Scheme 名称 */
+        public static final String SWAGGER_SECURITY_SCHEME = "Bearer Authentication";
+    }
+
+    /**
+     * 邮箱相关常量
+     */
+    public static class Email {
+        private Email() {}
+
+        /** QQ邮箱后缀 */
+        public static final String QQ_SUFFIX = "@qq.com";
+
+        /** 163邮箱后缀 */
+        public static final String NETEASE_163_SUFFIX = "@163.com";
+
+        /** 126邮箱后缀 */
+        public static final String NETEASE_126_SUFFIX = "@126.com";
+
+        /** QQ邮箱服务Bean名称 */
+        public static final String QQ_SERVICE_BEAN = "qq";
+
+        /** 网易邮箱服务Bean名称 */
+        public static final String NETEASE_SERVICE_BEAN = "netease";
+    }
+
+    /**
+     * 验证码相关常量
+     */
+    public static class VerifyCode {
+        private VerifyCode() {}
+
+        /** 验证码长度 */
+        public static final int LENGTH = 6;
+
+        /** 验证码有效时长（分钟） */
+        public static final int EXPIRE_MINUTES = 5;
+    }
+
+    /**
+     * 邮件类型常量
+     */
+    public static class MailType {
+        private MailType() {}
+
+        /** 注册邮件类型 */
+        public static final int REGISTER = 1;
+
+        /** 重置密码邮件类型 */
+        public static final int RESET_PASSWORD = 2;
+    }
+}
+

@@ -3,6 +3,7 @@ package com.ican.project.service.impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ican.project.mapper.UserMapper;
 import com.ican.project.model.common.Code;
+import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.entity.User;
 import com.ican.project.service.UserService;
@@ -133,7 +134,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         try {
-            String verifyCodeKey = "verifyCodeToResetPwd:" + verifyCode;
+            String verifyCodeKey = Constants.RedisKey.VERIFY_CODE_RESET_PWD_PREFIX + verifyCode;
             Object value = redisTemplate.opsForValue().get(verifyCodeKey);
             String emailByCode = value != null ? (String) value : null;
 

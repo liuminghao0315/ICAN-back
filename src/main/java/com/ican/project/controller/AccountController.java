@@ -1,6 +1,7 @@
 package com.ican.project.controller;
 
 import com.ican.project.model.common.Code;
+import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.entity.User;
 import com.ican.project.service.LogoutService;
@@ -76,16 +77,16 @@ public class AccountController {
                 return Result.fail(Code.INTERNAL_ERROR, "邮件服务未初始化");
             }
 
-            if (email.endsWith("@qq.com")) {
-                MailService service = mailServiceMap.get("qq");
+            if (email.endsWith(Constants.Email.QQ_SUFFIX)) {
+                MailService service = mailServiceMap.get(Constants.Email.QQ_SERVICE_BEAN);
                 if (service != null) {
                     result = service.sendMailToResetPwd(email);
                 } else {
                     logger.warn("QQ邮箱服务不存在");
                     result = Result.fail(Code.EMAIL_NOT_SUPPORT, "QQ邮箱服务不可用");
                 }
-            } else if (email.endsWith("@163.com") || email.endsWith("@126.com")) {
-                MailService service = mailServiceMap.get("netease");
+            } else if (email.endsWith(Constants.Email.NETEASE_163_SUFFIX) || email.endsWith(Constants.Email.NETEASE_126_SUFFIX)) {
+                MailService service = mailServiceMap.get(Constants.Email.NETEASE_SERVICE_BEAN);
                 if (service != null) {
                     result = service.sendMailToResetPwd(email);
                 } else {
