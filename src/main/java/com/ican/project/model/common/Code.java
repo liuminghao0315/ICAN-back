@@ -21,9 +21,24 @@ public class Code {
     //成功
     public static final Integer SUCCESS = 200;
 
+    //参数错误
+    public static final Integer PARAMETER_ERROR = 400;
+
     //认证失败（未登录）
     public static final Integer AUTH_FAILURE = 401;
 
     //鉴权失败（权限不够）
     public static final Integer ACCESS_FAILURE = 403;
+
+    //请求路径不存在
+    public static final Integer NOT_FOUND = 404;
+
+    //请求方法不支持
+    public static final Integer METHOD_NOT_ALLOWED = 405;
+
+    //数据库错误
+    public static final Integer DATABASE_ERROR = 500;
+
+    //系统内部错误
+    public static final Integer INTERNAL_ERROR = 500;
 }
