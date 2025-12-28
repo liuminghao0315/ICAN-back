@@ -1,8 +1,8 @@
 package com.ican.project.controller;
 
 import com.ican.project.model.common.Code;
-import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
+import com.ican.project.utils.MailServiceUtil;
 import com.ican.project.model.entity.User;
 import com.ican.project.service.LogoutService;
 import com.ican.project.service.MailService;
@@ -71,33 +71,15 @@ public class AccountController {
                 return Result.fail(Code.EMAIL_NOT_SUPPORT, "用户邮箱为空");
             }
 
-            Result<?> result = Result.fail(Code.EMAIL_NOT_SUPPORT, "邮箱不为系统支持的邮箱");
-            if (mailServiceMap == null || mailServiceMap.isEmpty()) {
-                logger.error("邮件服务未初始化");
-                return Result.fail(Code.INTERNAL_ERROR, "邮件服务未初始化");
-            }
-
-            if (email.endsWith(Constants.Email.QQ_SUFFIX)) {
-                MailService service = mailServiceMap.get(Constants.Email.QQ_SERVICE_BEAN);
-                if (service != null) {
-                    result = service.sendMailToResetPwd(email);
-                } else {
-                    logger.warn("QQ邮箱服务不存在");
-                    result = Result.fail(Code.EMAIL_NOT_SUPPORT, "QQ邮箱服务不可用");
-                }
-            } else if (email.endsWith(Constants.Email.NETEASE_163_SUFFIX) || email.endsWith(Constants.Email.NETEASE_126_SUFFIX)) {
-                MailService service = mailServiceMap.get(Constants.Email.NETEASE_SERVICE_BEAN);
-                if (service != null) {
-                    result = service.sendMailToResetPwd(email);
-                } else {
-                    logger.warn("网易邮箱服务不存在");
-                    result = Result.fail(Code.EMAIL_NOT_SUPPORT, "网易邮箱服务不可用");
-                }
+            MailService service = MailServiceUtil.getMailServiceByEmail(mailServiceMap, email);
+            Result<?> result;
+            if (service == null) {
+                result = Result.fail(Code.EMAIL_NOT_SUPPORT, "邮箱不为系统支持的邮箱");
             } else {
-                logger.warn("不支持的邮箱类型: email={}", email);
+                result = service.sendMailToResetPwd(email);
             }
 
-            if (result.getCode().equals(Code.SUCCESS)) {
+            if (result.isSuccess()) {
                 logger.info("发送重置密码邮件成功: email={}", email);
             } else {
                 logger.warn("发送重置密码邮件失败: email={}, reason={}", email, result.getMessage());
@@ -119,7 +101,7 @@ public class AccountController {
         logger.info("重置密码请求: verifyCode={}", verifyCode);
         try {
             Result<?> result = userService.resetPwd(verifyCode, newPwd);
-            if (result.getCode().equals(Code.SUCCESS)) {
+            if (result.isSuccess()) {
                 logger.info("重置密码成功");
             } else {
                 logger.warn("重置密码失败: reason={}", result.getMessage());

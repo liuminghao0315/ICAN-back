@@ -39,7 +39,14 @@ public class Result<T> {
         return new Result<>(Code.ACCESS_FAILURE,message);
     }
 
-    public static <T> Result<T> fail(Integer code, String message) {
-        return new Result<>(code,message);
+    public static <T> Result<T> fail(int code, String message) {
+        return new Result<>(code, message);
+    }
+
+    /**
+     * 判断是否成功
+     */
+    public boolean isSuccess() {
+        return this.code != null && this.code == Code.SUCCESS;
     }
 }

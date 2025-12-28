@@ -64,8 +64,10 @@ public class NetEaseMailServiceImpl implements MailService {
                 return Result.fail(Code.INTERNAL_ERROR, "验证码生成失败");
             }
 
-            String subject = type == Constants.MailType.REGISTER ? "您的注册验证码" : "您的重置密码验证码";
-            String content = "您的验证码是：" + verificationCode + "，" + Constants.VerifyCode.EXPIRE_MINUTES + "分钟内有效。";
+            String subject = type == Constants.MailType.REGISTER 
+                    ? Constants.MailContent.REGISTER_SUBJECT 
+                    : Constants.MailContent.RESET_PASSWORD_SUBJECT;
+            String content = Constants.MailContent.generateContent(verificationCode, Constants.VerifyCode.EXPIRE_MINUTES);
 
             try {
                 mailUtil.sendNetEaseMail(mailTo, subject, content);

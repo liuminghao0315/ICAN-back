@@ -1,8 +1,7 @@
 package com.ican.project.controller;
 
-import com.ican.project.model.common.Code;
-import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
+import com.ican.project.utils.MailServiceUtil;
 import com.ican.project.model.dto.LoginDTO;
 import com.ican.project.model.dto.RegisterDTO;
 import com.ican.project.service.LoginService;
@@ -41,7 +40,7 @@ public class AuthController {
         logger.info("用户登录请求: username={}", loginDTO.getUsername());
         try {
             Result<?> result = loginService.checkLogin(loginDTO.trimMe());
-            if (result.getCode().equals(Code.SUCCESS)) {
+            if (result.isSuccess()) {
                 logger.info("用户登录成功: username={}", loginDTO.getUsername());
             } else {
                 logger.warn("用户登录失败: username={}, reason={}", loginDTO.getUsername(), result.getMessage());
@@ -59,7 +58,7 @@ public class AuthController {
         logger.info("用户注册请求: username={}, email={}", registerDTO.getUsername(), registerDTO.getEmail());
         try {
             Result<?> result = registerService.checkRegister(registerDTO.trimMe());
-            if (result.getCode().equals(Code.SUCCESS)) {
+            if (result.isSuccess()) {
                 logger.info("用户注册成功: username={}, email={}", registerDTO.getUsername(), registerDTO.getEmail());
             } else {
                 logger.warn("用户注册失败: username={}, email={}, reason={}", 
@@ -81,35 +80,16 @@ public class AuthController {
             @RequestParam("mailTo") @NotBlank(message = "邮箱地址不能为空") @Email(message = "邮箱格式不正确") String mailTo) {
         logger.info("发送注册验证邮件请求: mailType={}, mailTo={}", mailType, mailTo);
         try {
-            Result<?> result;
-            if (mailServiceMap == null || mailServiceMap.isEmpty()) {
-                logger.error("邮件服务未初始化");
-                result = Result.fail(Code.INTERNAL_ERROR, "邮件服务未初始化");
-            } else {
-                result = switch (mailType) {
-                    case Constants.Email.QQ_SERVICE_BEAN -> {
-                        MailService service = mailServiceMap.get(Constants.Email.QQ_SERVICE_BEAN);
-                        if (service == null) {
-                            logger.warn("QQ邮箱服务不存在");
-                            yield Result.fail(Code.EMAIL_NOT_SUPPORT, "QQ邮箱服务不可用");
-                        }
-                        yield service.sendMailToRegister(mailTo);
-                    }
-                    case Constants.Email.NETEASE_SERVICE_BEAN -> {
-                        MailService service = mailServiceMap.get(Constants.Email.NETEASE_SERVICE_BEAN);
-                        if (service == null) {
-                            logger.warn("网易邮箱服务不存在");
-                            yield Result.fail(Code.EMAIL_NOT_SUPPORT, "网易邮箱服务不可用");
-                        }
-                        yield service.sendMailToRegister(mailTo);
-                    }
-                    default -> {
-                        logger.warn("不支持的邮箱类型: {}", mailType);
-                        yield Result.fail(Code.EMAIL_NOT_SUPPORT, "没有对应的邮箱类型");
-                    }
-                };
+            // 验证并获取邮件服务
+            Result<?> validateResult = MailServiceUtil.validateAndGetMailService(mailServiceMap, mailType);
+            if (validateResult != null) {
+                return validateResult;
             }
-            if (result.getCode().equals(Code.SUCCESS)) {
+
+            // 获取邮件服务并发送（validateAndGetMailService已经确保service不为null）
+            MailService service = MailServiceUtil.getMailServiceByType(mailServiceMap, mailType);
+            Result<?> result = service.sendMailToRegister(mailTo);
+            if (result.isSuccess()) {
                 logger.info("发送注册验证邮件成功: mailTo={}", mailTo);
             } else {
                 logger.warn("发送注册验证邮件失败: mailTo={}, reason={}", mailTo, result.getMessage());

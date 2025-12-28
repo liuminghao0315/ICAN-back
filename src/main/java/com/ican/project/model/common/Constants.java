@@ -88,5 +88,31 @@ public class Constants {
         /** 重置密码邮件类型 */
         public static final int RESET_PASSWORD = 2;
     }
+
+    /**
+     * 邮件内容常量
+     */
+    public static class MailContent {
+        private MailContent() {}
+
+        /** 注册验证码邮件主题 */
+        public static final String REGISTER_SUBJECT = "您的注册验证码";
+
+        /** 重置密码验证码邮件主题 */
+        public static final String RESET_PASSWORD_SUBJECT = "您的重置密码验证码";
+
+        /** 验证码邮件内容模板 */
+        private static final String CONTENT_TEMPLATE = "您的验证码是：%s，%d分钟内有效。";
+
+        /**
+         * 生成验证码邮件内容
+         * @param code 验证码
+         * @param expireMinutes 过期时间（分钟）
+         * @return 邮件内容
+         */
+        public static String generateContent(String code, int expireMinutes) {
+            return String.format(CONTENT_TEMPLATE, code, expireMinutes);
+        }
+    }
 }
 
