@@ -31,6 +31,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public User getUserByUsername(String username) {
+        List<User> users = userMapper.selectByMap(Map.of("name", username));
+        if(users != null && !users.isEmpty()){
+            return users.get(0);
+        }
+        return null;
+    }
+
+    @Override
+    public User getUserByEmail(String email) {
+        List<User> users = userMapper.selectByMap(Map.of("email", email));
+        if(users != null && !users.isEmpty()){
+            return users.get(0);
+        }
+        return null;
+    }
+
+    @Override
     public Result<?> resetPwd(String verifyCode, String newPwd) {
         String emailByCode = "";
         try {
@@ -38,11 +56,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             if (emailByCode == null) {
                 return Result.fail(Code.VERIFY_CODE_NOT_EXISTS,"验证码不存在或失效");
             }
-            List<User> users = userMapper.selectByMap(Map.of("email", emailByCode));
-            if(users==null || users.isEmpty()){
+            User user = getUserByEmail(emailByCode);
+            if(user == null){
                 return Result.fail(Code.USER_NOT_EXISTS,"用户不存在");
             }
-            User user = users.get(0);
             if(passwordEncoder.matches(newPwd,user.getPassword())){
                 return Result.fail(Code.NEW_PWD_EQ_OLD,"新旧密码相同");
             }

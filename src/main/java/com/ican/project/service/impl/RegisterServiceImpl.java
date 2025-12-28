@@ -6,13 +6,11 @@ import com.ican.project.model.common.Result;
 import com.ican.project.model.dto.RegisterDTO;
 import com.ican.project.model.entity.User;
 import com.ican.project.service.RegisterService;
+import com.ican.project.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Map;
 
 @Service
 public class RegisterServiceImpl implements RegisterService {
@@ -21,6 +19,9 @@ public class RegisterServiceImpl implements RegisterService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
@@ -32,12 +33,10 @@ public class RegisterServiceImpl implements RegisterService {
         String password = registerDTO.getPassword();
         String email = registerDTO.getEmail();
         String verifyCode = registerDTO.getVerifyCode();
-        List<User> users = userMapper.selectByMap(Map.of("name", username));
-        if(!(users==null|| users.isEmpty())){
+        if(userService.getUserByUsername(username) != null){
             return Result.fail(Code.USER_EXISTS,"用户已存在");
         }
-        users = userMapper.selectByMap(Map.of("email", email));
-        if(!(users==null|| users.isEmpty())){
+        if(userService.getUserByEmail(email) != null){
             return Result.fail(Code.EMAIL_EXISTS,"邮箱已存在");
         }
         String emailByCode;
