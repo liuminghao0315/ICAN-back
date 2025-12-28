@@ -90,6 +90,16 @@ public class Constants {
     }
 
     /**
+     * 角色相关常量
+     */
+    public static class Role {
+        private Role() {}
+
+        /** 默认用户角色ID */
+        public static final String DEFAULT_USER_ROLE_ID = "102";
+    }
+
+    /**
      * 邮件内容常量
      */
     public static class MailContent {

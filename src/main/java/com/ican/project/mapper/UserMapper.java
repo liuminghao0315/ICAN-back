@@ -16,4 +16,13 @@ public interface UserMapper extends BaseMapper<User> {
      * 方法名必须和 XML 中的 id 一致
      */
     List<String> selectPermsByUserId(@Param("userId") String userId);
+
+    /**
+     * 插入用户角色关联记录
+     * @param id 关联记录ID
+     * @param userId 用户ID
+     * @param roleId 角色ID
+     * @return 插入的记录数
+     */
+    int insertUserRole(@Param("id") String id, @Param("userId") String userId, @Param("roleId") String roleId);
 }

@@ -130,7 +130,37 @@ public class RegisterServiceImpl implements RegisterService {
             try {
                 int result = userMapper.insert(user);
                 if (result > 0) {
-                    logger.info("用户注册成功: username={}, email={}", username, email);
+                    // 获取插入后的用户ID（如果MyBatis Plus自动回填了ID，直接使用；否则通过用户名查询）
+                    String userId = user.getId();
+                    if (userId == null || userId.trim().isEmpty()) {
+                        // 如果ID未回填，通过用户名查询获取用户ID
+                        User insertedUser = userService.getUserByUsername(username);
+                        if (insertedUser != null && insertedUser.getId() != null) {
+                            userId = insertedUser.getId();
+                            logger.debug("通过用户名查询获取用户ID: username={}, userId={}", username, userId);
+                        } else {
+                            logger.error("用户ID为空且无法通过用户名查询获取: username={}", username);
+                            return Result.fail(Code.DATABASE_ERROR, "注册失败，用户ID获取失败");
+                        }
+                    }
+
+                    // 为新注册的用户添加默认User角色（role_id为102）
+                    try {
+                        // 生成关联记录ID（使用时间戳+随机数，确保唯一性）
+                        String relationId = String.valueOf(System.currentTimeMillis()) + (int)(Math.random() * 1000);
+                        int roleResult = userMapper.insertUserRole(relationId, userId, Constants.Role.DEFAULT_USER_ROLE_ID);
+                        if (roleResult > 0) {
+                            logger.info("用户角色关联成功: relationId={}, userId={}, roleId={}", relationId, userId, Constants.Role.DEFAULT_USER_ROLE_ID);
+                        } else {
+                            logger.warn("用户角色关联失败: userId={}, roleId={}", userId, Constants.Role.DEFAULT_USER_ROLE_ID);
+                            // 角色关联失败不影响注册成功，但记录警告日志
+                        }
+                    } catch (Exception e) {
+                        logger.error("添加用户角色关联异常: userId={}, roleId={}", userId, Constants.Role.DEFAULT_USER_ROLE_ID, e);
+                        // 角色关联失败不影响注册成功，但记录错误日志
+                    }
+
+                    logger.info("用户注册成功: username={}, email={}, userId={}", username, email, userId);
                     return Result.success(registerDTO);
                 } else {
                     logger.error("用户注册失败（数据库插入失败）: username={}, email={}", username, email);

@@ -16,4 +16,10 @@
         WHERE u.id = #{userId}
     </select>
 
+    <!-- 插入用户角色关联记录 -->
+    <insert id="insertUserRole">
+        INSERT INTO `relate_user_role` (id, user_id, role_id)
+        VALUES (#{id}, #{userId}, #{roleId})
+    </insert>
+
 </mapper>
