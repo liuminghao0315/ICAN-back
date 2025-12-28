@@ -16,7 +16,7 @@ class Springboot3ApplicationTests {
 
     @Test
     void contextLoads() {
-        mailUtil.sendQQMail("2379355158@qq.com","标题就是测试一下","你好啊");
+
     }
 
 }
