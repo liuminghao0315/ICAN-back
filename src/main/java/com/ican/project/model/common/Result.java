@@ -21,7 +21,11 @@ public class Result<T> {
     }
 
     public static <T> Result<T> success(T data) {
-        return new Result<>(Code.SUCCESS,null,data);
+        return new Result<>(Code.SUCCESS, null, data);
+    }
+
+    public static <T> Result<T> success(String message, T data) {
+        return new Result<>(Code.SUCCESS, message, data);
     }
 
     public static <T> Result<T> authFail() {

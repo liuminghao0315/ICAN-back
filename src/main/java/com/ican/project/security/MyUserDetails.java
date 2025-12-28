@@ -43,6 +43,20 @@ public class MyUserDetails implements UserDetails {
     public String getUsername() {
         return user.getName();
     }
+    
+    /**
+     * 获取用户ID
+     */
+    public String getUserId() {
+        return user.getId();
+    }
+    
+    /**
+     * 获取用户邮箱
+     */
+    public String getEmail() {
+        return user.getEmail();
+    }
 
     @Override
     public boolean isAccountNonExpired() {
