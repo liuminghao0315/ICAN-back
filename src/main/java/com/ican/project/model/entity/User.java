@@ -14,6 +14,10 @@ public class User {
     private String name;
     private String password;
     private String email;
+    /**
+     * 累计分析次数（只增不减）
+     */
+    private Integer analysisCount;
     private LocalDateTime gmtCreated;
     private LocalDateTime gmtModified;
 
@@ -22,6 +26,7 @@ public class User {
         this.name = name;
         this.password = password;
         this.email = email;
+        this.analysisCount = 0;
         this.tackleTime();
     }
 

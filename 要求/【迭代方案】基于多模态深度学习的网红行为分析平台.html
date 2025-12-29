@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多模态网红分析平台 | 一年周期迭代方案</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --warning-color: #f39c12;
+            --success-color: #27ae60;
+            --modal1-color: #9b59b6;
+            --modal2-color: #1abc9c;
+            --modal3-color: #e67e22;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--modal1-color) 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .project-title {
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .highlight-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            color: white;
+            font-size: 0.85rem;
+        }
+        
+        .section-title {
+            color: var(--secondary-color);
+            border-left: 5px solid var(--modal1-color);
+            padding-left: 15px;
+            margin: 1.8rem 0 1.2rem;
+            font-weight: 600;
+        }
+        
+        .phase-container {
+            margin-bottom: 3rem;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .phase-header {
+            padding: 1.2rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .phase-1-header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+        
+        .phase-2-header {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        }
+        
+        .phase-3-header {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+        }
+        
+        .phase-content {
+            background-color: white;
+            padding: 1.5rem;
+        }
+        
+        .milestone-card {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.2rem;
+            margin-bottom: 1.2rem;
+            transition: transform 0.3s;
+        }
+        
+        .milestone-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .milestone-icon {
+            font-size: 2rem;
+            margin-bottom: 0.8rem;
+            color: var(--primary-color);
+        }
+        
+        .tech-badge {
+            display: inline-block;
+            background-color: #e8f4fc;
+            color: var(--primary-color);
+            padding: 4px 10px;
+            border-radius: 15px;
+            margin: 2px;
+            font-size: 0.8rem;
+            border: 1px solid #cfe2ff;
+        }
+        
+        .deliverable-card {
+            border-left: 4px solid var(--warning-color);
+            background-color: #fff9e6;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .competition-timeline {
+            background-color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .timeline-item {
+            display: flex;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .timeline-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .timeline-date {
+            min-width: 100px;
+            font-weight: 600;
+            color: var(--modal1-color);
+        }
+        
+        .timeline-content {
+            flex: 1;
+        }
+        
+        .demo-scenario {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.2rem;
+            margin-bottom: 1.2rem;
+        }
+        
+        .demo-step {
+            margin-bottom: 0.8rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        
+        .demo-step:before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--success-color);
+            font-weight: bold;
+        }
+        
+        .footer {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 1.5rem 0;
+            margin-top: 3rem;
+            border-radius: 20px 20px 0 0;
+        }
+        
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 1.6rem;
+            }
+            
+            .section-title {
+                font-size: 1.3rem;
+            }
+            
+            .timeline-item {
+                flex-direction: column;
+            }
+            
+            .timeline-date {
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 页头 -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <div class="project-title">多模态网红内容分析与舆情监控平台</div>
+                    <p class="lead mb-2">一年周期迭代方案：1-5月基础版 → 6-9月比赛版 → 10-12月完善版</p>
+                    <div class="mt-2">
+                        <span class="highlight-badge" style="background-color: var(--primary-color);">V1.0基础版</span>
+                        <span class="highlight-badge" style="background-color: var(--modal1-color);">V2.0比赛版</span>
+                        <span class="highlight-badge" style="background-color: var(--success-color);">V3.0完善版</span>
+                        <span class="highlight-badge" style="background-color: var(--warning-color);">竞赛导向</span>
+                    </div>
+                </div>
+                <div class="col-lg-4 text-center d-none d-lg-block">
+                    <i class="fas fa-calendar-alt fa-5x" style="opacity: 0.8;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- 项目概述 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="competition-timeline">
+                    <h3 class="section-title"><i class="fas fa-flag-checkered me-2"></i>一年周期竞赛节奏</h3>
+                    <div class="timeline-item">
+                        <div class="timeline-date">第1-5个月</div>
+                        <div class="timeline-content">
+                            <h5>基础开发期（V1.0）</h5>
+                            <p>完成核心功能开发，建立基础系统，准备大创中期检查。目标：有可运行的原型系统。</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">第6-9个月</div>
+                        <div class="timeline-content">
+                            <h5>比赛冲刺期（V2.0）</h5>
+                            <p>重点优化演示效果，增强可视化，针对"互联网+"、"挑战杯"等竞赛要求进行专项优化。目标：获得省级以上奖项。</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">第10-12个月</div>
+                        <div class="timeline-content">
+                            <h5>成果完善期（V3.0）</h5>
+                            <p>完善系统稳定性，撰写论文和软著，准备大创结题验收。目标：高质量结题，产出学术成果。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 第一阶段：1-5月基础版 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="phase-container">
+                    <div class="phase-header phase-1-header">
+                        <span><i class="fas fa-rocket me-2"></i>第一阶段：基础版开发（第1-5个月）</span>
+                        <span class="badge bg-light text-dark">V1.0 | 大创中期检查</span>
+                    </div>
+                    <div class="phase-content">
+                        <p class="mb-3"><strong>目标</strong>：建立可运行的多模态分析基础系统，完成大创中期检查，验证技术可行性。</p>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <h5>里程碑1：数据基础（第1-2个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>收集100+个网红视频样本</li>
+                                        <li>建立基础数据集（视频+音频+文本）</li>
+                                        <li>搭建数据爬虫框架（抖音API/模拟爬取）</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">Scrapy</span>
+                                        <span class="tech-badge">抖音开放API</span>
+                                        <span class="tech-badge">数据标注工具</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-cogs"></i>
+                                    </div>
+                                    <h5>里程碑2：模块开发（第3-4个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>视频分析：关键帧提取+基础场景识别</li>
+                                        <li>音频分析：语音转文本+基础情感分析</li>
+                                        <li>文本分析：情感分类+关键词提取</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">OpenCV</span>
+                                        <span class="tech-badge">Whisper</span>
+                                        <span class="tech-badge">BERT</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-code"></i>
+                                    </div>
+                                    <h5>里程碑3：系统集成（第5个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>三模块集成，实现端到端流程</li>
+                                        <li>基础Web界面（上传+结果显示）</li>
+                                        <li>基础多模态融合（加权平均）</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">FastAPI</span>
+                                        <span class="tech-badge">Vue.js</span>
+                                        <span class="tech-badge">Docker</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="deliverable-card">
+                            <h5><i class="fas fa-box me-2"></i>V1.0交付成果</h5>
+                            <ul class="mb-0">
+                                <li><strong>可运行系统</strong>：支持单视频上传分析的基础Web系统</li>
+                                <li><strong>技术报告</strong>：各模块技术实现文档和性能评估</li>
+                                <li><strong>演示视频</strong>：5分钟系统功能演示视频</li>
+                                <li><strong>中期检查材料</strong>：完整的中期报告和演示材料</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 第二阶段：6-9月比赛版 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="phase-container">
+                    <div class="phase-header phase-2-header">
+                        <span><i class="fas fa-trophy me-2"></i>第二阶段：比赛版升级（第6-9个月）</span>
+                        <span class="badge bg-light text-dark">V2.0 | 竞赛冲刺期</span>
+                    </div>
+                    <div class="phase-content">
+                        <p class="mb-3"><strong>目标</strong>：针对"互联网+"、"挑战杯"等竞赛要求，重点优化演示效果和可视化，冲击省级以上奖项。</p>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <h5>里程碑4：可视化大升级（第6个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>舆情监控大屏（实时数据可视化）</li>
+                                        <li>情感变化曲线图（时间序列）</li>
+                                        <li>网红画像雷达图（多维度评估）</li>
+                                        <li>关键词云+主题分布图</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">ECharts</span>
+                                        <span class="tech-badge">D3.js</span>
+                                        <span class="tech-badge">数据大屏设计</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <h5>里程碑5：智能增强（第7个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>深度学习多模态融合（注意力机制）</li>
+                                        <li>实时分析能力（响应时间<10秒）</li>
+                                        <li>批量处理功能（支持网红账号分析）</li>
+                                        <li>竞赛专项功能（高校网红专项分析）</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">Transformer</span>
+                                        <span class="tech-badge">异步处理</span>
+                                        <span class="tech-badge">多线程</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-theater-masks"></i>
+                                    </div>
+                                    <h5>里程碑6：竞赛包装（第8-9个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>竞赛路演材料（PPT+演讲稿）</li>
+                                        <li>现场演示剧本（3分钟/5分钟版本）</li>
+                                        <li>商业计划书（互联网+专项）</li>
+                                        <li>技术白皮书（挑战杯专项）</li>
+                                        <li>预答辩和模拟评审</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">路演技巧</span>
+                                        <span class="tech-badge">商业模型</span>
+                                        <span class="tech-badge">演示设计</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h5 class="section-title" style="border-left-color: var(--modal2-color);">竞赛专项演示方案</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="demo-scenario">
+                                    <h6><i class="fas fa-university me-2"></i>演示场景一：高校舆情危机预警</h6>
+                                    <div class="demo-step">输入"北京大学"关键词，系统自动搜索自称北大学生网红</div>
+                                    <div class="demo-step">发现3个高风险视频（负面内容占比>40%）</div>
+                                    <div class="demo-step">展示详细分析：视频画面、语音情绪、文本关键词</div>
+                                    <div class="demo-step">生成预警报告，提供处理建议</div>
+                                    <div class="demo-step">现场展示处理后的舆情改善情况</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <div class="demo-scenario">
+                                    <h6><i class="fas fa-broadcast-tower me-2"></i>演示场景二：多平台实时监控大屏</h6>
+                                    <div class="demo-step">大屏展示：抖音、B站、小红书多平台数据</div>
+                                    <div class="demo-step">实时滚动：最新分析的网红视频和结果</div>
+                                    <div class="demo-step">热力图：不同高校的舆情风险分布</div>
+                                    <div class="demo-step">预警面板：实时弹出高风险内容警告</div>
+                                    <div class="demo-step">现场模拟：新增一个违规视频，展示实时检测</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="deliverable-card">
+                            <h5><i class="fas fa-medal me-2"></i>V2.0交付成果（竞赛版）</h5>
+                            <ul class="mb-0">
+                                <li><strong>竞赛演示系统</strong>：高可视化、互动性强的演示版本</li>
+                                <li><strong>竞赛材料包</strong>：路演PPT、商业计划书、技术白皮书</li>
+                                <li><strong>演示视频（竞赛版）</strong>：3分钟/5分钟两个版本</li>
+                                <li><strong>奖项目标</strong>：省级"互联网+"或"挑战杯"奖项</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 第三阶段：10-12月完善版 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="phase-container">
+                    <div class="phase-header phase-3-header">
+                        <span><i class="fas fa-graduation-cap me-2"></i>第三阶段：完善与结题（第10-12个月）</span>
+                        <span class="badge bg-light text-dark">V3.0 | 大创结题验收</span>
+                    </div>
+                    <div class="phase-content">
+                        <p class="mb-3"><strong>目标</strong>：完善系统稳定性，产出学术成果，完成大创项目结题验收。</p>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <h5>里程碑7：学术成果产出（第10个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>撰写学术论文（中文核心/EI会议）</li>
+                                        <li>实验设计与对比分析</li>
+                                        <li>创新点提炼与论证</li>
+                                        <li>论文投稿与修改</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">LaTeX</span>
+                                        <span class="tech-badge">实验设计</span>
+                                        <span class="tech-badge">学术写作</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-copyright"></i>
+                                    </div>
+                                    <h5>里程碑8：知识产权申请（第11个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>软件著作权申请（2-3项）</li>
+                                        <li>系统文档完善（用户手册+技术文档）</li>
+                                        <li>代码规范化与注释完善</li>
+                                        <li>部署包制作（一键部署）</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">软著申请</span>
+                                        <span class="tech-badge">文档编写</span>
+                                        <span class="tech-badge">部署脚本</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="milestone-card">
+                                    <div class="milestone-icon">
+                                        <i class="fas fa-clipboard-check"></i>
+                                    </div>
+                                    <h5>里程碑9：项目结题验收（第12个月）</h5>
+                                    <ul class="mb-2">
+                                        <li>结题报告撰写</li>
+                                        <li>成果展示材料准备</li>
+                                        <li>答辩演练与准备</li>
+                                        <li>项目材料归档</li>
+                                        <li>优秀结题项目申报</li>
+                                    </ul>
+                                    <div>
+                                        <span class="tech-badge">结题报告</span>
+                                        <span class="tech-badge">成果汇编</span>
+                                        <span class="tech-badge">项目答辩</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h5 class="section-title" style="border-left-color: var(--success-color);">学术论文方向建议</h5>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="demo-scenario">
+                                    <h6><i class="fas fa-book me-2"></i>论文方向一：方法创新</h6>
+                                    <p><strong>题目</strong>：基于多模态注意力融合的社交平台网红内容导向分析</p>
+                                    <ul class="mb-0">
+                                        <li><strong>创新点</strong>：提出视频-音频-文本三模态注意力融合机制</li>
+                                        <li><strong>实验</strong>：对比传统加权融合、早期融合、晚期融合</li>
+                                        <li><strong>数据集</strong>：自建网红视频数据集（可开源）</li>
+                                        <li><strong>目标期刊</strong>：《计算机应用》、《计算机工程与应用》等</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="demo-scenario">
+                                    <h6><i class="fas fa-chart-bar me-2"></i>论文方向二：应用研究</h6>
+                                    <p><strong>题目</strong>：多模态分析在高校网络舆情监控中的应用研究</p>
+                                    <ul class="mb-0">
+                                        <li><strong>创新点</strong>：针对高校网红群体的专项分析框架</li>
+                                        <li><strong>实验</strong>：实际高校舆情案例分析</li>
+                                        <li><strong>价值</strong>：提出高校舆情治理的新方法</li>
+                                        <li><strong>目标期刊</strong>：《现代教育技术》、《情报杂志》等</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="deliverable-card">
+                            <h5><i class="fas fa-flag me-2"></i>V3.0交付成果（结题版）</h5>
+                            <ul class="mb-0">
+                                <li><strong>稳定系统</strong>：经过测试优化的稳定版本系统</li>
+                                <li><strong>学术论文</strong>：1-2篇可投稿的学术论文</li>
+                                <li><strong>软件著作权</strong>：2-3项软件著作权证书</li>
+                                <li><strong>结题材料</strong>：完整结题报告、成果汇编、演示材料</li>
+                                <li><strong>奖项成果</strong>：竞赛获奖证书（如获得）</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 竞赛时间表 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="competition-timeline">
+                    <h3 class="section-title"><i class="fas fa-calendar-day me-2"></i>关键竞赛时间节点</h3>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-globe-americas text-primary me-2"></i>互联网+大赛
+                                    </h5>
+                                    <p class="card-text"><strong>校赛</strong>：3-4月（可用V1.0参加）</p>
+                                    <p class="card-text"><strong>省赛</strong>：6-7月（用V2.0参赛）</p>
+                                    <p class="card-text"><strong>国赛</strong>：10-11月（如晋级）</p>
+                                    <p class="card-text"><small class="text-muted">重点：商业模式、市场潜力、团队展示</small></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-trophy text-warning me-2"></i>挑战杯大赛
+                                    </h5>
+                                    <p class="card-text"><strong>校赛</strong>：9-10月（用V2.0参赛）</p>
+                                    <p class="card-text"><strong>省赛</strong>：11-12月（用V3.0参赛）</p>
+                                    <p class="card-text"><strong>国赛</strong>：次年3-4月</p>
+                                    <p class="card-text"><small class="text-muted">重点：学术创新、技术深度、社会价值</small></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-laptop-code text-success me-2"></i>其他相关竞赛
+                                    </h5>
+                                    <p class="card-text"><strong>中国高校计算机大赛</strong>：4-8月</p>
+                                    <p class="card-text"><strong>全国大学生软件创新大赛</strong>：5-10月</p>
+                                    <p class="card-text"><strong>AI挑战赛</strong>：全年滚动</p>
+                                    <p class="card-text"><small class="text-muted">重点：技术创新、系统实现、应用效果</small></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 团队工作安排 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="competition-timeline">
+                    <h3 class="section-title"><i class="fas fa-user-clock me-2"></i>团队时间投入规划</h3>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">第1-5个月</h5>
+                                    <p class="card-text"><strong>每周投入</strong>：10-15小时/人</p>
+                                    <p class="card-text"><strong>重点</strong>：技术学习、模块开发</p>
+                                    <p class="card-text"><strong>会议频率</strong>：每周1次技术会议</p>
+                                    <p class="card-text"><strong>产出要求</strong>：各模块基础功能完成</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">第6-9个月</h5>
+                                    <p class="card-text"><strong>每周投入</strong>：15-20小时/人</p>
+                                    <p class="card-text"><strong>重点</strong>：系统优化、竞赛准备</p>
+                                    <p class="card-text"><strong>会议频率</strong>：每周2次（技术+竞赛）</p>
+                                    <p class="card-text"><strong>产出要求</strong>：竞赛演示系统+材料</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">第10-12个月</h5>
+                                    <p class="card-text"><strong>每周投入</strong>：8-12小时/人</p>
+                                    <p class="card-text"><strong>重点</strong>：论文写作、项目结题</p>
+                                    <p class="card-text"><strong>会议频率</strong>：每两周1次</p>
+                                    <p class="card-text"><strong>产出要求</strong>：论文+软著+结题材料</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 页脚 -->
+    <div class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-calendar-alt me-2"></i>多模态网红分析平台</h5>
+                    <p>一年周期迭代与竞赛实施方案</p>
+                    <p class="mb-0"><small>© 2023 大创项目团队 | 务实迭代，竞赛导向</small></p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <h6>成功关键要素</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check me-1"></i> 阶段性目标明确，可衡量</li>
+                        <li><i class="fas fa-check me-1"></i> 竞赛时间点精准把握</li>
+                        <li><i class="fas fa-check me-1"></i> 成果产出与阶段匹配</li>
+                        <li><i class="fas fa-check me-1"></i> 团队时间投入合理规划</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

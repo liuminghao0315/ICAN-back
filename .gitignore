@@ -35,3 +35,12 @@ build/
 ### Logs ###
 logs/
 *.log
+
+### md & doc ... ###
+要求/
+*.html
+*.ts
+前端开发指南.md
+后端接口文档.md
+数据库接口文档.md
+API文档.md

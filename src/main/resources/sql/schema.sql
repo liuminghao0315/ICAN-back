@@ -9,9 +9,13 @@
 --     `name` VARCHAR(50) NOT NULL UNIQUE,
 --     `password` VARCHAR(255) NOT NULL,
 --     `email` VARCHAR(100) NOT NULL UNIQUE,
+--     `analysis_count` INT DEFAULT 0 COMMENT '累计分析次数（只增不减）',
 --     `gmt_created` DATETIME DEFAULT CURRENT_TIMESTAMP,
 --     `gmt_modified` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 -- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 为已存在的用户表添加 analysis_count 字段（如果不存在）
+-- ALTER TABLE `user` ADD COLUMN IF NOT EXISTS `analysis_count` INT DEFAULT 0 COMMENT '累计分析次数（只增不减）';
 
 -- 视频表
 CREATE TABLE IF NOT EXISTS `video` (

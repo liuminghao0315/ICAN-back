@@ -355,11 +355,30 @@ public class VideoServiceImpl implements VideoService {
     }
     
     @Override
-    public Page<VideoVO> getUserVideos(String userId, int page, int size) {
+    public Page<VideoVO> getUserVideos(String userId, int page, int size, String status, String sortBy, String sortOrder) {
         Page<Video> videoPage = new Page<>(page, size);
         LambdaQueryWrapper<Video> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Video::getUserId, userId)
-                .orderByDesc(Video::getGmtCreated);
+        wrapper.eq(Video::getUserId, userId);
+        
+        // 状态筛选
+        if (status != null && !status.isEmpty()) {
+            wrapper.eq(Video::getStatus, status.toUpperCase());
+        }
+        
+        // 动态排序
+        boolean isAsc = "asc".equalsIgnoreCase(sortOrder);
+        switch (sortBy != null ? sortBy : "gmtCreated") {
+            case "fileSize":
+                wrapper.orderBy(true, isAsc, Video::getFileSize);
+                break;
+            case "title":
+                wrapper.orderBy(true, isAsc, Video::getTitle);
+                break;
+            case "gmtCreated":
+            default:
+                wrapper.orderBy(true, isAsc, Video::getGmtCreated);
+                break;
+        }
         
         Page<Video> result = videoMapper.selectPage(videoPage, wrapper);
         

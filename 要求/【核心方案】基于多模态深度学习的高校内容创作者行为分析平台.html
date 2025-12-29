@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高校内容创作者行为分析平台 V1.0 | 具体实施方案</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0052D4;
+            --secondary: #00C9FF;
+            --accent: #F53844;
+            --dark: #1A1A2E;
+            --light: #F5F7FA;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--light) 0%, #e6f0ff 100%);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 30px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .project-title {
+            font-weight: 800;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .version-badge {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .section-card {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .section-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .tech-item {
+            background: linear-gradient(135deg, rgba(0,201,255,0.1) 0%, rgba(0,82,212,0.1) 100%);
+            padding: 1.5rem;
+            border-radius: 15px;
+            border: 1px solid rgba(0,82,212,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .tech-item:hover {
+            background: linear-gradient(135deg, rgba(0,201,255,0.2) 0%, rgba(0,82,212,0.2) 100%);
+            transform: scale(1.02);
+        }
+
+        .tech-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .team-member {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 5px solid var(--primary);
+            transition: all 0.3s ease;
+        }
+
+        .team-member:hover {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            transform: translateY(-3px);
+        }
+
+        .workflow-step {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .workflow-step::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+
+        .milestone {
+            background: linear-gradient(135deg, rgba(245,56,68,0.1) 0%, rgba(245,56,68,0.2) 100%);
+            border-left: 5px solid var(--accent);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,82,212,0.4);
+        }
+
+        .footer {
+            background: var(--dark);
+            color: white;
+            padding: 3rem 0;
+            margin-top: 3rem;
+            border-radius: 30px 30px 0 0;
+        }
+
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 2rem;
+            }
+            
+            .tech-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <div class="version-badge">V1.0 基础版</div>
+                    <h1 class="project-title">高校内容创作者行为分析平台</h1>
+                    <p class="lead">基于多模态深度技术的本地视频上传分析系统</p>
+                    <p class="mb-0">专为高校设计的内容创作者言论风险预警解决方案</p>
+                </div>
+                <div class="col-lg-4 text-center mt-4 mt-lg-0">
+                    <i class="fas fa-graduation-cap fa-8x" style="opacity: 0.2;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 项目核心目标 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-bullseye"></i>
+                核心目标
+            </h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="text-primary mb-3">主要功能</h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>本地视频上传与多模态分析</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>自动识别高校学生身份声明</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>视频主题提取与受众分析</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>舆论倾向预测与风险评估</li>
+                        <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>实时预警与报告生成</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5 class="text-primary mb-3">技术亮点</h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-star text-warning me-2"></i>音视频文本三模态融合分析</li>
+                        <li class="mb-2"><i class="fas fa-star text-warning me-2"></i>基于BERT的语义理解</li>
+                        <li class="mb-2"><i class="fas fa-star text-warning me-2"></i>Whisper语音识别技术</li>
+                        <li class="mb-2"><i class="fas fa-star text-warning me-2"></i>可配置的风险预警阈值</li>
+                        <li class="mb-2"><i class="fas fa-star text-warning me-2"></i>自动生成PDF分析报告</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 技术架构 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-sitemap"></i>
+                技术架构
+            </h2>
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <div class="tech-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <h5>视频处理模块</h5>
+                    <p><strong>技术栈：</strong>OpenCV, PyTorch, MoviePy</p>
+                    <p><strong>功能：</strong>关键帧提取、场景识别、人脸检测</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">
+                        <i class="fas fa-volume-up"></i>
+                    </div>
+                    <h5>音频分析模块</h5>
+                    <p><strong>技术栈：</strong>Whisper, Librosa, PyAudio</p>
+                    <p><strong>功能：</strong>语音转文本、声纹识别、情感分析</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">
+                        <i class="fas fa-font"></i>
+                    </div>
+                    <h5>文本分析模块</h5>
+                    <p><strong>技术栈：</strong>BERT-Chinese, Jieba, SnowNLP</p>
+                    <p><strong>功能：</strong>主题提取、情感分析、关键词识别</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h5>融合决策模块</h5>
+                    <p><strong>技术栈：</strong>Scikit-learn, Pandas, Numpy</p>
+                    <p><strong>功能：</strong>多模态融合、风险评估、预警决策</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 工作流程 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-cogs"></i>
+                工作流程
+            </h2>
+            
+            <div class="workflow-step">
+                <h5><span class="step-number">1</span>视频上传与预处理</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>用户通过Web界面上传本地视频文件</li>
+                            <li>系统检查视频格式与大小（支持MP4, AVI, MOV，最大500MB）</li>
+                            <li>提取视频基础信息（时长、分辨率、帧率）</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-light p-3 rounded">
+                            <strong>技术实现：</strong>
+                            <code>FFmpeg</code> 进行视频解码，
+                            <code>OpenCV</code> 提取基础元数据
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><span class="step-number">2</span>多模态内容提取</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6 class="text-primary">视频模态</h6>
+                        <ul>
+                            <li>关键帧提取（每秒1帧）</li>
+                            <li>人脸检测与表情识别</li>
+                            <li>场景与物体识别</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-primary">音频模态</h6>
+                        <ul>
+                            <li>语音转文字（Whisper）</li>
+                            <li>说话人情感分析</li>
+                            <li>音频特征提取</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-primary">文本模态</h6>
+                        <ul>
+                            <li>字幕提取与OCR</li>
+                            <li>标题与描述分析</li>
+                            <li>评论文本挖掘</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><span class="step-number">3</span>高校身份识别</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>识别维度</h6>
+                        <ul>
+                            <li>视频标题/描述中的高校关键词</li>
+                            <li>语音中的高校相关表述</li>
+                            <li>视觉元素（校服、校徽、校园场景）</li>
+                            <li>个人简介中的学校信息</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <strong>预设高校库：</strong>包含国内985/211及知名高校名称、简称、别称
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><span class="step-number">4</span>主题与受众分析</h5>
+                <div class="bg-light p-3 rounded">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>主题分类</h6>
+                            <span class="badge bg-primary me-2">学习生活</span>
+                            <span class="badge bg-primary me-2">校园恋爱</span>
+                            <span class="badge bg-primary me-2">考试经验</span>
+                            <span class="badge bg-primary me-2">专业介绍</span>
+                            <span class="badge bg-primary me-2">就业吐槽</span>
+                            <span class="badge bg-primary me-2">学校评价</span>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>受众画像</h6>
+                            <ul class="mb-0">
+                                <li>年龄段预测（高中生/大学生/毕业生）</li>
+                                <li>兴趣偏好分析</li>
+                                <li>地域分布估算</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><span class="step-number">5</span>舆论倾向预测</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-success bg-opacity-10 rounded">
+                            <i class="fas fa-thumbs-up fa-2x text-success mb-2"></i>
+                            <h6>正面倾向</h6>
+                            <p class="small mb-0">赞扬学校、分享经验、积极内容</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
+                            <i class="fas fa-minus-circle fa-2x text-warning mb-2"></i>
+                            <h6>中性倾向</h6>
+                            <p class="small mb-0">客观描述、日常分享、无明确态度</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-danger bg-opacity-10 rounded">
+                            <i class="fas fa-thumbs-down fa-2x text-danger mb-2"></i>
+                            <h6>负面倾向</h6>
+                            <p class="small mb-0">批评学校、抱怨制度、消极情绪</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><span class="step-number">6</span>风险评估与预警</h5>
+                <div class="milestone">
+                    <h6>风险等级计算</h6>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>风险因子：</strong>
+                        </div>
+                        <div class="col-md-9">
+                            <ul class="mb-0">
+                                <li>负面情感强度 (0-1)</li>
+                                <li>高校声誉关联度 (0-1)</li>
+                                <li>传播潜力评估 (0-1)</li>
+                                <li>历史行为权重 (0-1)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="alert alert-warning mb-0">
+                        <strong>预警阈值：</strong> 综合风险评分 > 0.7 触发高风险预警，> 0.4 触发中风险提醒
+                    </div>
+                </div>
+            </div>
+        </div>
+
+     
+
+        <!-- 开发计划 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-calendar-alt"></i>
+                开发计划（8周冲刺）
+            </h2>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="milestone">
+                        <h5 class="text-primary">第一阶段：基础搭建（第1-2周）</h5>
+                        <ul>
+                            <li>项目初始化与架构设计</li>
+                            <li>开发环境搭建与依赖配置</li>
+                            <li>基础Web框架搭建</li>
+                            <li>视频上传功能实现</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="milestone">
+                        <h5 class="text-primary">第二阶段：核心分析（第3-5周）</h5>
+                        <ul>
+                            <li>视频处理模块开发</li>
+                            <li>音频转写功能集成</li>
+                            <li>文本分析算法实现</li>
+                            <li>高校身份识别逻辑</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="milestone">
+                        <h5 class="text-primary">第三阶段：融合预警（第6-7周）</h5>
+                        <ul>
+                            <li>多模态融合算法开发</li>
+                            <li>风险评估模型训练</li>
+                            <li>预警阈值调优</li>
+                            <li>报告生成功能实现</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="milestone">
+                        <h5 class="text-primary">第四阶段：集成测试（第8周）</h5>
+                        <ul>
+                            <li>系统集成与联调</li>
+                            <li>性能优化与bug修复</li>
+                            <li>测试用例编写与执行</li>
+                            <li>演示版本准备</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 预期成果 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-trophy"></i>
+                预期成果
+            </h2>
+            
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-laptop-code fa-4x text-primary mb-3"></i>
+                    <h5>可运行系统</h5>
+                    <p class="small">完整的Web平台，支持视频上传、分析、预警全流程</p>
+                </div>
+                
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-chart-bar fa-4x text-success mb-3"></i>
+                    <h5>分析准确率</h5>
+                    <p class="small">高校身份识别准确率 > 90%，舆论倾向预测准确率 > 80%</p>
+                </div>
+                
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-file-alt fa-4x text-info mb-3"></i>
+                    <h5>技术文档</h5>
+                    <p class="small">详细的系统设计文档、API文档、用户手册</p>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-3 bg-light rounded">
+                <h6>下一阶段规划（V2.0）</h6>
+                <ul class="mb-0">
+                    <li>支持视频链接自动爬取</li>
+                    <li>扩展多平台支持（B站、小红书等）</li>
+                    <li>实时流媒体分析</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8">
+                    <h5><i class="fas fa-graduation-cap me-2"></i>高校内容创作者行为分析平台 V1.0</h5>
+                    <p class="mb-0">基于多模态深度学习技术，为高校提供专业的舆论风险预警服务</p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

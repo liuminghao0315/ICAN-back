@@ -518,7 +518,334 @@ http://localhost:8080/swagger-ui.html
 
 ---
 
+## 分析任务接口
+
+### 7. 创建分析任务
+
+**接口地址**: `POST /api/analysis/task`
+
+**接口说明**: 为指定视频创建分析任务
+
+**认证要求**: 需要认证（Bearer Token）
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 | 示例 |
+|--------|------|------|------|------|
+| videoId | String | 是 | 视频ID | "abc123" |
+| taskType | String | 否 | 任务类型，默认FULL_ANALYSIS | "FULL_ANALYSIS" |
+
+**任务类型说明**:
+- `FULL_ANALYSIS`: 完整分析（视频+音频+文本）
+- `VIDEO_ONLY`: 仅视频分析
+- `AUDIO_ONLY`: 仅音频分析
+- `TEXT_ONLY`: 仅文本分析
+
+**请求示例**:
+
+```json
+{
+  "videoId": "abc123",
+  "taskType": "FULL_ANALYSIS"
+}
+```
+
+**响应示例**:
+
+```json
+{
+  "code": 200,
+  "message": "任务创建成功",
+  "data": {
+    "id": "task123",
+    "videoId": "abc123",
+    "videoTitle": "测试视频",
+    "taskType": "FULL_ANALYSIS",
+    "status": "PENDING",
+    "progress": 0,
+    "gmtCreated": "2024-01-15T10:30:00"
+  }
+}
+```
+
+---
+
+### 8. 获取任务详情
+
+**接口地址**: `GET /api/analysis/task/{taskId}`
+
+**接口说明**: 根据任务ID获取任务详细信息
+
+**认证要求**: 需要认证（Bearer Token）
+
+**路径参数**:
+
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| taskId | String | 任务ID |
+
+**响应示例**:
+
+```json
+{
+  "code": 200,
+  "data": {
+    "id": "task123",
+    "videoId": "abc123",
+    "videoTitle": "测试视频",
+    "videoUrl": "http://minio.example.com/videos/test.mp4",
+    "taskType": "FULL_ANALYSIS",
+    "status": "COMPLETED",
+    "progress": 100,
+    "startedAt": "2024-01-15T10:30:00",
+    "completedAt": "2024-01-15T10:31:00",
+    "hasResult": true,
+    "resultId": "result123"
+  }
+}
+```
+
+---
+
+### 9. 获取任务列表
+
+**接口地址**: `GET /api/analysis/task/list`
+
+**接口说明**: 分页获取当前用户的分析任务列表
+
+**认证要求**: 需要认证（Bearer Token）
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 | 默认值 |
+|--------|------|------|------|--------|
+| status | String | 否 | 状态筛选 | - |
+| page | int | 否 | 页码 | 1 |
+| size | int | 否 | 每页数量 | 10 |
+
+**任务状态说明**:
+- `PENDING`: 等待处理
+- `PROCESSING`: 处理中
+- `COMPLETED`: 已完成
+- `FAILED`: 失败
+- `CANCELLED`: 已取消
+
+---
+
+### 10. 取消任务
+
+**接口地址**: `POST /api/analysis/task/{taskId}/cancel`
+
+**接口说明**: 取消指定的分析任务（仅限等待中或处理中的任务）
+
+**认证要求**: 需要认证（Bearer Token）
+
+---
+
+### 11. 重试任务
+
+**接口地址**: `POST /api/analysis/task/{taskId}/retry`
+
+**接口说明**: 重新执行失败或已取消的任务
+
+**认证要求**: 需要认证（Bearer Token）
+
+---
+
+## 分析结果接口
+
+### 12. 获取分析结果
+
+**接口地址**: `GET /api/analysis/result/{resultId}`
+
+**接口说明**: 根据结果ID获取分析结果详细信息
+
+**认证要求**: 需要认证（Bearer Token）
+
+**响应示例**:
+
+```json
+{
+  "code": 200,
+  "data": {
+    "id": "result123",
+    "taskId": "task123",
+    "videoId": "abc123",
+    "videoTitle": "测试视频",
+    "riskScore": 0.35,
+    "riskLevel": "MEDIUM",
+    "riskLevelDesc": "中风险",
+    "isUniversityRelated": true,
+    "universityName": "清华大学",
+    "universityConfidence": 0.92,
+    "topicCategory": "校园生活",
+    "topicKeywords": ["大学生", "校园", "青春"],
+    "sentimentScore": 0.45,
+    "sentimentLabel": "POSITIVE",
+    "sentimentLabelDesc": "正面",
+    "videoFeatures": {
+      "sceneType": "教室",
+      "faceCount": 3
+    },
+    "audioFeatures": {
+      "speechRatio": 0.65
+    },
+    "transcription": "大家好，今天我来分享...",
+    "spreadPotential": 0.72,
+    "gmtCreated": "2024-01-15T10:31:00"
+  }
+}
+```
+
+---
+
+### 13. 根据视频ID获取结果
+
+**接口地址**: `GET /api/analysis/result/video/{videoId}`
+
+**接口说明**: 获取指定视频的最新分析结果
+
+**认证要求**: 需要认证（Bearer Token）
+
+---
+
+### 14. 获取分析结果列表
+
+**接口地址**: `GET /api/analysis/result/list`
+
+**接口说明**: 分页获取当前用户的分析结果列表
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 | 默认值 |
+|--------|------|------|------|--------|
+| riskLevel | String | 否 | 风险等级筛选(LOW/MEDIUM/HIGH) | - |
+| page | int | 否 | 页码 | 1 |
+| size | int | 否 | 每页数量 | 10 |
+
+---
+
+### 15. 获取分析统计数据
+
+**接口地址**: `GET /api/analysis/result/stats`
+
+**接口说明**: 获取当前用户的分析统计数据
+
+**响应示例**:
+
+```json
+{
+  "code": 200,
+  "data": {
+    "totalVideos": 20,
+    "analyzedVideos": 15,
+    "totalResults": 15,
+    "avgRiskScore": 0.35,
+    "highRiskCount": 2,
+    "mediumRiskCount": 5,
+    "lowRiskCount": 8
+  }
+}
+```
+
+---
+
+### 16. 获取风险分布
+
+**接口地址**: `GET /api/analysis/result/risk-distribution`
+
+**接口说明**: 获取当前用户视频的风险等级分布
+
+**响应示例**:
+
+```json
+{
+  "code": 200,
+  "data": {
+    "HIGH": 2,
+    "MEDIUM": 5,
+    "LOW": 8
+  }
+}
+```
+
+---
+
+## 算法服务接口
+
+### 17. 算法结果回调
+
+**接口地址**: `POST /api/algorithm/callback`
+
+**接口说明**: 接收算法服务的分析结果（供算法服务调用）
+
+**认证要求**: 无需认证（生产环境应添加API密钥验证）
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| taskId | String | 是 | 任务ID |
+| status | String | 是 | 状态: completed/failed |
+| errorMessage | String | 否 | 错误信息（失败时提供） |
+| riskScore | BigDecimal | 否 | 风险评分(0-1) |
+| riskLevel | String | 否 | 风险等级 |
+| ... | ... | ... | 其他分析结果字段 |
+
+---
+
+### 18. 更新任务进度
+
+**接口地址**: `POST /api/algorithm/progress`
+
+**接口说明**: 算法服务更新任务处理进度
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| taskId | String | 是 | 任务ID |
+| progress | Integer | 是 | 进度(0-100) |
+| message | String | 否 | 进度消息 |
+
+---
+
+## WebSocket 接口
+
+### 19. 任务进度推送
+
+**连接地址**: `ws://localhost:8080/ws/task-progress/{userId}`
+
+**接口说明**: 建立WebSocket连接，接收任务进度实时推送
+
+**消息格式**:
+
+```json
+{
+  "type": "task_progress",
+  "message": "任务进度更新",
+  "timestamp": 1705294200000,
+  "data": {
+    "taskId": "task123",
+    "status": "PROCESSING",
+    "progress": 40,
+    "message": "视频特征提取"
+  }
+}
+```
+
+**消息类型**:
+- `connected`: 连接成功
+- `task_progress`: 任务进度更新
+- `task_completed`: 任务完成
+- `task_failed`: 任务失败
+
+**心跳**: 发送 `ping`，服务器响应 `pong`
+
+---
+
 ## 更新日志
 
 - 2024-xx-xx: 初始版本，包含基础的用户认证相关接口
+- 2024-xx-xx: 新增分析任务管理、分析结果查询、算法回调、WebSocket通知接口
 

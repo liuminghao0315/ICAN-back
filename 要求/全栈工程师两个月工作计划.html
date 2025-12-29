@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全栈工程师两个月独立工作计划 | 算法团队学习期间</title>
+    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0052D4;
+            --secondary: #00C9FF;
+            --accent: #F53844;
+            --spring: #6DB33F;
+            --vue: #42B883;
+            --mock: #FF9800;
+            --dark: #1A1A2E;
+            --light: #F5F7FA;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 2.5rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 25px 25px;
+            box-shadow: 0 5px 20px rgba(0, 82, 212, 0.2);
+        }
+
+        .project-title {
+            font-weight: 800;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .plan-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            border-left: 5px solid var(--primary);
+        }
+
+        .week-plan {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--primary);
+        }
+
+        .week-1 { border-left-color: #0052D4; }
+        .week-2 { border-left-color: #00A8FF; }
+        .week-3 { border-left-color: #00C9FF; }
+        .week-4 { border-left-color: #6DB33F; }
+        .week-5 { border-left-color: #FFC107; }
+        .week-6 { border-left-color: #FF9800; }
+        .week-7 { border-left-color: #F53844; }
+        .week-8 { border-left-color: #9C27B0; }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.6rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .milestone-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--mock);
+        }
+
+        .deliverable-card {
+            background: #e8f5e9;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #c8e6c9;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .code-comment { color: #6A9955; }
+        .code-keyword { color: #569CD6; }
+        .code-string { color: #CE9178; }
+        .code-function { color: #DCDCAA; }
+        .code-class { color: #4EC9B0; }
+
+        .mock-service-card {
+            background: linear-gradient(135deg, rgba(255,152,0,0.1) 0%, rgba(255,193,7,0.1) 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 2px solid rgba(255,152,0,0.3);
+        }
+
+        .tech-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+            margin-right: 1rem;
+        }
+
+        .spring-bg { background: linear-gradient(135deg, var(--spring) 0%, #8BC34A 100%); }
+        .vue-bg { background: linear-gradient(135deg, var(--vue) 0%, #64D488 100%); }
+        .mock-bg { background: linear-gradient(135deg, var(--mock) 0%, #FFB74D 100%); }
+
+        .progress-tracker {
+            background: #f1f3f4;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .task-checklist {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        .checklist-item input[type="checkbox"] {
+            margin-right: 0.75rem;
+            margin-top: 0.3rem;
+        }
+
+        .architecture-diagram {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 1px solid #dee2e6;
+        }
+
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 1.8rem;
+            }
+            
+            .plan-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-10">
+                    <h1 class="project-title">全栈工程师两个月独立工作计划</h1>
+                    <p class="lead mb-0">算法团队学习期间 | 独立完成所有非算法相关工作</p>
+                    <p>Spring Boot + Vue3 + Mock算法服务 | 完整系统框架搭建</p>
+                </div>
+                <div class="col-lg-2 text-center">
+                    <i class="fas fa-user-shield fa-4x" style="opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 核心策略 -->
+        <div class="plan-card">
+            <h2 class="section-title">🎯 核心策略：Mock驱动开发</h2>
+            
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>当前情况：</strong> 算法团队需要两个月学习时间，在此期间你无法调用真实的算法接口。
+            </div>
+            
+            <div class="alert alert-success">
+                <i class="fas fa-lightbulb me-2"></i>
+                <strong>解决方案：</strong> 实现完整的Mock算法服务，模拟真实算法接口的输入输出，完成整个系统的开发和测试。
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="tech-icon spring-bg mx-auto mb-3">
+                                <i class="fab fa-java"></i>
+                            </div>
+                            <h5>后端框架</h5>
+                            <p class="small">Spring Boot完整实现，包含用户、视频、任务管理</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="tech-icon vue-bg mx-auto mb-3">
+                                <i class="fab fa-vuejs"></i>
+                            </div>
+                            <h5>前端界面</h5>
+                            <p class="small">Vue3完整前端，包含数据可视化、用户交互</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="tech-icon mock-bg mx-auto mb-3">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <h5>Mock算法服务</h5>
+                            <p class="small">模拟算法接口，返回预设分析结果</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="architecture-diagram">
+                <h5 class="text-center mb-4">Mock驱动开发架构</h5>
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                            <i class="fab fa-vuejs"></i>
+                        </div>
+                        <p class="small fw-bold">Vue3前端</p>
+                        <p class="small">用户界面、数据展示</p>
+                    </div>
+                    <div class="col-md-1 text-center pt-4">
+                        <i class="fas fa-arrow-right fa-lg text-muted"></i>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                            <i class="fab fa-java"></i>
+                        </div>
+                        <p class="small fw-bold">Spring Boot后端</p>
+                        <p class="small">业务逻辑、API接口</p>
+                    </div>
+                    <div class="col-md-1 text-center pt-4">
+                        <i class="fas fa-arrow-right fa-lg text-muted"></i>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <p class="small fw-bold">Mock算法服务</p>
+                        <p class="small">模拟算法处理</p>
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-3 text-center">
+                        <div class="bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <p class="small fw-bold">MySQL数据库</p>
+                        <p class="small">数据持久化</p>
+                    </div>
+                    <div class="col-md-1 text-center pt-4">
+                        <i class="fas fa-exchange-alt fa-lg text-muted"></i>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="bg-danger text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                            <i class="fas fa-inbox"></i>
+                        </div>
+                        <p class="small fw-bold">MinIO存储</p>
+                        <p class="small">文件对象存储</p>
+                    </div>
+                    <div class="col-md-1 text-center pt-4">
+                        <i class="fas fa-exchange-alt fa-lg text-muted"></i>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <p class="small fw-bold">RabbitMQ</p>
+                        <p class="small">消息队列</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细周计划 -->
+        <h2 class="section-title">🗓️ 详细周计划（8周）</h2>
+        
+        <!-- 第1周 -->
+        <div class="week-plan week-1">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第1周：项目初始化与架构设计</h4>
+                <span class="badge bg-primary">基础搭建</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week1-1">
+                            <label for="week1-1">Spring Boot项目初始化（包含所有依赖）</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week1-2">
+                            <label for="week1-2">Vue3 + TypeScript前端项目初始化</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week1-3">
+                            <label for="week1-3">数据库设计与表结构创建</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week1-4">
+                            <label for="week1-4">项目架构文档编写</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mock-service-card">
+                        <h6><i class="fas fa-robot me-2"></i>Mock服务设计</h6>
+                        <p class="small mb-2">设计算法接口规范，确定Mock数据的格式</p>
+                        <div class="code-block small">
+                            <span class="code-comment">// 算法接口响应格式设计</span><br>
+                            {<br>
+                            &nbsp;&nbsp;"task_id": "task_001",<br>
+                            &nbsp;&nbsp;"status": "completed",<br>
+                            &nbsp;&nbsp;"risk_score": 0.65,<br>
+                            &nbsp;&nbsp;"risk_level": "中风险",<br>
+                            &nbsp;&nbsp;"video_features": {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;"duration": 120.5,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;"frame_count": 2892<br>
+                            &nbsp;&nbsp;}<br>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>完整的Spring Boot项目骨架</li>
+                    <li>Vue3前端项目骨架</li>
+                    <li>数据库设计文档</li>
+                    <li>API接口规范文档</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 第2周 -->
+        <div class="week-plan week-2">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第2周：用户认证与基础框架</h4>
+                <span class="badge bg-info">核心功能</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week2-1">
+                            <label for="week2-1">Spring Security + JWT用户认证</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week2-2">
+                            <label for="week2-2">用户管理API（注册、登录、个人信息）</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week2-3">
+                            <label for="week2-3">前端登录页面和路由守卫</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week2-4">
+                            <label for="week2-4">全局异常处理和统一响应格式</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="code-block">
+                        <span class="code-comment">// Spring Security配置核心</span><br>
+                        <span class="code-keyword">@Configuration</span><br>
+                        <span class="code-keyword">@EnableWebSecurity</span><br>
+                        <span class="code-keyword">public class</span> <span class="code-class">SecurityConfig</span> {<br>
+                        &nbsp;&nbsp;<span class="code-annotation">@Bean</span><br>
+                        &nbsp;&nbsp;<span class="code-keyword">public</span> SecurityFilterChain <span class="code-function">filterChain</span>(HttpSecurity http) <span class="code-keyword">throws</span> Exception {<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;http.csrf().disable()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.authorizeRequests()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.antMatchers(<span class="code-string">"/api/auth/**"</span>).permitAll()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.anyRequest().authenticated()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.and()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">return</span> http.build();<br>
+                        &nbsp;&nbsp;}<br>
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>完整的用户认证系统</li>
+                    <li>前后端联通的登录功能</li>
+                    <li>API统一响应格式</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 第3周 -->
+        <div class="week-plan week-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第3周：视频上传与存储系统</h4>
+                <span class="badge bg-success">核心功能</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week3-1">
+                            <label for="week3-1">MinIO对象存储集成</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week3-2">
+                            <label for="week3-2">视频分片上传API实现</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week3-3">
+                            <label for="week3-3">前端视频上传组件开发</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week3-4">
+                            <label for="week3-4">视频元数据管理（时长、大小、格式）</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mock-service-card mt-3">
+                        <h6><i class="fas fa-robot me-2"></i>Mock算法接口设计</h6>
+                        <p class="small mb-0">设计算法调用的接口格式，确定请求响应规范</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="code-block">
+                        <span class="code-comment">// 分片上传接口示例</span><br>
+                        <span class="code-annotation">@PostMapping</span>(<span class="code-string">"/upload-chunk"</span>)<br>
+                        <span class="code-keyword">public</span> ApiResponse&lt;String&gt; <span class="code-function">uploadChunk</span>(<br>
+                        &nbsp;&nbsp;<span class="code-annotation">@RequestParam</span> MultipartFile file,<br>
+                        &nbsp;&nbsp;<span class="code-annotation">@RequestParam</span> String chunkNumber,<br>
+                        &nbsp;&nbsp;<span class="code-annotation">@RequestParam</span> String identifier<br>
+                        ) {<br>
+                        &nbsp;&nbsp;<span class="code-comment">// 1. 保存分片到临时目录</span><br>
+                        &nbsp;&nbsp;<span class="code-comment">// 2. 检查是否所有分片上传完成</span><br>
+                        &nbsp;&nbsp;<span class="code-comment">// 3. 合并分片并保存到MinIO</span><br>
+                        &nbsp;&nbsp;<span class="code-comment">// 4. 返回文件访问路径</span><br>
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>完整的视频上传系统</li>
+                    <li>MinIO存储集成</li>
+                    <li>前端上传组件</li>
+                    <li>算法接口规范文档</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 第4周 -->
+        <div class="week-plan week-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第4周：任务管理与消息队列</h4>
+                <span class="badge bg-warning">系统集成</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week4-1">
+                            <label for="week4-1">RabbitMQ消息队列集成</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week4-2">
+                            <label for="week4-2">任务状态管理（创建、查询、更新）</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week4-3">
+                            <label for="week4-3">WebSocket实时通知服务</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week4-4">
+                            <label for="week4-4">Mock算法服务实现（Spring Boot内）</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="code-block">
+                        <span class="code-comment">// Mock算法服务实现</span><br>
+                        <span class="code-annotation">@Service</span><br>
+                        <span class="code-keyword">public class</span> <span class="code-class">MockAlgorithmService</span> {<br><br>
+                        
+                        &nbsp;&nbsp;<span class="code-annotation">@Async</span><br>
+                        &nbsp;&nbsp;<span class="code-keyword">public</span> CompletableFuture&lt;AnalysisResult&gt; <span class="code-function">analyzeVideo</span>(String videoPath) {<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment">// 模拟算法处理时间（5-30秒）</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;Thread.sleep(5000 + (<span class="code-keyword">long</span>)(Math.random() * 25000));<br><br>
+                        
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment">// 生成模拟分析结果</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;AnalysisResult result = <span class="code-keyword">new</span> AnalysisResult();<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;result.setRiskScore(0.2 + Math.random() * 0.8); <span class="code-comment">// 0.2-1.0</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;result.setRiskLevel(<span class="code-keyword">new</span> String[]{<span class="code-string">"低风险"</span>, <span class="code-string">"中风险"</span>, <span class="code-string">"高风险"</span>}[<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="code-keyword">int</span>)(result.getRiskScore() * 3) % 3]);<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment">// 更多模拟数据...</span><br><br>
+                        
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">return</span> CompletableFuture.completedFuture(result);<br>
+                        &nbsp;&nbsp;}<br>
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>完整的任务管理系统</li>
+                    <li>RabbitMQ消息队列集成</li>
+                    <li>WebSocket实时通知</li>
+                    <li>Mock算法服务（Spring Boot内）</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 第5周 -->
+        <div class="week-plan week-5">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第5周：前端界面与数据可视化</h4>
+                <span class="badge bg-info">前端开发</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week5-1">
+                            <label for="week5-1">仪表盘页面开发</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week5-2">
+                            <label for="week5-2">视频列表与任务状态页面</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week5-3">
+                            <label for="week5-3">ECharts数据可视化组件</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week5-4">
+                            <label for="week5-4">分析结果展示页面</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="code-block">
+                        <span class="code-comment">&lt;!-- Vue3 + ECharts 示例 --&gt;</span><br>
+                        &lt;<span class="code-keyword">template</span>&gt;<br>
+                        &nbsp;&nbsp;&lt;<span class="code-keyword">div</span> <span class="code-class">class</span>=<span class="code-string">"dashboard"</span>&gt;<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="code-keyword">div</span> <span class="code-class">class</span>=<span class="code-string">"chart-container"</span>&gt;<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="code-keyword">v-chart</span> <span class="code-class">class</span>=<span class="code-string">"chart"</span> :option=<span class="code-string">"chartOption"</span> /&gt;<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span class="code-keyword">div</span>&gt;<br>
+                        &nbsp;&nbsp;&lt;/<span class="code-keyword">div</span>&gt;<br>
+                        &lt;/<span class="code-keyword">template</span>&gt;<br><br>
+                        
+                        &lt;<span class="code-keyword">script</span> <span class="code-class">setup</span> <span class="code-class">lang</span>=<span class="code-string">"ts"</span>&gt;<br>
+                        <span class="code-keyword">import</span> { ref, onMounted } <span class="code-keyword">from</span> <span class="code-string">'vue'</span>;<br>
+                        <span class="code-keyword">import</span> VChart <span class="code-keyword">from</span> <span class="code-string">'vue-echarts'</span>;<br><br>
+                        
+                        <span class="code-keyword">const</span> chartOption = ref({<br>
+                        &nbsp;&nbsp;title: { text: <span class="code-string">'风险等级分布'</span> },<br>
+                        &nbsp;&nbsp;tooltip: {},<br>
+                        &nbsp;&nbsp;xAxis: { data: [<span class="code-string">'低风险'</span>, <span class="code-string">'中风险'</span>, <span class="code-string">'高风险'</span>] },<br>
+                        &nbsp;&nbsp;yAxis: {},<br>
+                        &nbsp;&nbsp;series: [{<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;name: <span class="code-string">'数量'</span>,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;type: <span class="code-string">'bar'</span>,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;data: [5, 3, 2]<br>
+                        &nbsp;&nbsp;}]<br>
+                        });<br>
+                        &lt;/<span class="code-keyword">script</span>&gt;
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>完整的前端界面</li>
+                    <li>数据可视化图表</li>
+                    <li>响应式页面设计</li>
+                    <li>与Mock服务的完整交互</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 第6周 -->
+        <div class="week-plan week-6">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第6周：独立Mock算法服务</h4>
+                <span class="badge bg-warning">Mock服务</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week6-1">
+                            <label for="week6-1">独立Python Mock服务开发</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week6-2">
+                            <label for="week6-2">模拟多模态分析（视频、音频、文本）</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week6-3">
+                            <label for="week6-3">模拟风险评估算法</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week6-4">
+                            <label for="week6-4">与Spring Boot服务对接测试</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mock-service-card mt-3">
+                        <h6><i class="fas fa-robot me-2"></i>Mock服务功能</h6>
+                        <ul class="small mb-0">
+                            <li>接收视频分析请求</li>
+                            <li>模拟处理时间（5-30秒）</li>
+                            <li>生成逼真的分析结果</li>
+                            <li>通过HTTP回调返回结果</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="code-block">
+                        <span class="code-comment"># 独立Python Mock算法服务</span><br>
+                        <span class="code-keyword">from</span> flask <span class="code-keyword">import</span> Flask, request, jsonify<br>
+                        <span class="code-keyword">import</span> time<br>
+                        <span class="code-keyword">import</span> random<br>
+                        <span class="code-keyword">import</span> threading<br>
+                        <span class="code-keyword">import</span> requests<br><br>
+                        
+                        app = Flask(__name__)<br><br>
+                        
+                        <span class="code-keyword">def</span> <span class="code-function">mock_video_analysis</span>(video_path):<br>
+                        &nbsp;&nbsp;<span class="code-comment"># 模拟视频特征提取</span><br>
+                        &nbsp;&nbsp;<span class="code-keyword">return</span> {<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"duration"</span>: random.uniform(30, 600),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"frame_count"</span>: random.randint(900, 18000),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"has_person"</span>: random.choice([<span class="code-keyword">True</span>, <span class="code-keyword">False</span>]),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"scene_type"</span>: random.choice([<span class="code-string">"indoor"</span>, <span class="code-string">"outdoor"</span>, <span class="code-string">"classroom"</span>])<br>
+                        &nbsp;&nbsp;}<br><br>
+                        
+                        <span class="code-keyword">@app.route</span>(<span class="code-string">'/analyze'</span>, methods=['POST'])<br>
+                        <span class="code-keyword">def</span> <span class="code-function">analyze</span>():<br>
+                        &nbsp;&nbsp;data = request.json<br>
+                        &nbsp;&nbsp;task_id = data[<span class="code-string">'task_id'</span>]<br>
+                        &nbsp;&nbsp;callback_url = data[<span class="code-string">'callback_url'</span>]<br><br>
+                        
+                        &nbsp;&nbsp;<span class="code-comment"># 异步处理</span><br>
+                        &nbsp;&nbsp;threading.Thread(target=process_task, args=(task_id, callback_url)).start()<br>
+                        &nbsp;&nbsp;<span class="code-keyword">return</span> jsonify({<span class="code-string">"status"</span>: <span class="code-string">"processing"</span>, <span class="code-string">"task_id"</span>: task_id})<br><br>
+                        
+                        <span class="code-keyword">def</span> <span class="code-function">process_task</span>(task_id, callback_url):<br>
+                        &nbsp;&nbsp;<span class="code-comment"># 模拟处理时间</span><br>
+                        &nbsp;&nbsp;time.sleep(random.uniform(5, 30))<br>
+                        &nbsp;&nbsp;<span class="code-comment"># 生成模拟结果</span><br>
+                        &nbsp;&nbsp;result = generate_mock_result()<br>
+                        &nbsp;&nbsp;<span class="code-comment"># 回调Spring Boot</span><br>
+                        &nbsp;&nbsp;requests.post(callback_url, json={<span class="code-string">"task_id"</span>: task_id, <span class="code-string">"result"</span>: result})
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>独立的Python Mock算法服务</li>
+                    <li>逼真的模拟分析结果</li>
+                    <li>完整的HTTP回调机制</li>
+                    <li>与主系统的集成测试</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 第7周 -->
+        <div class="week-plan week-7">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第7周：系统集成与测试</h4>
+                <span class="badge bg-danger">测试优化</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week7-1">
+                            <label for="week7-1">端到端系统集成测试</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week7-2">
+                            <label for="week7-2">性能测试与优化</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week7-3">
+                            <label for="week7-3">API接口文档生成</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week7-4">
+                            <label for="week7-4">安全加固与漏洞修复</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mock-service-card mt-3">
+                        <h6><i class="fas fa-vial me-2"></i>测试场景</h6>
+                        <ul class="small mb-0">
+                            <li>用户注册登录流程</li>
+                            <li>视频上传与处理流程</li>
+                            <li>Mock算法调用流程</li>
+                            <li>结果展示与通知流程</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="code-block">
+                        <span class="code-comment"># 端到端测试脚本示例</span><br>
+                        <span class="code-keyword">import</span> requests<br>
+                        <span class="code-keyword">import</span> time<br><br>
+                        
+                        <span class="code-comment"># 1. 用户登录</span><br>
+                        login_response = requests.post(<span class="code-string">"http://localhost:8080/api/auth/login"</span>,<br>
+                        &nbsp;&nbsp;json={<span class="code-string">"username"</span>: <span class="code-string">"test"</span>, <span class="code-string">"password"</span>: <span class="code-string">"test123"</span>})<br>
+                        token = login_response.json()[<span class="code-string">"token"</span>]<br><br>
+                        
+                        <span class="code-comment"># 2. 上传视频</span><br>
+                        headers = {<span class="code-string">"Authorization"</span>: <span class="code-keyword">f</span><span class="code-string">"Bearer {token}"</span>}<br>
+                        upload_response = requests.post(<span class="code-string">"http://localhost:8080/api/video/upload"</span>,<br>
+                        &nbsp;&nbsp;headers=headers, files={<span class="code-string">"file"</span>: open(<span class="code-string">"test.mp4"</span>, <span class="code-string">"rb"</span>)})<br>
+                        task_id = upload_response.json()[<span class="code-string">"task_id"</span>]<br><br>
+                        
+                        <span class="code-comment"># 3. 轮询任务状态</span><br>
+                        <span class="code-keyword">while</span> <span class="code-keyword">True</span>:<br>
+                        &nbsp;&nbsp;status_response = requests.get(<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">f</span><span class="code-string">"http://localhost:8080/api/task/{task_id}"</span>, headers=headers)<br>
+                        &nbsp;&nbsp;status = status_response.json()[<span class="code-string">"status"</span>]<br>
+                        &nbsp;&nbsp;<span class="code-keyword">if</span> status == <span class="code-string">"completed"</span>:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">break</span><br>
+                        &nbsp;&nbsp;time.sleep(2)<br><br>
+                        
+                        <span class="code-comment"># 4. 获取分析结果</span><br>
+                        result_response = requests.get(<br>
+                        &nbsp;&nbsp;<span class="code-keyword">f</span><span class="code-string">"http://localhost:8080/api/analysis/{task_id}"</span>, headers=headers)<br>
+                        print(<span class="code-string">"测试通过，分析结果："</span>, result_response.json())
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>完整的端到端测试用例</li>
+                    <li>性能测试报告</li>
+                    <li>API接口文档（Swagger/Knife4j）</li>
+                    <li>系统优化建议文档</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 第8周 -->
+        <div class="week-plan week-8">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">第8周：部署与交接准备</h4>
+                <span class="badge bg-success">部署上线</span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>核心任务</h5>
+                    <div class="task-checklist">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week8-1">
+                            <label for="week8-1">Docker容器化部署</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week8-2">
+                            <label for="week8-2">一键部署脚本编写</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week8-3">
+                            <label for="week8-3">算法团队接入文档准备</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="week8-4">
+                            <label for="week8-4">演示系统部署与测试</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mock-service-card mt-3">
+                        <h6><i class="fas fa-book me-2"></i>交接文档清单</h6>
+                        <ul class="small mb-0">
+                            <li>系统架构设计文档</li>
+                            <li>API接口文档</li>
+                            <li>数据库设计文档</li>
+                            <li>部署和运维手册</li>
+                            <li>算法团队接入指南</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="code-block">
+                        <span class="code-comment"># Docker Compose 部署配置</span><br>
+                        version: <span class="code-string">'3.8'</span><br>
+                        services:<br>
+                        &nbsp;&nbsp;mysql:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;image: mysql:8.0<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;environment:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MYSQL_ROOT_PASSWORD: root123<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"3306:3306"</span><br><br>
+                        
+                        &nbsp;&nbsp;springboot-app:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;build: ./backend<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"8080:8080"</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;depends_on:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- mysql<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- redis<br><br>
+                        
+                        &nbsp;&nbsp;mock-algorithm:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;build: ./mock-algorithm<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"5000:5000"</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;depends_on:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- springboot-app<br><br>
+                        
+                        &nbsp;&nbsp;vue-app:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;build: ./frontend<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"80:80"</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;depends_on:<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- springboot-app
+                    </div>
+                </div>
+            </div>
+            
+            <div class="deliverable-card">
+                <h6><i class="fas fa-box me-2"></i>本周交付物</h6>
+                <ul class="small mb-0">
+                    <li>完整的Docker部署方案</li>
+                    <li>一键部署脚本</li>
+                    <li>完整的系统文档</li>
+                    <li>可演示的完整系统</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 最终成果 -->
+        <div class="plan-card">
+            <h2 class="section-title">🏆 两个月后交付的完整系统</h2>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="milestone-card">
+                        <h5><i class="fas fa-server me-2"></i>后端系统（Spring Boot）</h5>
+                        <ul>
+                            <li>完整的用户认证和权限管理</li>
+                            <li>视频上传和存储系统（MinIO）</li>
+                            <li>任务管理和状态跟踪</li>
+                            <li>消息队列（RabbitMQ）集成</li>
+                            <li>WebSocket实时通知</li>
+                            <li>Mock算法服务集成</li>
+                            <li>完整的API接口（RESTful）</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="milestone-card">
+                        <h5><i class="fab fa-vuejs me-2"></i>前端系统（Vue3）</h5>
+                        <ul>
+                            <li>用户登录和管理界面</li>
+                            <li>视频上传和管理界面</li>
+                            <li>任务状态监控界面</li>
+                            <li>数据分析结果可视化</li>
+                            <li>实时通知和提醒</li>
+                            <li>响应式设计（支持移动端）</li>
+                            <li>与后端完整对接</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="milestone-card">
+                        <h5><i class="fas fa-robot me-2"></i>Mock算法服务</h5>
+                        <ul>
+                            <li>独立的Python服务</li>
+                            <li>模拟视频、音频、文本分析</li>
+                            <li>模拟风险评估算法</li>
+                            <li>可配置的模拟参数</li>
+                            <li>与主系统的HTTP回调对接</li>
+                            <li>逼真的处理延迟模拟</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="milestone-card">
+                        <h5><i class="fas fa-book me-2"></i>完整文档</h5>
+                        <ul>
+                            <li>系统架构设计文档</li>
+                            <li>API接口文档（Swagger）</li>
+                            <li>数据库设计文档</li>
+                            <li>部署和运维手册</li>
+                            <li>算法团队接入指南</li>
+                            <li>用户使用手册</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-success mt-3">
+                <i class="fas fa-flag-checkered me-2"></i>
+                <strong>最终成果：</strong> 两个月后，当算法团队学习完成时，你将交付一个完全可运行的系统，包含完整的后端、前端、Mock算法服务。算法团队只需要：
+                <ol class="mt-2 mb-0">
+                    <li>将Mock算法服务替换为真实的算法服务</li>
+                    <li>按照你提供的接口文档进行对接</li>
+                    <li>进行联合调试和测试</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- 算法团队接入指南 -->
+        <div class="plan-card">
+            <h2 class="section-title">🤝 算法团队接入准备</h2>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-cogs me-2"></i>算法接口规范</h6>
+                        <p class="small mb-2">你将为算法团队准备清晰的接口规范：</p>
+                        <ul class="small mb-0">
+                            <li><strong>输入格式：</strong> 视频路径、任务ID、回调URL</li>
+                            <li><strong>输出格式：</strong> 风险评分、风险等级、多模态特征</li>
+                            <li><strong>调用方式：</strong> HTTP POST + 回调机制</li>
+                            <li><strong>超时设置：</strong> 最长处理时间限制</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exchange-alt me-2"></i>替换Mock服务</h6>
+                        <p class="small mb-2">算法团队只需做以下替换：</p>
+                        <ol class="small mb-0">
+                            <li>部署真实的Python算法服务</li>
+                            <li>保持相同的API接口格式</li>
+                            <li>保持相同的回调机制</li>
+                            <li>进行集成测试</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="code-block">
+                <span class="code-comment"># 提供给算法团队的接口规范示例</span><br>
+                <span class="code-comment">## 1. 接收分析任务（HTTP POST）</span><br>
+                <span class="code-comment"># 请求URL: http://algorithm-service:5000/analyze</span><br>
+                <span class="code-comment"># 请求格式:</span><br>
+                {<br>
+                &nbsp;&nbsp;<span class="code-string">"task_id"</span>: <span class="code-string">"task_001"</span>,<br>
+                &nbsp;&nbsp;<span class="code-string">"video_url"</span>: <span class="code-string">"http://minio.example.com/videos/test.mp4"</span>,<br>
+                &nbsp;&nbsp;<span class="code-string">"callback_url"</span>: <span class="code-string">"http://springboot-app:8080/api/algorithm/callback"</span><br>
+                }<br><br>
+                
+                <span class="code-comment">## 2. 回调Spring Boot（HTTP POST）</span><br>
+                <span class="code-comment"># 回调URL: 由请求中的callback_url指定</span><br>
+                <span class="code-comment"># 回调格式:</span><br>
+                {<br>
+                &nbsp;&nbsp;<span class="code-string">"task_id"</span>: <span class="code-string">"task_001"</span>,<br>
+                &nbsp;&nbsp;<span class="code-string">"status"</span>: <span class="code-string">"completed"</span>,<br>
+                &nbsp;&nbsp;<span class="code-string">"result"</span>: {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"risk_score"</span>: 0.65,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"risk_level"</span>: <span class="code-string">"中风险"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"video_features"</span>: {...},<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"audio_features"</span>: {...},<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-string">"text_features"</span>: {...}<br>
+                &nbsp;&nbsp;}<br>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="container mt-5 mb-4">
+        <div class="text-center text-muted">
+            <p class="mb-0">全栈工程师两个月独立工作计划 | 算法团队学习期间</p>
+            <p class="small">Spring Boot + Vue3 + Mock算法服务 | 完整系统框架搭建</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 简单的进度跟踪
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('.checklist-item input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    // 更新父容器的样式
+                    const card = this.closest('.week-plan');
+                    const checkedCount = card.querySelectorAll('.checklist-item input[type="checkbox"]:checked').length;
+                    const totalCount = card.querySelectorAll('.checklist-item input[type="checkbox"]').length;
+                    
+                    if (checkedCount === totalCount) {
+                        card.style.borderLeftColor = '#4CAF50'; // 绿色
+                    } else if (checkedCount > 0) {
+                        card.style.borderLeftColor = '#FF9800'; // 橙色
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

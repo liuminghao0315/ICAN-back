@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高校内容创作者行为分析平台 | 全栈技术栈与项目搭建指南</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0052D4;
+            --secondary: #00C9FF;
+            --accent: #F53844;
+            --spring: #6DB33F;
+            --vue: #42B883;
+            --mysql: #00758F;
+            --redis: #DC382D;
+            --docker: #2496ED;
+            --dark: #1A1A2E;
+            --light: #F5F7FA;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--light) 0%, #e6f0ff 100%);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 2.5rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 25px 25px;
+        }
+
+        .project-title {
+            font-weight: 800;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .tech-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            border-top: 5px solid var(--primary);
+        }
+
+        .stack-section {
+            margin-bottom: 3rem;
+        }
+
+        .stack-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .stack-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .tech-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .tech-item:nth-child(1) { border-left-color: var(--spring); }
+        .tech-item:nth-child(2) { border-left-color: var(--vue); }
+        .tech-item:nth-child(3) { border-left-color: var(--mysql); }
+        .tech-item:nth-child(4) { border-left-color: var(--redis); }
+        .tech-item:nth-child(5) { border-left-color: var(--docker); }
+
+        .tech-icon {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1.5rem;
+            font-size: 1.8rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+
+        .spring { color: var(--spring); }
+        .vue { color: var(--vue); }
+        .mysql { color: var(--mysql); }
+        .redis { color: var(--redis); }
+        .docker { color: var(--docker); }
+
+        .build-step {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--primary);
+            position: relative;
+            counter-increment: step;
+        }
+
+        .build-step::before {
+            content: counter(step);
+            position: absolute;
+            left: -1.5rem;
+            top: 1.5rem;
+            width: 3rem;
+            height: 3rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .code-comment { color: #6A9955; }
+        .code-keyword { color: #569CD6; }
+        .code-string { color: #CE9178; }
+        .code-function { color: #DCDCAA; }
+        .code-tag { color: #569CD6; }
+
+        .architecture-diagram {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 1px solid #dee2e6;
+        }
+
+        .layer {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e9ecef;
+        }
+
+        .layer-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .layer-title i {
+            margin-right: 0.5rem;
+        }
+
+        .component {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.6rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .subsection-title {
+            color: var(--dark);
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .tech-badge {
+            background: rgba(0,82,212,0.1);
+            color: var(--primary);
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            display: inline-block;
+        }
+
+        .endpoint {
+            background: #f0f7ff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .endpoint-method {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-right: 1rem;
+        }
+
+        .get { background: #61affe; color: white; }
+        .post { background: #49cc90; color: white; }
+        .put { background: #fca130; color: white; }
+        .delete { background: #f93e3e; color: white; }
+
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 1.8rem;
+            }
+            
+            .tech-card {
+                padding: 1.5rem;
+            }
+            
+            .stack-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .stack-icon {
+                margin-right: 0;
+                margin-bottom: 1rem;
+            }
+            
+            .build-step::before {
+                position: relative;
+                left: 0;
+                top: 0;
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-10">
+                    <h1 class="project-title">高校内容创作者行为分析平台</h1>
+                    <p class="lead mb-0">全栈技术栈与项目搭建指南</p>
+                    <p>Spring Boot + Vue3 技术栈 | 从0到1搭建完整项目</p>
+                </div>
+                <div class="col-lg-2 text-center">
+                    <i class="fas fa-layer-group fa-4x" style="opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 技术栈概览 -->
+        <div class="tech-card">
+            <h2 class="section-title">🏗️ 全栈技术栈概览</h2>
+            
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="stack-icon" style="background: linear-gradient(135deg, var(--spring) 0%, #8BC34A 100%);">
+                            <i class="fas fa-leaf"></i>
+                        </div>
+                        <h4 class="mt-3">后端技术栈</h4>
+                        <p class="mb-0">Spring Boot + MySQL + Redis</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="stack-icon" style="background: linear-gradient(135deg, var(--vue) 0%, #64D488 100%);">
+                            <i class="fab fa-vuejs"></i>
+                        </div>
+                        <h4 class="mt-3">前端技术栈</h4>
+                        <p class="mb-0">Vue3 + TypeScript + Element Plus</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="stack-icon" style="background: linear-gradient(135deg, var(--docker) 0%, #5BAFEE 100%);">
+                            <i class="fab fa-docker"></i>
+                        </div>
+                        <h4 class="mt-3">部署与运维</h4>
+                        <p class="mb-0">Docker + Nginx + Jenkins</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>技术栈特点：</strong> 前后端分离架构，Spring Boot提供RESTful API，Vue3构建现代化前端界面，Docker容器化部署确保环境一致性。
+            </div>
+        </div>
+
+        <!-- 后端技术栈详情 -->
+        <div class="tech-card">
+            <div class="stack-header">
+                <div class="stack-icon" style="background: linear-gradient(135deg, var(--spring) 0%, #8BC34A 100%);">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div>
+                    <h2 class="section-title mb-0">📡 后端技术栈（Spring Boot）</h2>
+                    <p class="mb-0">基于Java的微服务架构，提供稳定的RESTful API</p>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon spring">
+                    <i class="fab fa-java"></i>
+                </div>
+                <div>
+                    <h4>Spring Boot 2.7+</h4>
+                    <p class="mb-2"><strong>核心框架：</strong>提供快速开发、自动配置、生产就绪特性</p>
+                    <div>
+                        <span class="tech-badge">Spring Web MVC</span>
+                        <span class="tech-badge">Spring Security</span>
+                        <span class="tech-badge">Spring Data JPA</span>
+                        <span class="tech-badge">Spring Boot Actuator</span>
+                        <span class="tech-badge">Spring Boot DevTools</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon mysql">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div>
+                    <h4>MySQL 8.0 + MyBatis Plus</h4>
+                    <p class="mb-2"><strong>数据存储：</strong>关系型数据库存储用户信息、视频元数据、分析结果</p>
+                    <div>
+                        <span class="tech-badge">MySQL 8.0</span>
+                        <span class="tech-badge">MyBatis Plus 3.5+</span>
+                        <span class="tech-badge">Druid连接池</span>
+                        <span class="tech-badge">Flyway数据库迁移</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon redis">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div>
+                    <h4>Redis 6.0 + Redisson</h4>
+                    <p class="mb-2"><strong>缓存与分布式锁：</strong>缓存热点数据，分布式锁控制视频处理任务</p>
+                    <div>
+                        <span class="tech-badge">Redis 6.0</span>
+                        <span class="tech-badge">Redisson分布式锁</span>
+                        <span class="tech-badge">缓存视频处理状态</span>
+                        <span class="tech-badge">Session管理</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #FF6B6B;">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <div>
+                    <h4>消息队列与异步处理</h4>
+                    <p class="mb-2"><strong>任务队列：</strong>异步处理视频分析任务，解耦前端请求与耗时处理</p>
+                    <div>
+                        <span class="tech-badge">RabbitMQ</span>
+                        <span class="tech-badge">Spring AMQP</span>
+                        <span class="tech-badge">异步任务队列</span>
+                        <span class="tech-badge">任务状态跟踪</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #9B59B6;">
+                    <i class="fas fa-file-upload"></i>
+                </div>
+                <div>
+                    <h4>文件存储与处理</h4>
+                    <p class="mb-2"><strong>视频存储：</strong>本地存储或MinIO对象存储，FFmpeg视频处理</p>
+                    <div>
+                        <span class="tech-badge">MinIO对象存储</span>
+                        <span class="tech-badge">FFmpeg视频处理</span>
+                        <span class="tech-badge">大文件分片上传</span>
+                        <span class="tech-badge">视频格式转换</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #2ECC71;">
+                    <i class="fas fa-code"></i>
+                </div>
+                <div>
+                    <h4>其他核心依赖</h4>
+                    <p class="mb-2"><strong>工具与集成：</strong>API文档、工具库、算法服务调用</p>
+                    <div>
+                        <span class="tech-badge">Knife4j API文档</span>
+                        <span class="tech-badge">Lombok</span>
+                        <span class="tech-badge">Hutool工具库</span>
+                        <span class="tech-badge">WebSocket实时通信</span>
+                        <span class="tech-badge">HTTP客户端调用算法服务</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 前端技术栈详情 -->
+        <div class="tech-card">
+            <div class="stack-header">
+                <div class="stack-icon" style="background: linear-gradient(135deg, var(--vue) 0%, #64D488 100%);">
+                    <i class="fab fa-vuejs"></i>
+                </div>
+                <div>
+                    <h2 class="section-title mb-0">🎨 前端技术栈（Vue3）</h2>
+                    <p class="mb-0">现代化前端框架，TypeScript类型安全，响应式UI设计</p>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon vue">
+                    <i class="fab fa-vuejs"></i>
+                </div>
+                <div>
+                    <h4>Vue3 + TypeScript</h4>
+                    <p class="mb-2"><strong>核心框架：</strong>Composition API，TypeScript类型安全，Vite构建工具</p>
+                    <div>
+                        <span class="tech-badge">Vue3 Composition API</span>
+                        <span class="tech-badge">TypeScript 4.9+</span>
+                        <span class="tech-badge">Vite构建工具</span>
+                        <span class="tech-badge">Vue Router 4</span>
+                        <span class="tech-badge">Pinia状态管理</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #409EFF;">
+                    <i class="fas fa-palette"></i>
+                </div>
+                <div>
+                    <h4>UI组件库 - Element Plus</h4>
+                    <p class="mb-2"><strong>界面组件：</strong>基于Vue3的组件库，快速构建企业级后台界面</p>
+                    <div>
+                        <span class="tech-badge">Element Plus 2.3+</span>
+                        <span class="tech-badge">Sass/SCSS样式预处理</span>
+                        <span class="tech-badge">响应式布局</span>
+                        <span class="tech-badge">暗黑模式支持</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #E74C3C;">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div>
+                    <h4>数据可视化 - ECharts</h4>
+                    <p class="mb-2"><strong>图表展示：</strong>分析结果可视化，风险评估图表展示</p>
+                    <div>
+                        <span class="tech-badge">ECharts 5.4+</span>
+                        <span class="tech-badge">Vue-ECharts组件</span>
+                        <span class="tech-badge">自定义主题</span>
+                        <span class="tech-badge">响应式图表</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #9B59B6;">
+                    <i class="fas fa-file-upload"></i>
+                </div>
+                <div>
+                    <h4>文件上传与处理</h4>
+                    <p class="mb-2"><strong>视频上传：</strong>大文件分片上传，进度显示，断点续传</p>
+                    <div>
+                        <span class="tech-badge">Vue-Dropzone</span>
+                        <span class="tech-badge">分片上传组件</span>
+                        <span class="tech-badge">上传进度显示</span>
+                        <span class="tech-badge">文件预览</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #2ECC71;">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <div>
+                    <h4>网络请求与状态管理</h4>
+                    <p class="mb-2"><strong>API交互：</strong>Axios封装，请求拦截，错误处理</p>
+                    <div>
+                        <span class="tech-badge">Axios HTTP客户端</span>
+                        <span class="tech-badge">请求拦截器</span>
+                        <span class="tech-badge">响应错误处理</span>
+                        <span class="tech-badge">WebSocket实时通信</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-item">
+                <div class="tech-icon" style="color: #F39C12;">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <div>
+                    <h4>开发工具与优化</h4>
+                    <p class="mb-2"><strong>开发效率：</strong>代码规范，打包优化，性能监控</p>
+                    <div>
+                        <span class="tech-badge">ESLint + Prettier</span>
+                        <span class="tech-badge">Husky Git hooks</span>
+                        <span class="tech-badge">Vite打包优化</span>
+                        <span class="tech-badge">PWA支持</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统架构设计 -->
+        <div class="tech-card">
+            <h2 class="section-title">🏛️ 系统架构设计</h2>
+            
+            <div class="architecture-diagram">
+                <div class="layer">
+                    <div class="layer-title">
+                        <i class="fas fa-layer-group me-2"></i>
+                        表现层 (Presentation Layer)
+                    </div>
+                    <div class="mb-3">
+                        <span class="component">用户管理界面</span>
+                        <span class="component">视频上传界面</span>
+                        <span class="component">分析结果展示</span>
+                        <span class="component">实时状态监控</span>
+                        <span class="component">数据可视化图表</span>
+                    </div>
+                    <p class="small mb-0">Vue3前端应用，通过RESTful API与后端交互，WebSocket接收实时通知</p>
+                </div>
+                
+                <div class="layer">
+                    <div class="layer-title">
+                        <i class="fas fa-server me-2"></i>
+                        应用层 (Application Layer)
+                    </div>
+                    <div class="mb-3">
+                        <span class="component">Spring Boot REST API</span>
+                        <span class="component">用户认证服务</span>
+                        <span class="component">视频上传服务</span>
+                        <span class="component">任务调度服务</span>
+                        <span class="component">WebSocket服务</span>
+                    </div>
+                    <p class="small mb-0">Spring Boot微服务，处理业务逻辑，调用算法服务，管理任务队列</p>
+                </div>
+                
+                <div class="layer">
+                    <div class="layer-title">
+                        <i class="fas fa-brain me-2"></i>
+                        算法服务层 (Algorithm Service Layer)
+                    </div>
+                    <div class="mb-3">
+                        <span class="component">视频处理服务</span>
+                        <span class="component">音频分析服务</span>
+                        <span class="component">文本分析服务</span>
+                        <span class="component">多模态融合服务</span>
+                        <span class="component">风险评估服务</span>
+                    </div>
+                    <p class="small mb-0">Python算法服务，通过HTTP或gRPC与Spring Boot交互，处理视频分析任务</p>
+                </div>
+                
+                <div class="layer">
+                    <div class="layer-title">
+                        <i class="fas fa-database me-2"></i>
+                        数据层 (Data Layer)
+                    </div>
+                    <div class="mb-3">
+                        <span class="component">MySQL数据库</span>
+                        <span class="component">Redis缓存</span>
+                        <span class="component">MinIO对象存储</span>
+                        <span class="component">RabbitMQ消息队列</span>
+                    </div>
+                    <p class="small mb-0">数据持久化存储，缓存热点数据，消息队列异步处理，文件对象存储</p>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h5><i class="fas fa-exchange-alt me-2"></i>数据流设计</h5>
+                        <ol class="small mb-0">
+                            <li>用户上传视频 → 前端分片上传 → Spring Boot接收</li>
+                            <li>Spring Boot保存视频到MinIO → 记录任务到MySQL</li>
+                            <li>Spring Boot发送任务到RabbitMQ → 算法服务消费</li>
+                            <li>算法服务处理完成 → 回调Spring Boot更新状态</li>
+                            <li>Spring Boot通过WebSocket通知前端 → 前端展示结果</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h5><i class="fas fa-shield-alt me-2"></i>安全设计</h5>
+                        <ul class="small mb-0">
+                            <li>JWT Token认证与授权</li>
+                            <li>Spring Security权限控制</li>
+                            <li>API接口限流与防刷</li>
+                            <li>文件上传类型与大小限制</li>
+                            <li>SQL注入与XSS防护</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 从0到1搭建指南 -->
+        <div class="tech-card">
+            <h2 class="section-title">🚀 从0到1项目搭建指南</h2>
+            
+            <div class="build-step">
+                <h4>第1步：环境准备与项目初始化</h4>
+                <p class="mb-2"><strong>目标：</strong>安装开发环境，创建前后端项目骨架</p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">后端环境</h6>
+                        <ul>
+                            <li>安装JDK 11+、Maven、MySQL 8.0、Redis、RabbitMQ</li>
+                            <li>使用Spring Initializr创建项目</li>
+                            <li>添加依赖：Web、Security、JPA、Redis、AMQP等</li>
+                        </ul>
+                        
+                        <div class="code-block">
+                            <span class="code-comment"># 创建Spring Boot项目</span><br>
+                            <span class="code-keyword">spring</span> init <span class="code-string">--dependencies=web,security,data-jpa,mysql,redis,amqp</span> <span class="code-string">--groupId=com.university</span> <span class="code-string">--artifactId=content-analyzer</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">前端环境</h6>
+                        <ul>
+                            <li>安装Node.js 16+、npm/yarn</li>
+                            <li>使用Vite创建Vue3 + TypeScript项目</li>
+                            <li>安装Element Plus、Axios、ECharts等依赖</li>
+                        </ul>
+                        
+                        <div class="code-block">
+                            <span class="code-comment"># 创建Vue3项目</span><br>
+                            npm create vue@latest content-analyzer-web<br>
+                            <span class="code-comment"># 选择TypeScript, Router, Pinia等</span><br>
+                            cd content-analyzer-web<br>
+                            npm install element-plus axios echarts vue-echarts
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="build-step">
+                <h4>第2步：数据库设计与实体类创建</h4>
+                <p class="mb-2"><strong>目标：</strong>设计数据库表结构，创建JPA实体类</p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <h6>核心数据表</h6>
+                        <ul class="small">
+                            <li><strong>user：</strong>用户信息表</li>
+                            <li><strong>video：</strong>视频元数据表</li>
+                            <li><strong>analysis_task：</strong>分析任务表</li>
+                            <li><strong>analysis_result：</strong>分析结果表</li>
+                            <li><strong>risk_assessment：</strong>风险评估表</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <div class="code-block">
+                            <span class="code-comment">// Video实体类示例</span><br>
+                            <span class="code-keyword">@Entity</span><br>
+                            <span class="code-keyword">@Table</span>(name = <span class="code-string">"video"</span>)<br>
+                            <span class="code-keyword">public class</span> <span class="code-function">Video</span> {<br>
+                            &nbsp;&nbsp;<span class="code-keyword">@Id</span><br>
+                            &nbsp;&nbsp;<span class="code-keyword">@GeneratedValue</span>(strategy = GenerationType.IDENTITY)<br>
+                            &nbsp;&nbsp;private Long id;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="code-keyword">@Column</span>(nullable = false)<br>
+                            &nbsp;&nbsp;private String fileName;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="code-keyword">@Column</span><br>
+                            &nbsp;&nbsp;private String filePath;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="code-keyword">@Column</span><br>
+                            &nbsp;&nbsp;private Double duration;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="code-comment">// 状态: UPLOADED, PROCESSING, COMPLETED, FAILED</span><br>
+                            &nbsp;&nbsp;<span class="code-keyword">@Column</span><br>
+                            &nbsp;&nbsp;private String status;<br>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="build-step">
+                <h4>第3步：后端核心功能实现</h4>
+                <p class="mb-2"><strong>目标：</strong>实现用户认证、文件上传、任务管理、API接口</p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">核心模块结构</h6>
+                        <ul>
+                            <li><strong>config：</strong>安全配置、Redis配置、WebSocket配置</li>
+                            <li><strong>controller：</strong>RESTful API控制器</li>
+                            <li><strong>service：</strong>业务逻辑层</li>
+                            <li><strong>repository：</strong>数据访问层</li>
+                            <li><strong>entity：</strong>JPA实体类</li>
+                            <li><strong>dto：</strong>数据传输对象</li>
+                            <li><strong>utils：</strong>工具类</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">核心API设计</h6>
+                        
+                        <div class="endpoint">
+                            <span class="endpoint-method post">POST</span>
+                            <strong>/api/auth/login</strong> - 用户登录
+                        </div>
+                        
+                        <div class="endpoint">
+                            <span class="endpoint-method post">POST</span>
+                            <strong>/api/video/upload</strong> - 视频上传
+                        </div>
+                        
+                        <div class="endpoint">
+                            <span class="endpoint-method get">GET</span>
+                            <strong>/api/video/list</strong> - 视频列表
+                        </div>
+                        
+                        <div class="endpoint">
+                            <span class="endpoint-method get">GET</span>
+                            <strong>/api/analysis/{id}</strong> - 获取分析结果
+                        </div>
+                        
+                        <div class="endpoint">
+                            <span class="endpoint-method get">GET</span>
+                            <strong>/ws/video-progress</strong> - WebSocket进度通知
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6 class="subsection-title">关键实现 - 视频上传服务</h6>
+                    <div class="code-block">
+                        <span class="code-comment">// 视频分片上传接口</span><br>
+                        <span class="code-keyword">@PostMapping</span>(<span class="code-string">"/upload-chunk"</span>)<br>
+                        <span class="code-keyword">public</span> ResponseEntity&lt;String&gt; <span class="code-function">uploadChunk</span>(<br>
+                        &nbsp;&nbsp;<span class="code-keyword">@RequestParam</span> MultipartFile chunk,<br>
+                        &nbsp;&nbsp;<span class="code-keyword">@RequestParam</span> String chunkNumber,<br>
+                        &nbsp;&nbsp;<span class="code-keyword">@RequestParam</span> String totalChunks,<br>
+                        &nbsp;&nbsp;<span class="code-keyword">@RequestParam</span> String identifier<br>
+                        ) {<br>
+                        &nbsp;&nbsp;<span class="code-comment">// 1. 保存分片文件到临时目录</span><br>
+                        &nbsp;&nbsp;<span class="code-comment">// 2. 检查是否所有分片已上传完成</span><br>
+                        &nbsp;&nbsp;<span class="code-comment">// 3. 合并分片，保存到MinIO</span><br>
+                        &nbsp;&nbsp;<span class="code-comment">// 4. 创建视频记录和任务记录</span><br>
+                        &nbsp;&nbsp;<span class="code-comment">// 5. 发送任务到RabbitMQ队列</span><br>
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <div class="build-step">
+                <h4>第4步：前端界面开发</h4>
+                <p class="mb-2"><strong>目标：</strong>实现用户界面，集成API，添加可视化组件</p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <h6>页面结构</h6>
+                        <ul class="small">
+                            <li><strong>Login.vue：</strong>登录页面</li>
+                            <li><strong>Dashboard.vue：</strong>仪表盘</li>
+                            <li><strong>VideoUpload.vue：</strong>视频上传页面</li>
+                            <li><strong>VideoList.vue：</strong>视频列表页面</li>
+                            <li><strong>AnalysisResult.vue：</strong>分析结果页面</li>
+                            <li><strong>components/：</strong>可复用组件</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <h6>关键实现 - 视频上传组件</h6>
+                        <div class="code-block">
+                            <span class="code-comment">&lt;!-- 视频上传组件示例 --&gt;</span><br>
+                            &lt;<span class="code-tag">template</span>&gt;<br>
+                            &nbsp;&nbsp;&lt;<span class="code-tag">el-upload</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;drag<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;:auto-upload=<span class="code-string">"false"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;:on-change=<span class="code-string">"handleFileChange"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;accept=<span class="code-string">"video/*"</span><br>
+                            &nbsp;&nbsp;&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="code-tag">i</span> <span class="code-keyword">class</span>=<span class="code-string">"el-icon-upload"</span>&gt;&lt;/<span class="code-tag">i</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="code-tag">div</span> <span class="code-keyword">class</span>=<span class="code-string">"el-upload__text"</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;将视频文件拖到此处，或&lt;<span class="code-tag">em</span>&gt;点击上传&lt;/<span class="code-tag">em</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span class="code-tag">div</span>&gt;<br>
+                            &nbsp;&nbsp;&lt;/<span class="code-tag">el-upload</span>&gt;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="code-comment">&lt;!-- 上传进度显示 --&gt;</span><br>
+                            &nbsp;&nbsp;&lt;<span class="code-tag">el-progress</span> <span class="code-keyword">v-if</span>=<span class="code-string">"uploading"</span> :percentage=<span class="code-string">"uploadProgress"</span> /&gt;<br>
+                            &lt;/<span class="code-tag">template</span>&gt;<br><br>
+                            
+                            &lt;<span class="code-tag">script</span> <span class="code-keyword">setup</span> <span class="code-keyword">lang</span>=<span class="code-string">"ts"</span>&gt;<br>
+                            <span class="code-keyword">import</span> { ref } <span class="code-keyword">from</span> <span class="code-string">'vue'</span>;<br>
+                            <span class="code-keyword">import</span> { uploadVideo } <span class="code-keyword">from</span> <span class="code-string">'@/api/video'</span>;<br><br>
+                            
+                            <span class="code-keyword">const</span> uploading = ref(<span class="code-keyword">false</span>);<br>
+                            <span class="code-keyword">const</span> uploadProgress = ref(0);<br><br>
+                            
+                            <span class="code-keyword">const</span> handleFileChange = <span class="code-keyword">async</span> (file: File) =&gt; {<br>
+                            &nbsp;&nbsp;uploading.value = <span class="code-keyword">true</span>;<br>
+                            &nbsp;&nbsp;<span class="code-comment">// 分片上传逻辑</span><br>
+                            &nbsp;&nbsp;<span class="code-keyword">await</span> uploadVideo(file, (progress) =&gt; {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;uploadProgress.value = progress;<br>
+                            &nbsp;&nbsp;});<br>
+                            };<br>
+                            &lt;/<span class="code-tag">script</span>&gt;
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="build-step">
+                <h4>第5步：算法服务集成</h4>
+                <p class="mb-2"><strong>目标：</strong>集成Python算法服务，实现视频分析流程</p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">集成方式</h6>
+                        <ul>
+                            <li><strong>HTTP调用：</strong>Spring Boot通过RestTemplate调用算法API</li>
+                            <li><strong>消息队列：</strong>通过RabbitMQ发送任务，算法服务消费</li>
+                            <li><strong>回调机制：</strong>算法处理完成后回调Spring Boot更新状态</li>
+                        </ul>
+                        
+                        <div class="mt-3">
+                            <h6>算法服务接口设计</h6>
+                            <ul class="small">
+                                <li><strong>POST /api/algorithm/video-analysis</strong> - 启动视频分析</li>
+                                <li><strong>GET /api/algorithm/task/{taskId}</strong> - 查询任务状态</li>
+                                <li><strong>POST /api/algorithm/callback</strong> - 分析结果回调</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">视频分析流程</h6>
+                        <ol class="small">
+                            <li>前端上传视频 → Spring Boot保存到MinIO</li>
+                            <li>Spring Boot创建任务记录 → 发送到RabbitMQ</li>
+                            <li>算法服务消费消息 → 从MinIO下载视频</li>
+                            <li>算法服务分析视频 → 提取视频/音频/文本特征</li>
+                            <li>算法服务调用多模态融合 → 生成风险评估</li>
+                            <li>算法服务回调Spring Boot → 更新任务状态和结果</li>
+                            <li>Spring Boot通过WebSocket通知前端 → 展示结果</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="build-step">
+                <h4>第6步：部署与上线</h4>
+                <p class="mb-2"><strong>目标：</strong>容器化部署，配置生产环境，监控与运维</p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">Docker容器化</h6>
+                        
+                        <div class="code-block">
+                            <span class="code-comment"># docker-compose.yml 示例</span><br>
+                            version: <span class="code-string">'3.8'</span><br>
+                            services:<br>
+                            &nbsp;&nbsp;mysql:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;image: mysql:8.0<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;environment:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MYSQL_ROOT_PASSWORD: root123<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"3306:3306"</span><br><br>
+                            
+                            &nbsp;&nbsp;redis:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;image: redis:6-alpine<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"6379:6379"</span><br><br>
+                            
+                            &nbsp;&nbsp;springboot-app:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;build: ./backend<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"8080:8080"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;depends_on:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- mysql<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- redis<br><br>
+                            
+                            &nbsp;&nbsp;vue-app:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;build: ./frontend<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="code-string">"80:80"</span><br>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">生产环境配置</h6>
+                        <ul>
+                            <li><strong>Nginx反向代理：</strong>配置SSL，负载均衡</li>
+                            <li><strong>日志管理：</strong>ELK栈收集和分析日志</li>
+                            <li><strong>监控告警：</strong>Prometheus + Grafana监控</li>
+                            <li><strong>CI/CD：</strong>Jenkins或GitHub Actions自动化部署</li>
+                            <li><strong>备份策略：</strong>数据库定期备份，文件存储备份</li>
+                        </ul>
+                        
+                        <div class="mt-3">
+                            <h6>性能优化建议</h6>
+                            <ul class="small">
+                                <li>视频上传使用CDN加速</li>
+                                <li>Redis缓存热点数据和会话</li>
+                                <li>数据库读写分离，分库分表</li>
+                                <li>异步处理耗时任务，避免阻塞</li>
+                                <li>前端使用懒加载和代码分割</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 项目文件结构 -->
+        <div class="tech-card">
+            <h2 class="section-title">📁 项目文件结构</h2>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h5><i class="fas fa-folder me-2"></i>后端项目结构</h5>
+                        <pre class="mb-0 small">
+content-analyzer-backend/
+├── src/main/java/com/university/analyzer/
+│   ├── config/              # 配置类
+│   │   ├── SecurityConfig.java
+│   │   ├── RedisConfig.java
+│   │   ├── WebSocketConfig.java
+│   │   └── SwaggerConfig.java
+│   ├── controller/          # 控制器
+│   │   ├── AuthController.java
+│   │   ├── VideoController.java
+│   │   ├── AnalysisController.java
+│   │   └── WebSocketController.java
+│   ├── service/             # 服务层
+│   │   ├── impl/
+│   │   │   ├── VideoServiceImpl.java
+│   │   │   └── AnalysisServiceImpl.java
+│   │   └── AlgorithmService.java
+│   ├── repository/          # 数据访问层
+│   │   ├── VideoRepository.java
+│   │   └── AnalysisTaskRepository.java
+│   ├── entity/              # 实体类
+│   │   ├── User.java
+│   │   ├── Video.java
+│   │   └── AnalysisResult.java
+│   ├── dto/                 # 数据传输对象
+│   │   ├── request/
+│   │   └── response/
+│   ├── utils/               # 工具类
+│   │   ├── FileUtils.java
+│   │   └── VideoProcessor.java
+│   └── Application.java     # 启动类
+├── src/main/resources/
+│   ├── application.yml      # 配置文件
+│   └── db/migration/        # 数据库迁移脚本
+└── pom.xml                  # Maven依赖
+                        </pre>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h5><i class="fas fa-folder me-2"></i>前端项目结构</h5>
+                        <pre class="mb-0 small">
+content-analyzer-web/
+├── public/                  # 静态资源
+├── src/
+│   ├── api/                # API接口封装
+│   │   ├── auth.ts
+│   │   ├── video.ts
+│   │   └── analysis.ts
+│   ├── assets/             # 资源文件
+│   ├── components/         # 公共组件
+│   │   ├── VideoUpload.vue
+│   │   ├── ProgressBar.vue
+│   │   └── RiskChart.vue
+│   ├── router/             # 路由配置
+│   ├── stores/             # Pinia状态管理
+│   │   ├── auth.ts
+│   │   └── video.ts
+│   ├── types/              # TypeScript类型定义
+│   ├── utils/              # 工具函数
+│   ├── views/              # 页面组件
+│   │   ├── Login.vue
+│   │   ├── Dashboard.vue
+│   │   ├── VideoUpload.vue
+│   │   └── AnalysisResult.vue
+│   ├── App.vue             # 根组件
+│   └── main.ts             # 入口文件
+├── .env                    # 环境变量
+├── .env.production        # 生产环境变量
+├── vite.config.ts         # Vite配置
+├── tsconfig.json          # TypeScript配置
+├── package.json           # 依赖管理
+└── index.html             # HTML模板
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 开发时间规划 -->
+        <div class="tech-card">
+            <h2 class="section-title">⏰ 开发时间规划（8周）</h2>
+            
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="p-3 text-center border rounded">
+                        <h5 class="text-primary">第1-2周</h5>
+                        <p class="small mb-2">环境搭建与基础架构</p>
+                        <ul class="small text-start">
+                            <li>项目初始化</li>
+                            <li>数据库设计</li>
+                            <li>基础配置</li>
+                            <li>用户认证模块</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="p-3 text-center border rounded">
+                        <h5 class="text-primary">第3-4周</h5>
+                        <p class="small mb-2">核心功能开发</p>
+                        <ul class="small text-start">
+                            <li>视频上传功能</li>
+                            <li>文件存储集成</li>
+                            <li>任务队列实现</li>
+                            <li>基础API开发</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="p-3 text-center border rounded">
+                        <h5 class="text-primary">第5-6周</h5>
+                        <p class="small mb-2">前端界面开发</p>
+                        <ul class="small text-start">
+                            <li>用户界面设计</li>
+                            <li>API集成</li>
+                            <li>数据可视化</li>
+                            <li>算法服务集成</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="p-3 text-center border rounded">
+                        <h5 class="text-primary">第7-8周</h5>
+                        <p class="small mb-2">测试与部署</p>
+                        <ul class="small text-start">
+                            <li>系统集成测试</li>
+                            <li>性能优化</li>
+                            <li>容器化部署</li>
+                            <li>文档编写</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 alert alert-success">
+                <i class="fas fa-lightbulb me-2"></i>
+                <strong>开发建议：</strong> 采用敏捷开发模式，每2周一个迭代，每次迭代都有可演示的功能。先完成核心功能（视频上传+基础分析），再逐步完善其他模块。
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="container mt-5 mb-4">
+        <div class="text-center text-muted">
+            <p class="mb-0">高校内容创作者行为分析平台 | 全栈技术栈与项目搭建指南</p>
+            <p class="small">Spring Boot + Vue3 + MySQL + Redis + Docker | 从0到1完整项目实现方案</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

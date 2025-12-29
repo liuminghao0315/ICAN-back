@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>算法与全栈对接指南 | 高校内容创作者行为分析平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0052D4;
+            --secondary: #00C9FF;
+            --algorithm: #F53844;
+            --data: #6C63FF;
+            --fullstack: #00B894;
+            --dark: #1A1A2E;
+            --light: #F5F7FA;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--light) 0%, #e6f0ff 100%);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 2.5rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 25px 25px;
+        }
+
+        .project-title {
+            font-weight: 800;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .guide-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            border-top: 5px solid var(--primary);
+        }
+
+        .role-section {
+            margin-bottom: 3rem;
+        }
+
+        .role-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .role-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .algorithm { background: linear-gradient(135deg, var(--algorithm) 0%, #ff6b6b 100%); }
+        .data { background: linear-gradient(135deg, var(--data) 0%, #9a94ff 100%); }
+        .fullstack { background: linear-gradient(135deg, var(--fullstack) 0%, #55efc4 100%); }
+
+        .step-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--primary);
+            position: relative;
+            counter-increment: step;
+        }
+
+        .step-card::before {
+            content: counter(step);
+            position: absolute;
+            left: -1.5rem;
+            top: 1.5rem;
+            width: 3rem;
+            height: 3rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .conversation-box {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border: 2px solid #e9ecef;
+            position: relative;
+        }
+
+        .conversation-box::before {
+            content: '';
+            position: absolute;
+            left: 1.5rem;
+            top: -10px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            transform: rotate(45deg);
+            border-top: 2px solid #e9ecef;
+            border-left: 2px solid #e9ecef;
+        }
+
+        .speaker {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .speaker-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: white;
+        }
+
+        .speaker-algorithm { background: var(--algorithm); }
+        .speaker-data { background: var(--data); }
+        .speaker-fullstack { background: var(--fullstack); }
+
+        .interface-box {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .interface-key { color: #569CD6; }
+        .interface-string { color: #CE9178; }
+        .interface-number { color: #B5CEA8; }
+        .interface-boolean { color: #569CD6; }
+        .interface-null { color: #569CD6; }
+
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .checklist-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(0,82,212,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: var(--primary);
+            flex-shrink: 0;
+        }
+
+        .deliverable-tag {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-structure {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .folder { color: #569CD6; }
+        .file { color: #CE9178; }
+        .extension { color: #6A9955; }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.6rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .subsection-title {
+            color: var(--dark);
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .workflow-diagram {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border: 1px solid #dee2e6;
+            position: relative;
+        }
+
+        .workflow-step {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .workflow-arrow {
+            text-align: center;
+            margin: 0.5rem 0;
+            color: #6c757d;
+        }
+
+        .error-scenario {
+            background: linear-gradient(135deg, rgba(245,56,68,0.1) 0%, rgba(245,56,68,0.2) 100%);
+            border-left: 4px solid var(--algorithm);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 1.8rem;
+            }
+            
+            .guide-card {
+                padding: 1.5rem;
+            }
+            
+            .role-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .role-icon {
+                margin-right: 0;
+                margin-bottom: 1rem;
+            }
+            
+            .step-card::before {
+                position: relative;
+                left: 0;
+                top: 0;
+                margin-bottom: 1rem;
+                width: 2.5rem;
+                height: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-10">
+                    <h1 class="project-title">算法与全栈对接指南</h1>
+                    <p class="lead mb-0">高校内容创作者行为分析平台 | 小白团队对接全攻略</p>
+                    <p>算法人员 + 数据分析人员 + 全栈开发人员 | 详细对接步骤与沟通话术</p>
+                </div>
+                <div class="col-lg-2 text-center">
+                    <i class="fas fa-handshake fa-4x" style="opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 对接概览 -->
+        <div class="guide-card">
+            <h2 class="section-title">🤝 对接概览：谁做什么，怎么交接</h2>
+            
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="role-icon algorithm">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h4 class="mt-3">算法人员</h4>
+                        <p class="small mb-2">提供"黑盒子"算法服务</p>
+                        <ul class="small text-start">
+                            <li>训练好的模型文件</li>
+                            <li>算法调用接口</li>
+                            <li>输入输出格式说明</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="role-icon data">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <h4 class="mt-3">数据人员</h4>
+                        <p class="small mb-2">提供"燃料和质检"</p>
+                        <ul class="small text-start">
+                            <li>测试数据集</li>
+                            <li>模型评估报告</li>
+                            <li>标签说明文档</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="role-icon fullstack">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <h4 class="mt-3">全栈人员</h4>
+                        <p class="small mb-2">搭建"桥梁和房子"</p>
+                        <ul class="small text-start">
+                            <li>调用算法接口</li>
+                            <li>展示分析结果</li>
+                            <li>用户交互界面</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-lightbulb me-2"></i>
+                <strong>核心对接原则：</strong> 算法和数据人员提供"服务"，全栈人员"消费"这些服务。就像餐厅后厨（算法）做菜，品控（数据）检查，服务员（全栈）上菜。
+            </div>
+        </div>
+
+        <!-- 第一步：明确需求 -->
+        <div class="guide-card">
+            <h2 class="section-title">📋 第一步：明确需求 - 先对齐再干活</h2>
+            
+            <div class="step-card">
+                <h4>1.1 开需求对齐会议（首次会议）</h4>
+                <p class="mb-3"><strong>目标：</strong> 让所有人理解项目要做什么，明确各自的输入输出</p>
+                
+                <div class="conversation-box">
+                    <div class="speaker">
+                        <div class="speaker-icon speaker-algorithm">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">算法人员（CV方向）说：</h6>
+                            <p class="small mb-0">"我需要用户上传的视频文件，处理后返回：1.场景识别结果 2.人脸检测结果 3.风险评分（0-1分）"</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="conversation-box">
+                    <div class="speaker">
+                        <div class="speaker-icon speaker-data">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">数据人员说：</h6>
+                            <p class="small mb-0">"我需要算法提供测试数据集上的准确率数据，还需要知道风险评分的阈值（多少分算高风险）"</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="conversation-box">
+                    <div class="speaker">
+                        <div class="speaker-icon speaker-fullstack">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">全栈人员说：</h6>
+                            <p class="small mb-0">"我需要算法提供HTTP接口，上传视频后返回JSON格式结果。前端需要展示：进度条、分析结果、风险预警"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>1.2 确定技术接口格式</h4>
+                <p class="mb-3"><strong>目标：</strong> 统一数据格式，避免后续返工</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">算法人员需要提供：</h6>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>模型文件格式：</strong> .pth, .onnx, .h5
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>算法服务方式：</strong> Python脚本 / Flask API / 直接调用
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>输入数据格式：</strong> 视频文件路径 / Base64编码
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">全栈人员需要知道：</h6>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>调用方式：</strong> HTTP POST / Python直接调用
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>返回格式：</strong> JSON结构，字段名和类型
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>处理时间：</strong> 1分钟视频需要处理多久
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>1.3 制作接口文档初稿</h4>
+                <p class="mb-3"><strong>目标：</strong> 白纸黑字写下来，避免口头约定被忘记</p>
+                
+                <div class="interface-box">
+                    {<br>
+                    &nbsp;&nbsp;<span class="interface-key">"接口名称"</span>: <span class="interface-string">"视频分析接口"</span>,<br>
+                    &nbsp;&nbsp;<span class="interface-key">"调用方式"</span>: <span class="interface-string">"HTTP POST"</span>,<br>
+                    &nbsp;&nbsp;<span class="interface-key">"URL"</span>: <span class="interface-string">"http://算法服务器:8000/analyze"</span>,<br>
+                    &nbsp;&nbsp;<span class="interface-key">"请求参数"</span>: {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"video_file"</span>: <span class="interface-string">"视频文件（FormData）"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"video_id"</span>: <span class="interface-string">"视频唯一ID"</span><br>
+                    &nbsp;&nbsp;},<br>
+                    &nbsp;&nbsp;<span class="interface-key">"返回结果"</span>: {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"status"</span>: <span class="interface-string">"success/error"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"data"</span>: {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"video_id"</span>: <span class="interface-string">"视频ID"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"risk_score"</span>: <span class="interface-number">0.75</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"risk_level"</span>: <span class="interface-string">"high"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"analysis_time"</span>: <span class="interface-number">45.2</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                    &nbsp;&nbsp;}<br>
+                    }
+                </div>
+                
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>重要：</strong> 这份文档需要三方共同确认，确认后就不能随便改了！如果要改，必须三方开会讨论。
+                </div>
+            </div>
+        </div>
+
+        <!-- 第二步：算法封装与交付 -->
+        <div class="guide-card">
+            <div class="role-header">
+                <div class="role-icon algorithm">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div>
+                    <h2 class="section-title mb-0">📦 第二步：算法人员需要交付什么</h2>
+                    <p class="mb-0">算法不是代码，而是"可以调用的服务"</p>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>2.1 封装算法为API服务（推荐给小白）</h4>
+                <p class="mb-3"><strong>最简单的方式：</strong> 使用Flask或FastAPI把算法包装成HTTP服务</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">算法人员要做：</h6>
+                        <div class="file-structure">
+                            <span class="folder">algorithm_service/</span><br>
+                            &nbsp;&nbsp;<span class="file">app.py</span> <span class="extension"># Flask主程序</span><br>
+                            &nbsp;&nbsp;<span class="file">video_analyzer.py</span> <span class="extension"># 你的算法代码</span><br>
+                            &nbsp;&nbsp;<span class="file">models/</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">face_detector.pth</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">scene_classifier.onnx</span><br>
+                            &nbsp;&nbsp;<span class="file">requirements.txt</span> <span class="extension"># 依赖包列表</span><br>
+                            &nbsp;&nbsp;<span class="file">README.md</span> <span class="extension"># 使用说明</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">最简单的Flask代码：</h6>
+                        <div class="interface-box">
+                            <span class="interface-key">from</span> flask <span class="interface-key">import</span> Flask, request, jsonify<br>
+                            <span class="interface-key">import</span> video_analyzer <span class="interface-key">as</span> analyzer<br><br>
+                            
+                            app = Flask(__name__)<br><br>
+                            
+                            <span class="interface-key">@app</span>.route(<span class="interface-string">'/analyze'</span>, methods=[<span class="interface-string">'POST'</span>])<br>
+                            <span class="interface-key">def</span> analyze_video():<br>
+                            &nbsp;&nbsp;<span class="interface-comment"># 1. 接收视频文件</span><br>
+                            &nbsp;&nbsp;video_file = request.files[<span class="interface-string">'video'</span>]<br>
+                            &nbsp;&nbsp;video_id = request.form[<span class="interface-string">'video_id'</span>]<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-comment"># 2. 调用你的算法</span><br>
+                            &nbsp;&nbsp;result = analyzer.process_video(video_file)<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-comment"># 3. 返回JSON格式结果</span><br>
+                            &nbsp;&nbsp;<span class="interface-key">return</span> jsonify({<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-string">"status"</span>: <span class="interface-string">"success"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-string">"video_id"</span>: video_id,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-string">"risk_score"</span>: result[<span class="interface-string">"risk_score"</span>],<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-string">"risk_level"</span>: result[<span class="interface-string">"risk_level"</span>]<br>
+                            &nbsp;&nbsp;})<br><br>
+                            
+                            <span class="interface-key">if</span> __name__ == <span class="interface-string">'__main__'</span>:<br>
+                            &nbsp;&nbsp;app.run(host=<span class="interface-string">'0.0.0.0'</span>, port=8000)
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>2.2 提供测试脚本和示例</h4>
+                <p class="mb-3"><strong>目标：</strong> 让全栈人员能够测试算法服务是否正常工作</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">测试脚本 test_api.py：</h6>
+                        <div class="interface-box">
+                            <span class="interface-key">import</span> requests<br><br>
+                            
+                            <span class="interface-comment"># 1. 准备测试视频</span><br>
+                            url = <span class="interface-string">"http://localhost:8000/analyze"</span><br>
+                            files = {<span class="interface-string">'video'</span>: open(<span class="interface-string">'test_video.mp4'</span>, <span class="interface-string">'rb'</span>)}<br>
+                            data = {<span class="interface-string">'video_id'</span>: <span class="interface-string">'test_001'</span>}<br><br>
+                            
+                            <span class="interface-comment"># 2. 发送请求</span><br>
+                            response = requests.post(url, files=files, data=data)<br><br>
+                            
+                            <span class="interface-comment"># 3. 打印结果</span><br>
+                            <span class="interface-key">print</span>(<span class="interface-string">"状态码:"</span>, response.status_code)<br>
+                            <span class="interface-key">print</span>(<span class="interface-string">"返回结果:"</span>, response.json())
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">预期的返回结果：</h6>
+                        <div class="interface-box">
+                            {<br>
+                            &nbsp;&nbsp;<span class="interface-key">"status"</span>: <span class="interface-string">"success"</span>,<br>
+                            &nbsp;&nbsp;<span class="interface-key">"data"</span>: {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"video_id"</span>: <span class="interface-string">"test_001"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"risk_score"</span>: <span class="interface-number">0.65</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"risk_level"</span>: <span class="interface-string">"medium"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"analysis_details"</span>: {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"scene_type"</span>: <span class="interface-string">"classroom"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"face_count"</span>: <span class="interface-number">2</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"text_sentiment"</span>: <span class="interface-string">"negative"</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;},<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"processing_time"</span>: <span class="interface-number">32.5</span><br>
+                            &nbsp;&nbsp;}<br>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>2.3 交付清单（算法人员必须提供）</h4>
+                <p class="mb-3"><strong>检查表：</strong> 把这些东西打包给全栈人员</p>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <span class="deliverable-tag">1. 算法服务代码</span>
+                        <ul class="small mt-2">
+                            <li>完整的Python项目</li>
+                            <li>requirements.txt依赖文件</li>
+                            <li>启动脚本</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <span class="deliverable-tag">2. 模型文件</span>
+                        <ul class="small mt-2">
+                            <li>训练好的模型文件</li>
+                            <li>配置文件</li>
+                            <li>权重文件</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <span class="deliverable-tag">3. 文档说明</span>
+                        <ul class="small mt-2">
+                            <li>API接口文档</li>
+                            <li>使用说明README</li>
+                            <li>常见问题解答</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <span class="deliverable-tag">4. 测试用例</span>
+                        <ul class="small mt-2">
+                            <li>测试脚本test_api.py</li>
+                            <li>测试视频文件（小尺寸）</li>
+                            <li>预期输出结果</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <span class="deliverable-tag">5. 环境要求</span>
+                        <ul class="small mt-2">
+                            <li>Python版本要求</li>
+                            <li>内存和CPU要求</li>
+                            <li>特殊依赖说明</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第三步：数据人员对接 -->
+        <div class="guide-card">
+            <div class="role-header">
+                <div class="role-icon data">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div>
+                    <h2 class="section-title mb-0">📊 第三步：数据人员需要交付什么</h2>
+                    <p class="mb-0">提供"质量标准"和"测试数据"</p>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>3.1 提供测试数据集</h4>
+                <p class="mb-3"><strong>目标：</strong> 让全栈人员测试系统时使用</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">测试数据集结构：</h6>
+                        <div class="file-structure">
+                            <span class="folder">test_dataset/</span><br>
+                            &nbsp;&nbsp;<span class="file">README.md</span><br>
+                            &nbsp;&nbsp;<span class="folder">videos/</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">safe_video_1.mp4</span> <span class="extension"># 安全视频示例</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">risky_video_1.mp4</span> <span class="extension"># 风险视频示例</span><br>
+                            &nbsp;&nbsp;<span class="folder">expected_results/</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">safe_video_1.json</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">risky_video_1.json</span><br>
+                            &nbsp;&nbsp;<span class="file">test_cases.csv</span> <span class="extension"># 测试用例表</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">test_cases.csv 内容：</h6>
+                        <div class="interface-box">
+                            video_name,expected_risk_level,expected_score_range,description<br>
+                            safe_video_1.mp4,low,0.0-0.3,校园风景展示<br>
+                            risky_video_1.mp4,high,0.7-1.0,负面言论视频<br>
+                            neutral_video_1.mp4,medium,0.4-0.6,普通课堂记录
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6>对话示例：</h6>
+                            <div class="conversation-box">
+                                <div class="speaker">
+                                    <div class="speaker-icon speaker-data">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">数据人员说：</h6>
+                                        <p class="small mb-0">"我给你准备了10个测试视频，safe_video_1应该是低风险（0.3分以下），如果算法返回0.8分，那就有问题了。"</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>3.2 提供评估报告和阈值</h4>
+                <p class="mb-3"><strong>目标：</strong> 告诉全栈人员算法效果如何，风险怎么划分</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">评估报告示例：</h6>
+                        <div class="interface-box">
+                            {<br>
+                            &nbsp;&nbsp;<span class="interface-key">"评估时间"</span>: <span class="interface-string">"2024-01-15"</span>,<br>
+                            &nbsp;&nbsp;<span class="interface-key">"算法版本"</span>: <span class="interface-string">"v1.0"</span>,<br>
+                            &nbsp;&nbsp;<span class="interface-key">"准确率指标"</span>: {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"高校身份识别准确率"</span>: <span class="interface-number">0.92</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"情感分析准确率"</span>: <span class="interface-number">0.85</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"综合风险评估准确率"</span>: <span class="interface-number">0.88</span><br>
+                            &nbsp;&nbsp;},<br>
+                            &nbsp;&nbsp;<span class="interface-key">"风险阈值建议"</span>: {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"low_risk"</span>: <span class="interface-string">"0.0-0.3"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"medium_risk"</span>: <span class="interface-string">"0.4-0.6"</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">"high_risk"</span>: <span class="interface-string">"0.7-1.0"</span><br>
+                            &nbsp;&nbsp;}<br>
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">交付清单：</h6>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>测试数据集：</strong> 包含视频文件和预期结果
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>评估报告：</strong> 算法性能数据，PDF或JSON格式
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>阈值建议：</strong> 风险等级划分标准
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>错误案例分析：</strong> 算法容易出错的视频类型
+                            </div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div>
+                                <strong>标签说明文档：</strong> 每个标签的含义和示例
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第四步：全栈人员如何集成 -->
+        <div class="guide-card">
+            <div class="role-header">
+                <div class="role-icon fullstack">
+                    <i class="fas fa-code"></i>
+                </div>
+                <div>
+                    <h2 class="section-title mb-0">🔗 第四步：全栈人员如何集成算法</h2>
+                    <p class="mb-0">"拼接"所有部分，形成完整系统</p>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>4.1 接收并测试算法服务</h4>
+                <p class="mb-3"><strong>第一步：</strong> 先确保算法服务能正常运行</p>
+                
+                <div class="workflow-diagram">
+                    <div class="workflow-step">
+                        <div class="speaker-icon speaker-fullstack" style="margin-right: 1rem;">
+                            <i class="fas fa-download"></i>
+                        </div>
+                        <div>
+                            <strong>步骤1：</strong> 接收算法人员给的代码包
+                        </div>
+                    </div>
+                    
+                    <div class="workflow-arrow">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
+                    
+                    <div class="workflow-step">
+                        <div class="speaker-icon speaker-fullstack" style="margin-right: 1rem;">
+                            <i class="fas fa-terminal"></i>
+                        </div>
+                        <div>
+                            <strong>步骤2：</strong> 按照README安装依赖，启动服务
+                            <div class="interface-box mt-2">
+                                <span class="interface-comment"># 安装依赖</span><br>
+                                pip install -r requirements.txt<br><br>
+                                <span class="interface-comment"># 启动服务</span><br>
+                                python app.py
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="workflow-arrow">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
+                    
+                    <div class="workflow-step">
+                        <div class="speaker-icon speaker-fullstack" style="margin-right: 1rem;">
+                            <i class="fas fa-vial"></i>
+                        </div>
+                        <div>
+                            <strong>步骤3：</strong> 运行测试脚本，验证接口
+                            <div class="interface-box mt-2">
+                                <span class="interface-comment"># 运行测试</span><br>
+                                python test_api.py<br><br>
+                                <span class="interface-comment"># 期望看到：</span><br>
+                                状态码: 200<br>
+                                返回结果: {"status": "success", ...}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="workflow-arrow">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
+                    
+                    <div class="workflow-step">
+                        <div class="speaker-icon speaker-fullstack" style="margin-right: 1rem;">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div>
+                            <strong>步骤4：</strong> 如果测试通过，告诉算法人员"服务正常"
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>4.2 Spring Boot中调用算法API</h4>
+                <p class="mb-3"><strong>第二步：</strong> 在Java代码中调用Python算法服务</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">创建AlgorithmService.java：</h6>
+                        <div class="interface-box">
+                            <span class="interface-key">import</span> org.springframework.web.client.RestTemplate;<br>
+                            <span class="interface-key">import</span> org.springframework.http.*;<br>
+                            <span class="interface-key">import</span> org.springframework.web.multipart.MultipartFile;<br><br>
+                            
+                            <span class="interface-key">@Service</span><br>
+                            <span class="interface-key">public class</span> AlgorithmService {<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-comment">// 调用算法服务分析视频</span><br>
+                            &nbsp;&nbsp;<span class="interface-key">public</span> Map&lt;String, Object&gt; analyzeVideo(MultipartFile videoFile, String videoId) {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;String algorithmUrl = <span class="interface-string">"http://localhost:8000/analyze"</span>;<br><br>
+                            
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 1. 准备请求</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;HttpHeaders headers = <span class="interface-key">new</span> HttpHeaders();<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;headers.setContentType(MediaType.MULTIPART_FORM_DATA);<br><br>
+                            
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 2. 构建请求体</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;MultiValueMap&lt;String, Object&gt; body = <span class="interface-key">new</span> LinkedMultiValueMap&lt;&gt;();<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;body.add(<span class="interface-string">"video"</span>, videoFile.getResource());<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;body.add(<span class="interface-string">"video_id"</span>, videoId);<br><br>
+                            
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 3. 发送请求</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;HttpEntity&lt;MultiValueMap&lt;String, Object&gt;&gt; request = <span class="interface-key">new</span> HttpEntity&lt;&gt;(body, headers);<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;RestTemplate restTemplate = <span class="interface-key">new</span> RestTemplate();<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;ResponseEntity&lt;Map&gt; response = restTemplate.postForEntity(algorithmUrl, request, Map.class);<br><br>
+                            
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 4. 返回结果</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">return</span> response.getBody();<br>
+                            &nbsp;&nbsp;}<br>
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">在Controller中调用：</h6>
+                        <div class="interface-box">
+                            <span class="interface-key">@RestController</span><br>
+                            <span class="interface-key">@RequestMapping</span>(<span class="interface-string">"/api/video"</span>)<br>
+                            <span class="interface-key">public class</span> VideoController {<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-key">@Autowired</span><br>
+                            &nbsp;&nbsp;<span class="interface-key">private</span> AlgorithmService algorithmService;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-key">@PostMapping</span>(<span class="interface-string">"/analyze"</span>)<br>
+                            &nbsp;&nbsp;<span class="interface-key">public</span> ResponseEntity&lt;Map&lt;String, Object&gt;&gt; analyzeVideo(<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">@RequestParam</span>(<span class="interface-string">"video"</span>) MultipartFile videoFile,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">@RequestParam</span>(<span class="interface-string">"videoId"</span>) String videoId<br>
+                            &nbsp;&nbsp;) {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 1. 调用算法服务</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;Map&lt;String, Object&gt; analysisResult = algorithmService.analyzeVideo(videoFile, videoId);<br><br>
+                            
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 2. 保存结果到数据库</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;videoService.saveAnalysisResult(videoId, analysisResult);<br><br>
+                            
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 3. 返回给前端</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">return</span> ResponseEntity.ok(analysisResult);<br>
+                            &nbsp;&nbsp;}<br>
+                            }
+                        </div>
+                        
+                        <div class="mt-3">
+                            <div class="conversation-box">
+                                <div class="speaker">
+                                    <div class="speaker-icon speaker-fullstack">
+                                        <i class="fas fa-code"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">全栈人员说：</h6>
+                                        <p class="small mb-0">"我已经写好了调用代码，用户上传视频后，我会调用你的算法接口，然后把结果存到数据库并返回给前端。"</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>4.3 前端调用和展示</h4>
+                <p class="mb-3"><strong>第三步：</strong> 前端调用Spring Boot，展示分析结果</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">Vue3前端调用：</h6>
+                        <div class="interface-box">
+                            <span class="interface-comment">// 视频分析函数</span><br>
+                            <span class="interface-key">const</span> analyzeVideo = <span class="interface-key">async</span> (file: File) =&gt; {<br>
+                            &nbsp;&nbsp;<span class="interface-comment">// 1. 上传视频到Spring Boot</span><br>
+                            &nbsp;&nbsp;<span class="interface-key">const</span> formData = <span class="interface-key">new</span> FormData();<br>
+                            &nbsp;&nbsp;formData.append(<span class="interface-string">'video'</span>, file);<br>
+                            &nbsp;&nbsp;formData.append(<span class="interface-string">'videoId'</span>, generateVideoId());<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-comment">// 2. 显示加载状态</span><br>
+                            &nbsp;&nbsp;loading.value = <span class="interface-key">true</span>;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-comment">// 3. 调用Spring Boot接口</span><br>
+                            &nbsp;&nbsp;<span class="interface-key">try</span> {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-key">const</span> response = <span class="interface-key">await</span> axios.post(<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-string">'/api/video/analyze'</span>,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;formData,<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ headers: { <span class="interface-string">'Content-Type'</span>: <span class="interface-string">'multipart/form-data'</span> } }<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;);<br><br>
+                            
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="interface-comment">// 4. 显示分析结果</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;analysisResult.value = response.data;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;showResultPage();<br>
+                            &nbsp;&nbsp;} <span class="interface-key">catch</span> (error) {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;showErrorMessage(<span class="interface-string">'分析失败，请重试'</span>);<br>
+                            &nbsp;&nbsp;}<br>
+                            };
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="subsection-title">展示分析结果：</h6>
+                        <div class="interface-box">
+                            &lt;<span class="interface-tag">template</span>&gt;<br>
+                            &nbsp;&nbsp;<span class="interface-comment">&lt;!-- 显示风险评分 --&gt;</span><br>
+                            &nbsp;&nbsp;&lt;<span class="interface-tag">div</span> <span class="interface-keyword">class</span>=<span class="interface-string">"risk-score"</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;风险评分: {{ analysisResult.risk_score }}<br>
+                            &nbsp;&nbsp;&lt;/<span class="interface-tag">div</span>&gt;<br><br>
+                            
+                            &nbsp;&nbsp;<span class="interface-comment">&lt;!-- 显示风险等级 --&gt;</span><br>
+                            &nbsp;&nbsp;&lt;<span class="interface-tag">div</span> <span class="interface-keyword">class</span>=<span class="interface-string">"risk-level"</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;风险等级: <br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="interface-tag">span</span> <span class="interface-keyword">v-if</span>=<span class="interface-string">"analysisResult.risk_level === 'high'"</span> <span class="interface-keyword">class</span>=<span class="interface-string">"high-risk"</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;高风险 ⚠️<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span class="interface-tag">span</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="interface-tag">span</span> <span class="interface-keyword">v-else-if</span>=<span class="interface-string">"analysisResult.risk_level === 'medium'"</span> <span class="interface-keyword">class</span>=<span class="interface-string">"medium-risk"</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;中风险 ⚠️<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span class="interface-tag">span</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="interface-tag">span</span> <span class="interface-keyword">v-else</span> <span class="interface-keyword">class</span>=<span class="interface-string">"low-risk"</span>&gt;<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;低风险 ✓<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span class="interface-tag">span</span>&gt;<br>
+                            &nbsp;&nbsp;&lt;/<span class="interface-tag">div</span>&gt;<br>
+                            &lt;/<span class="interface-tag">template</span>&gt;
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第五步：常见问题与解决方案 -->
+        <div class="guide-card">
+            <h2 class="section-title">🚨 第五步：常见问题与解决方案</h2>
+            
+            <div class="step-card">
+                <h4>5.1 对接常见问题</h4>
+                
+                <div class="error-scenario">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>问题1：算法服务启动失败</h6>
+                    <p class="small mb-2"><strong>症状：</strong> python app.py 报错，缺少依赖包</p>
+                    <p class="small mb-0"><strong>解决方案：</strong> 算法人员提供完整的requirements.txt，全栈人员执行 <code>pip install -r requirements.txt</code></p>
+                </div>
+                
+                <div class="error-scenario">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>问题2：接口调用失败</h6>
+                    <p class="small mb-2"><strong>症状：</strong> Spring Boot调用算法API返回404或500错误</p>
+                    <p class="small mb-0"><strong>解决方案：</strong> 先用Postman测试算法接口是否正常，再检查Spring Boot中的URL是否正确</p>
+                </div>
+                
+                <div class="error-scenario">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>问题3：JSON格式不匹配</h6>
+                    <p class="small mb-2"><strong>症状：</strong> Spring Boot解析算法返回的JSON时报错</p>
+                    <p class="small mb-0"><strong>解决方案：</strong> 双方严格按接口文档定义字段，算法人员先用测试脚本验证返回格式</p>
+                </div>
+                
+                <div class="error-scenario">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>问题4：视频处理太慢</h6>
+                    <p class="small mb-2"><strong>症状：</strong> 前端等待超时，用户失去耐心</p>
+                    <p class="small mb-0"><strong>解决方案：</strong> 改为异步处理，上传后立即返回"处理中"，通过WebSocket或轮询获取结果</p>
+                </div>
+                
+                <div class="error-scenario">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>问题5：内存不足</h6>
+                    <p class="small mb-2"><strong>症状：</strong> 处理大视频时算法服务崩溃</p>
+                    <p class="small mb-0"><strong>解决方案：</strong> 前端限制视频大小（如500MB），算法优化内存使用，或使用流式处理</p>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>5.2 沟通话术模板</h4>
+                <p class="mb-3"><strong>当遇到问题时，应该怎么说：</strong></p>
+                
+                <div class="conversation-box">
+                    <div class="speaker">
+                        <div class="speaker-icon speaker-fullstack">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">全栈人员应该说：</h6>
+                            <p class="small mb-0">"算法同学，我调用你的接口时遇到500错误，这是错误日志。能帮我看一下是什么问题吗？"</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="conversation-box">
+                    <div class="speaker">
+                        <div class="speaker-icon speaker-algorithm">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">算法人员应该说：</h6>
+                            <p class="small mb-0">"全栈同学，我更新了模型文件，需要重新启动服务。这是更新说明文档。"</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="conversation-box">
+                    <div class="speaker">
+                        <div class="speaker-icon speaker-data">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">数据人员应该说：</h6>
+                            <p class="small mb-0">"我发现算法对'课堂讨论'视频容易误判为高风险，建议调整阈值或增加训练数据。"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>5.3 紧急情况处理</h4>
+                <p class="mb-3"><strong>如果对接完全失败：</strong></p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-ambulance"></i>
+                            </div>
+                            <div>
+                                <strong>Plan A：模拟数据</strong>
+                                <p class="small mb-0">全栈先使用模拟数据开发，等算法准备好再替换</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-history"></i>
+                            </div>
+                            <div>
+                                <strong>Plan B：简化功能</strong>
+                                <p class="small mb-0">先实现核心功能（如视频上传），复杂分析后续添加</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div>
+                                <strong>Plan C：结对编程</strong>
+                                <p class="small mb-0">算法和全栈坐在一起，边写边调</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-file-code"></i>
+                            </div>
+                            <div>
+                                <strong>Plan D：统一环境</strong>
+                                <p class="small mb-0">在同一个开发机上测试，避免环境差异</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第六步：测试与验收 -->
+        <div class="guide-card">
+            <h2 class="section-title">✅ 第六步：测试与验收流程</h2>
+            
+            <div class="step-card">
+                <h4>6.1 分步测试流程</h4>
+                
+                <div class="workflow-diagram">
+                    <div class="workflow-step">
+                        <div class="speaker-icon" style="background: var(--algorithm); margin-right: 1rem;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div>
+                            <strong>阶段1：算法自测</strong>
+                            <p class="small mb-0">算法人员确保自己的代码能正常运行</p>
+                        </div>
+                    </div>
+                    
+                    <div class="workflow-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    
+                    <div class="workflow-step">
+                        <div class="speaker-icon" style="background: var(--data); margin-right: 1rem;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div>
+                            <strong>阶段2：数据验证</strong>
+                            <p class="small mb-0">数据人员用测试集验证算法准确性</p>
+                        </div>
+                    </div>
+                    
+                    <div class="workflow-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    
+                    <div class="workflow-step">
+                        <div class="speaker-icon" style="background: var(--fullstack); margin-right: 1rem;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div>
+                            <strong>阶段3：接口测试</strong>
+                            <p class="small mb-0">全栈人员测试算法API是否可用</p>
+                        </div>
+                    </div>
+                    
+                    <div class="workflow-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    
+                    <div class="workflow-step">
+                        <div class="speaker-icon" style="background: var(--primary); margin-right: 1rem;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div>
+                            <strong>阶段4：集成测试</strong>
+                            <p class="small mb-0">从上传到展示完整流程测试</p>
+                        </div>
+                    </div>
+                    
+                    <div class="workflow-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    
+                    <div class="workflow-step">
+                        <div class="speaker-icon" style="background: var(--success); margin-right: 1rem;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div>
+                            <strong>阶段5：用户验收</strong>
+                            <p class="small mb-0">最终用户测试，收集反馈</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>6.2 验收标准清单</h4>
+                <p class="mb-3"><strong>必须全部通过才能算对接成功：</strong></p>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div>
+                                <strong>功能正常</strong>
+                                <p class="small mb-0">视频上传 → 算法分析 → 结果展示</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div>
+                                <strong>性能达标</strong>
+                                <p class="small mb-0">1分钟视频分析时间 ≤ 2分钟</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div>
+                                <strong>准确性合格</strong>
+                                <p class="small mb-0">风险识别准确率 ≥ 80%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div>
+                                <strong>稳定性好</strong>
+                                <p class="small mb-0">连续处理10个视频不崩溃</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="checklist-item">
+                            <div class="checklist-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div>
+                                <strong>错误处理</strong>
+                                <p class="small mb-0">异常情况有明确错误提示</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step-card">
+                <h4>6.3 庆祝与总结</h4>
+                <p class="mb-3"><strong>对接成功后：</strong></p>
+                
+                <div class="conversation-box">
+                    <div class="speaker">
+                        <div class="speaker-icon" style="background: var(--primary);">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">项目经理（你）说：</h6>
+                            <p class="small mb-0">"太棒了！我们成功对接了！算法、数据、全栈同学都辛苦了！现在我们的系统可以完整运行了，接下来我们一起优化用户体验。"</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded">
+                            <h6><i class="fas fa-history me-2"></i>总结经验</h6>
+                            <ul class="small mb-0">
+                                <li>记录对接过程中的问题</li>
+                                <li>总结成功的经验</li>
+                                <li>写下来给下一届参考</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded">
+                            <h6><i class="fas fa-rocket me-2"></i>下一步计划</h6>
+                            <ul class="small mb-0">
+                                <li>性能优化</li>
+                                <li>UI美化</li>
+                                <li>增加新功能</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 总结 -->
+        <div class="guide-card">
+            <h2 class="section-title">🎯 总结：对接成功的关键</h2>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="role-icon" style="background: linear-gradient(135deg, #0052D4 0%, #4368e3 100%);">
+                            <i class="fas fa-file-contract"></i>
+                        </div>
+                        <h5 class="mt-3">文档先行</h5>
+                        <p class="small">先写接口文档，再写代码。白纸黑字，避免扯皮。</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="role-icon" style="background: linear-gradient(135deg, #00C9FF 0%, #56d4e8 100%);">
+                            <i class="fas fa-vial"></i>
+                        </div>
+                        <h5 class="mt-3">测试驱动</h5>
+                        <p class="small">先写测试用例，确保每个环节都验证过。</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <div class="role-icon" style="background: linear-gradient(135deg, #F53844 0%, #ff6b6b 100%);">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <h5 class="mt-3">频繁沟通</h5>
+                        <p class="small">每天同步进展，遇到问题立即沟通。</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-success mt-4">
+                <i class="fas fa-star me-2"></i>
+                <strong>最后提醒：</strong> 你们是团队，不是竞争对手。算法人员不是"神秘的黑客"，全栈人员不是"不懂算法的外行"。互相学习，互相帮助，才能做出好项目！
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

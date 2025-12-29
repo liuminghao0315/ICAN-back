@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高校内容创作者行为分析平台 | 算法与数据工程师详细分工</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0052D4;
+            --secondary: #00C9FF;
+            --accent: #F53844;
+            --dark: #1A1A2E;
+            --light: #F5F7FA;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--light) 0%, #e6f0ff 100%);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 2.5rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 25px 25px;
+        }
+
+        .project-title {
+            font-weight: 800;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            border-left: 5px solid var(--primary);
+        }
+
+        .role-highlight {
+            background: linear-gradient(135deg, rgba(0,82,212,0.1) 0%, rgba(0,201,255,0.1) 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .module-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e9ecef;
+        }
+
+        .workflow-step {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .deliverable-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px dashed #dee2e6;
+        }
+
+        .deliverable-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .tech-badge {
+            background: rgba(0,82,212,0.1);
+            color: var(--primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            display: inline-block;
+        }
+
+        .collab-diagram {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border: 1px solid #dee2e6;
+        }
+
+        .phase-timeline {
+            position: relative;
+            padding-left: 2rem;
+            margin: 1.5rem 0;
+        }
+
+        .phase-timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+        }
+
+        .phase-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+        }
+
+        .phase-item::before {
+            content: '';
+            position: absolute;
+            left: -0.5rem;
+            top: 0.5rem;
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px var(--primary);
+        }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.6rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .subsection-title {
+            color: var(--dark);
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 1.8rem;
+            }
+            
+            .section-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-10">
+                    <h1 class="project-title">高校内容创作者行为分析平台 V1.0</h1>
+                    <p class="lead mb-0">算法与数据工程师详细分工说明</p>
+                    <p>基于多模态深度学习技术 | 基于项目方案的具体职责分解</p>
+                </div>
+                <div class="col-lg-2 text-center">
+                    <i class="fas fa-code-branch fa-4x" style="opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 引言 -->
+        <div class="section-card">
+            <h2 class="section-title">🔍 分工概述</h2>
+            <p>本分工基于《基于多模态深度学习的高校内容创作者行为分析平台》技术方案，将项目中的两位算法工程师和一位数据工程师的具体职责、任务目标和交付成果进行详细分解。三位成员的核心工作对应方案中的以下模块：</p>
+            
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <div class="module-card">
+                        <h5>📹 视频处理模块</h5>
+                        <p class="mb-1"><strong>对应方案：</strong>技术架构-视频处理模块</p>
+                        <p class="mb-0"><strong>负责人：</strong>项目负责人/CV算法工程师</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="module-card">
+                        <h5>🔊 音频分析模块</h5>
+                        <p class="mb-1"><strong>对应方案：</strong>技术架构-音频分析模块</p>
+                        <p class="mb-0"><strong>负责人：</strong>算法工程师（音频/NLP）</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="module-card">
+                        <h5>📊 数据与评测模块</h5>
+                        <p class="mb-1"><strong>对应方案：</strong>工作流程-风险评估</p>
+                        <p class="mb-0"><strong>负责人：</strong>数据工程师</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 项目负责人/CV算法工程师 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-user-tie me-2"></i>
+                项目负责人兼CV算法工程师
+            </h2>
+            
+            <div class="role-highlight">
+                <h5><i class="fas fa-bullseye me-2"></i>核心定位</h5>
+                <p class="mb-0">负责视觉算法开发、多模态融合、整体架构设计与项目管理。重点对应方案中的<strong>视频处理模块</strong>和<strong>融合决策模块</strong>。</p>
+            </div>
+
+            <h3 class="subsection-title">🎯 具体职责分解（基于方案）</h3>
+            
+            <div class="workflow-step">
+                <h5><i class="fas fa-video me-2 text-primary"></i>1. 视频处理模块开发</h5>
+                <p><strong>对应方案章节：</strong>技术架构-视频处理模块、工作流程-多模态内容提取（视频模态）</p>
+                <ul>
+                    <li><strong>关键帧提取：</strong>实现每秒1帧的关键帧采样算法（方案工作流程2.1节）</li>
+                    <li><strong>场景识别：</strong>开发校园场景分类模型，识别教室、图书馆、宿舍等环境</li>
+                    <li><strong>人脸检测与表情分析：</strong>集成YOLO进行人脸检测，分析视频人物表情特征</li>
+                    <li><strong>视觉特征提取：</strong>提取视觉特征向量，为多模态融合准备输入</li>
+                </ul>
+                <div class="mt-2">
+                    <strong>技术栈：</strong>
+                    <span class="tech-badge">OpenCV</span>
+                    <span class="tech-badge">PyTorch</span>
+                    <span class="tech-badge">YOLO</span>
+                    <span class="tech-badge">MoviePy</span>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-brain me-2 text-primary"></i>2. 多模态融合与风险评估</h5>
+                <p><strong>对应方案章节：</strong>技术架构-融合决策模块、工作流程-风险评估与预警</p>
+                <ul>
+                    <li><strong>三模态特征融合：</strong>设计视频+音频+文本的特征融合策略（方案2.4节）</li>
+                    <li><strong>风险评估模型：</strong>实现综合风险评分算法，计算公式：
+                        <div class="mt-2 mb-2 p-2 bg-light rounded">
+                            <code>综合风险 = 负面情感强度×0.3 + 高校声誉关联度×0.3 + 传播潜力×0.2 + 历史行为×0.2</code>
+                        </div>
+                    </li>
+                    <li><strong>预警阈值调优：</strong>根据测试数据调整阈值（高风险>0.7，中风险>0.4，方案6节）</li>
+                    <li><strong>高校视觉识别：</strong>检测校徽、校服等视觉标志（方案3.3节）</li>
+                </ul>
+                <div class="mt-2">
+                    <strong>技术栈：</strong>
+                    <span class="tech-badge">PyTorch</span>
+                    <span class="tech-badge">Scikit-learn</span>
+                    <span class="tech-badge">ONNX</span>
+                    <span class="tech-badge">Numpy</span>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-project-diagram me-2 text-primary"></i>3. 架构设计与项目管理</h5>
+                <p><strong>对应方案章节：</strong>开发计划（8周冲刺）</p>
+                <ul>
+                    <li><strong>系统架构设计：</strong>定义模块接口规范，确保多模态协同工作</li>
+                    <li><strong>进度管理：</strong>制定8周开发计划，监控各阶段里程碑</li>
+                    <li><strong>技术协调：</strong>协调算法工程师和数据工程师的工作接口</li>
+                    <li><strong>对外对接：</strong>与导师、需求方定期汇报项目进展</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-title">📦 关键交付成果</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="deliverable-item">
+                        <i class="fas fa-file-code text-primary me-3"></i>
+                        <div>
+                            <h6 class="mb-1">视频处理Pipeline</h6>
+                            <p class="mb-0 small">完整的关键帧提取→场景识别→人脸检测代码模块</p>
+                        </div>
+                    </div>
+                    <div class="deliverable-item">
+                        <i class="fas fa-cogs text-primary me-3"></i>
+                        <div>
+                            <h6 class="mb-1">多模态融合模型</h6>
+                            <p class="mb-0 small">三模态特征融合与风险评估算法(.pth文件)</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="deliverable-item">
+                        <i class="fas fa-file-alt text-primary me-3"></i>
+                        <div>
+                            <h6 class="mb-1">架构设计文档</h6>
+                            <p class="mb-0 small">系统架构设计、接口规范文档</p>
+                        </div>
+                    </div>
+                    <div class="deliverable-item">
+                        <i class="fas fa-chart-line text-primary me-3"></i>
+                        <div>
+                            <h6 class="mb-1">项目进度管理</h6>
+                            <p class="mb-0 small">周报、里程碑进度表、风险识别报告</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 算法工程师（音频/NLP） -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-microphone-alt me-2"></i>
+                算法工程师（音频/NLP方向）
+            </h2>
+            
+            <div class="role-highlight">
+                <h5><i class="fas fa-bullseye me-2"></i>核心定位</h5>
+                <p class="mb-0">负责音频处理和文本分析算法开发。重点对应方案中的<strong>音频分析模块</strong>和<strong>文本分析模块</strong>。</p>
+            </div>
+
+            <h3 class="subsection-title">🎯 具体职责分解（基于方案）</h3>
+            
+            <div class="workflow-step">
+                <h5><i class="fas fa-volume-up me-2 text-success"></i>1. 音频分析模块开发</h5>
+                <p><strong>对应方案章节：</strong>技术架构-音频分析模块、工作流程-多模态内容提取（音频模态）</p>
+                <ul>
+                    <li><strong>语音转文本：</strong>集成Whisper模型实现高精度语音识别（方案2.2节）</li>
+                    <li><strong>声纹分析：</strong>识别说话人身份，判断是否为同一创作者</li>
+                    <li><strong>音频情感分析：</strong>基于音调、语速、音量分析说话人情感状态</li>
+                    <li><strong>音频特征提取：</strong>提取MFCC、韵律等音频特征</li>
+                    <li><strong>高校关键词检测：</strong>从音频中识别高校名称、专业名称等</li>
+                </ul>
+                <div class="mt-2">
+                    <strong>技术栈：</strong>
+                    <span class="tech-badge">Whisper</span>
+                    <span class="tech-badge">Librosa</span>
+                    <span class="tech-badge">PyAudio</span>
+                    <span class="tech-badge">ONNX</span>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-font me-2 text-success"></i>2. 文本分析模块开发</h5>
+                <p><strong>对应方案章节：</strong>技术架构-文本分析模块、工作流程-舆论倾向预测</p>
+                <ul>
+                    <li><strong>文本预处理：</strong>使用Jieba分词，去除停用词，文本清洗</li>
+                    <li><strong>情感分析：</strong>基于BERT-Chinese分析文本情感极性（正面/中性/负面）</li>
+                    <li><strong>主题提取：</strong>识别视频主题（学习生活、校园恋爱、考试经验等，方案4节）</li>
+                    <li><strong>关键词提取：</strong>提取高校相关关键词，构建高校知识图谱</li>
+                    <li><strong>受众分析：</strong>基于文本内容预测受众年龄段和兴趣偏好（方案4节）</li>
+                </ul>
+                <div class="mt-2">
+                    <strong>技术栈：</strong>
+                    <span class="tech-badge">BERT-Chinese</span>
+                    <span class="tech-badge">Jieba</span>
+                    <span class="tech-badge">SnowNLP</span>
+                    <span class="tech-badge">Scikit-learn</span>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-university me-2 text-success"></i>3. 高校身份识别算法</h5>
+                <p><strong>对应方案章节：</strong>工作流程-高校身份识别</p>
+                <ul>
+                    <li><strong>文本高校识别：</strong>从标题、描述、字幕中提取高校信息</li>
+                    <li><strong>音频高校识别：</strong>从语音内容识别高校表述</li>
+                    <li><strong>高校知识库构建：</strong>维护985/211高校名称、简称、别称数据库</li>
+                    <li><strong>身份声明检测：</strong>判断内容创作者是否明确声明高校身份</li>
+                </ul>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-tachometer-alt me-2 text-success"></i>4. 模型优化与加速</h5>
+                <ul>
+                    <li><strong>模型轻量化：</strong>优化音频和文本模型的推理速度</li>
+                    <li><strong>ONNX转换：</strong>将PyTorch模型转换为ONNX格式，提升部署效率</li>
+                    <li><strong>性能测试：</strong>测试模型准确率，确保达到方案预期（高校身份识别>90%，舆论倾向预测>80%）</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-title">📦 关键交付成果</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="deliverable-item">
+                        <i class="fas fa-file-audio text-success me-3"></i>
+                        <div>
+                            <h6 class="mb-1">语音识别模块</h6>
+                            <p class="mb-0 small">集成Whisper的音频处理Pipeline</p>
+                        </div>
+                    </div>
+                    <div class="deliverable-item">
+                        <i class="fas fa-language text-success me-3"></i>
+                        <div>
+                            <h6 class="mb-1">文本情感分析模型</h6>
+                            <p class="mb-0 small">基于BERT的情感分类模型</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="deliverable-item">
+                        <i class="fas fa-database text-success me-3"></i>
+                        <div>
+                            <h6 class="mb-1">高校知识库</h6>
+                            <p class="mb-0 small">高校名称、简称、别称数据库(JSON格式)</p>
+                        </div>
+                    </div>
+                    <div class="deliverable-item">
+                        <i class="fas fa-rocket text-success me-3"></i>
+                        <div>
+                            <h6 class="mb-1">优化后模型</h6>
+                            <p class="mb-0 small">轻量化、加速后的ONNX模型文件</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据工程师 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-database me-2"></i>
+                数据工程师（标注+评测）
+            </h2>
+            
+            <div class="role-highlight">
+                <h5><i class="fas fa-bullseye me-2"></i>核心定位</h5>
+                <p class="mb-0">负责数据标注、模型评测和质量保障。贯穿整个方案，重点对应<strong>工作流程-风险评估</strong>和<strong>预期成果</strong>中的准确率指标。</p>
+            </div>
+
+            <h3 class="subsection-title">🎯 具体职责分解（基于方案）</h3>
+            
+            <div class="workflow-step">
+                <h5><i class="fas fa-tags me-2 text-warning"></i>1. 数据标注体系建设</h5>
+                <p><strong>贯穿整个方案，支持所有模块</strong></p>
+                <ul>
+                    <li><strong>标注平台搭建：</strong>部署Label-Studio，配置三模态标注界面</li>
+                    <li><strong>标签体系设计：</strong>
+                        <div class="row mt-2">
+                            <div class="col-md-4">
+                                <strong>视频标签：</strong>
+                                <ul class="small">
+                                    <li>场景类型（教室/图书馆/宿舍）</li>
+                                    <li>人脸表情（高兴/中性/愤怒）</li>
+                                    <li>校园标志（校徽/校服）</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>音频标签：</strong>
+                                <ul class="small">
+                                    <li>情感标签（积极/中性/消极）</li>
+                                    <li>高校关键词</li>
+                                    <li>声纹ID</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>文本标签：</strong>
+                                <ul class="small">
+                                    <li>情感极性（正/中/负）</li>
+                                    <li>主题分类（6大类）</li>
+                                    <li>高校关联度</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </li>
+                    <li><strong>标注质量控制：</strong>制定标注规范，进行标注一致性检查</li>
+                    <li><strong>数据集划分：</strong>划分训练集/验证集/测试集（比例70/15/15）</li>
+                </ul>
+                <div class="mt-2">
+                    <strong>技术栈：</strong>
+                    <span class="tech-badge">Label-Studio</span>
+                    <span class="tech-badge">Pandas</span>
+                    <span class="tech-badge">SQL</span>
+                    <span class="tech-badge">Python</span>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-chart-line me-2 text-warning"></i>2. 模型性能评测与分析</h5>
+                <p><strong>对应方案章节：</strong>预期成果-分析准确率</p>
+                <ul>
+                    <li><strong>评测指标设计：</strong>
+                        <ul>
+                            <li>高校身份识别准确率（目标>90%）</li>
+                            <li>舆论倾向预测准确率（目标>80%）</li>
+                            <li>多模态融合效果评估</li>
+                            <li>各模块召回率、精确率、F1分数</li>
+                        </ul>
+                    </li>
+                    <li><strong>错误案例分析：</strong>
+                        <ul>
+                            <li>每周分析模型预测错误的案例</li>
+                            <li>识别错误原因（数据不足/模型偏差/特征缺失）</li>
+                            <li>反馈给算法工程师进行模型优化</li>
+                        </ul>
+                    </li>
+                    <li><strong>性能监控：</strong>使用W&B跟踪模型训练指标，Prometheus监控线上性能</li>
+                </ul>
+                <div class="mt-2">
+                    <strong>技术栈：</strong>
+                    <span class="tech-badge">W&B</span>
+                    <span class="tech-badge">Prometheus</span>
+                    <span class="tech-badge">Matplotlib</span>
+                    <span class="tech-badge">Seaborn</span>
+                </div>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-recycle me-2 text-warning"></i>3. 主动学习与数据迭代</h5>
+                <ul>
+                    <li><strong>不确定性采样：</strong>选择模型预测不确定的样本进行标注</li>
+                    <li><strong>数据分布优化：</strong>确保训练数据覆盖各类场景和主题</li>
+                    <li><strong>反馈闭环：</strong>将用户反馈和错误案例纳入训练数据</li>
+                    <li><strong>数据增强：</strong>对稀缺类别数据进行增强处理</li>
+                </ul>
+            </div>
+
+            <div class="workflow-step">
+                <h5><i class="fas fa-clipboard-check me-2 text-warning"></i>4. 测试与质量保障</h5>
+                <ul>
+                    <li><strong>测试数据集构建：</strong>构建覆盖各种场景的测试集</li>
+                    <li><strong>端到端测试：</strong>模拟完整工作流程测试</li>
+                    <li><strong>性能测试：</strong>测试系统并发处理能力</li>
+                    <li><strong>回归测试：</strong>确保新版本不破坏原有功能</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-title">📦 关键交付成果</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="deliverable-item">
+                        <i class="fas fa-database text-warning me-3"></i>
+                        <div>
+                            <h6 class="mb-1">标注数据集</h6>
+                            <p class="mb-0 small">至少500个三模态标注样本</p>
+                        </div>
+                    </div>
+                    <div class="deliverable-item">
+                        <i class="fas fa-chart-bar text-warning me-3"></i>
+                        <div>
+                            <h6 class="mb-1">模型评测报告</h6>
+                            <p class="mb-0 small">每周性能评估报告</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="deliverable-item">
+                        <i class="fas fa-bug text-warning me-3"></i>
+                        <div>
+                            <h6 class="mb-1">错误案例分析</h6>
+                            <p class="mb-0 small">错误案例文档与改进建议</p>
+                        </div>
+                    </div>
+                    <div class="deliverable-item">
+                        <i class="fas fa-tachometer-alt text-warning me-3"></i>
+                        <div>
+                            <h6 class="mb-1">性能监控看板</h6>
+                            <p class="mb-0 small">实时监控系统性能的Dashboard</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 协作关系 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-handshake me-2"></i>
+                三位工程师的协作关系
+            </h2>
+            
+            <div class="collab-diagram">
+                <div class="text-center mb-4">
+                    <h5>工作流程协作关系图</h5>
+                </div>
+                
+                <div class="phase-timeline">
+                    <div class="phase-item">
+                        <h6><i class="fas fa-upload me-2"></i>阶段1：数据处理与标注</h6>
+                        <p class="small mb-1"><strong>数据工程师主导：</strong>准备标注数据，搭建标注平台</p>
+                        <p class="small mb-0"><strong>算法工程师配合：</strong>提供标注需求和技术指导</p>
+                    </div>
+                    
+                    <div class="phase-item">
+                        <h6><i class="fas fa-code me-2"></i>阶段2：算法模块开发</h6>
+                        <p class="small mb-1"><strong>并行开发：</strong>CV算法工程师开发视觉模块，音频/NLP算法工程师开发音频文本模块</p>
+                        <p class="small mb-0"><strong>数据工程师支持：</strong>提供训练数据，初步模型评测</p>
+                    </div>
+                    
+                    <div class="phase-item">
+                        <h6><i class="fas fa-puzzle-piece me-2"></i>阶段3：模块集成与融合</h6>
+                        <p class="small mb-1"><strong>CV算法工程师主导：</strong>负责多模态融合和风险评估</p>
+                        <p class="small mb-0"><strong>算法工程师配合：</strong>提供音频/文本特征向量</p>
+                        <p class="small mb-0"><strong>数据工程师支持：</strong>评测融合模型效果</p>
+                    </div>
+                    
+                    <div class="phase-item">
+                        <h6><i class="fas fa-chart-line me-2"></i>阶段4：模型优化迭代</h6>
+                        <p class="small mb-1"><strong>数据工程师主导：</strong>分析错误案例，识别改进点</p>
+                        <p class="small mb-0"><strong>算法工程师执行：</strong>根据反馈优化各自模块</p>
+                        <p class="small mb-0"><strong>迭代循环：</strong>形成"开发→测试→反馈→优化"闭环</p>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>关键协作机制：</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li><strong>每周算法评审会：</strong>两位算法工程师展示各自模块进展</li>
+                                <li><strong>数据反馈会：</strong>数据工程师分享评测结果和错误案例</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li><strong>联合调试：</strong>解决多模态融合中的接口问题</li>
+                                <li><strong>标注规范共识：</strong>共同制定和更新标注标准</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    <!-- Footer -->
+    <div class="container mt-5 mb-4">
+        <div class="text-center text-muted">
+            <p class="mb-0">高校内容创作者行为分析平台 V1.0 | 算法与数据工程师详细分工</p>
+            <p class="small">基于《基于多模态深度学习的高校内容创作者行为分析平台》技术方案制定</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -73,21 +73,35 @@ public class MailUtil {
             // 配置邮箱信息
             Properties props = new Properties();
             props.setProperty("mail.smtp.host", smtpHost);
-            props.setProperty("mail.smtp.socketFactory.class", SSL_FACTORY);
-            props.setProperty("mail.smtp.socketFactory.fallback", SOCKET_FACTORY_FALLBACK);
             props.setProperty("mail.smtp.port", SMTP_PORT);
-            props.setProperty("mail.smtp.socketFactory.port", SMTP_PORT);
             props.setProperty("mail.smtp.auth", SMTP_AUTH);
+            
+            // SSL/TLS 配置
+            props.setProperty("mail.smtp.ssl.enable", "true");
+            props.setProperty("mail.smtp.ssl.protocols", "TLSv1.2");
+            props.setProperty("mail.smtp.socketFactory.class", SSL_FACTORY);
+            props.setProperty("mail.smtp.socketFactory.port", SMTP_PORT);
+            props.setProperty("mail.smtp.socketFactory.fallback", SOCKET_FACTORY_FALLBACK);
+            props.setProperty("mail.smtp.ssl.trust", smtpHost);
+            
+            // 超时设置
+            props.setProperty("mail.smtp.connectiontimeout", "10000");
+            props.setProperty("mail.smtp.timeout", "10000");
+            props.setProperty("mail.smtp.writetimeout", "10000");
+            
             // 显式设置发件人地址，确保与认证用户一致（163邮箱要求）
             props.setProperty("mail.smtp.from", from);
 
-            // 建立邮件会话
-            Session session = Session.getDefaultInstance(props, new Authenticator() {
+            // 建立邮件会话 - 使用 getInstance 而非 getDefaultInstance，避免 Session 缓存问题
+            Session session = Session.getInstance(props, new Authenticator() {
                 @Override
                 protected PasswordAuthentication getPasswordAuthentication() {
                     return new PasswordAuthentication(from, password);
                 }
             });
+            
+            // 开启调试模式（生产环境可关闭）
+            // session.setDebug(true);
 
             // 建立邮件对象
             MimeMessage message = new MimeMessage(session);
@@ -101,7 +115,7 @@ public class MailUtil {
 
             // 发送邮件
             Transport.send(message);
-            logger.debug("邮件发送成功: to={}, subject={}", to, subject);
+            logger.info("邮件发送成功: to={}, subject={}", to, subject);
         } catch (MessagingException e) {
             logger.error("邮件发送失败: to={}, subject={}, host={}", to, subject, smtpHost, e);
             throw e;

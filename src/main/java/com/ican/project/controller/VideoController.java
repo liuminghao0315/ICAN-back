@@ -108,9 +108,12 @@ public class VideoController {
     public Result<Page<VideoVO>> getMyVideos(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
+            @Parameter(description = "状态筛选") @RequestParam(required = false) String status,
+            @Parameter(description = "排序字段: gmtCreated, fileSize, title") @RequestParam(defaultValue = "gmtCreated") String sortBy,
+            @Parameter(description = "排序方向: asc, desc") @RequestParam(defaultValue = "desc") String sortOrder,
             @AuthenticationPrincipal MyUserDetails userDetails) {
         
-        Page<VideoVO> result = videoService.getUserVideos(userDetails.getUserId(), page, size);
+        Page<VideoVO> result = videoService.getUserVideos(userDetails.getUserId(), page, size, status, sortBy, sortOrder);
         
         return Result.success(result);
     }

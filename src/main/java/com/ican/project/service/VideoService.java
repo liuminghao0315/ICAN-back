@@ -69,9 +69,12 @@ public interface VideoService {
      * @param userId 用户ID
      * @param page 页码
      * @param size 每页数量
+     * @param status 状态筛选（可选）
+     * @param sortBy 排序字段（gmtCreated, fileSize, title）
+     * @param sortOrder 排序方向（asc, desc）
      * @return 视频列表
      */
-    Page<VideoVO> getUserVideos(String userId, int page, int size);
+    Page<VideoVO> getUserVideos(String userId, int page, int size, String status, String sortBy, String sortOrder);
     
     /**
      * 删除视频

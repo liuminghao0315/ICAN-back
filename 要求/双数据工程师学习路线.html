@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高校内容创作者行为分析平台 | 双数据工程师学习路线</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0052D4;
+            --secondary: #00C9FF;
+            --accent: #F53844;
+            --accent2: #6C63FF;
+            --success: #28a745;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --dark: #1A1A2E;
+            --light: #F5F7FA;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--light) 0%, #e6f0ff 100%);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 2.5rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 25px 25px;
+        }
+
+        .project-title {
+            font-weight: 800;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .learning-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            border-top: 5px solid var(--primary);
+        }
+
+        .week-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--primary);
+        }
+
+        .role-section {
+            margin-bottom: 3rem;
+        }
+
+        .role-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .role-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .phase-timeline {
+            position: relative;
+            padding-left: 2rem;
+            margin: 2rem 0;
+        }
+
+        .phase-timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+        }
+
+        .phase-item {
+            position: relative;
+            margin-bottom: 2rem;
+            padding-left: 1.5rem;
+        }
+
+        .phase-item::before {
+            content: '';
+            position: absolute;
+            left: -0.5rem;
+            top: 0.5rem;
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px var(--primary);
+        }
+
+        .learning-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .week-badge {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 0.5rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .tech-tag {
+            background: rgba(0,82,212,0.1);
+            color: var(--primary);
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            display: inline-block;
+        }
+
+        .resource-item {
+            background: #f0f7ff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .checkpoint {
+            background: linear-gradient(135deg, rgba(40,167,69,0.1) 0%, rgba(40,167,69,0.2) 100%);
+            border-left: 4px solid var(--success);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.6rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .subsection-title {
+            color: var(--dark);
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .collab-section {
+            background: linear-gradient(135deg, rgba(108,99,255,0.05) 0%, rgba(108,99,255,0.1) 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .parallel-timeline {
+            display: flex;
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        .parallel-column {
+            flex: 1;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 0 0.5rem;
+        }
+
+        .parallel-title {
+            text-align: center;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .split-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 1.8rem;
+            }
+            
+            .learning-card {
+                padding: 1.5rem;
+            }
+            
+            .role-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .role-icon {
+                margin-right: 0;
+                margin-bottom: 1rem;
+            }
+            
+            .parallel-timeline {
+                flex-direction: column;
+            }
+            
+            .parallel-column {
+                margin: 0.5rem 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-10">
+                    <h1 class="project-title">高校内容创作者行为分析平台</h1>
+                    <p class="lead mb-0">双数据工程师零基础2个月学习路线计划</p>
+                    <p>针对算法工程师（2人）与数据工程师（2人） | 从0开始的8周学习指南</p>
+                </div>
+                <div class="col-lg-2 text-center">
+                    <i class="fas fa-database fa-4x" style="opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 学习计划概览 -->
+        <div class="learning-card">
+            <h2 class="section-title">📚 双数据工程师学习路线总览</h2>
+            
+            <div class="phase-timeline">
+                <div class="phase-item">
+                    <h4><span class="week-badge">第1-3周</span> 基础共同学习阶段</h4>
+                    <p>两名数据工程师与算法工程师一起学习Python编程、数据结构、Git版本控制、数据分析基础，建立统一的开发环境。</p>
+                    <div class="row mt-2">
+                        <div class="col-md-3">
+                            <div class="tech-tag">Python基础</div>
+                            <div class="tech-tag">Git/GitHub</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="tech-tag">Jupyter Notebook</div>
+                            <div class="tech-tag">NumPy</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="tech-tag">Pandas</div>
+                            <div class="tech-tag">数据可视化</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="tech-tag">SQL基础</div>
+                            <div class="tech-tag">数据清洗</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="phase-item">
+                    <h4><span class="week-badge" style="background:linear-gradient(135deg, var(--secondary) 0%, var(--info) 100%);">第4-5周</span> 数据专项技能分方向学习</h4>
+                    <p>两名数据工程师开始分工，数据工程师A侧重数据管理与标注，数据工程师B侧重模型评估与监控。</p>
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <div class="tech-tag" style="background:rgba(245,56,68,0.1);color:#F53844;">数据标注工具</div>
+                            <div class="tech-tag" style="background:rgba(245,56,68,0.1);color:#F53844;">数据质量评估</div>
+                            <div class="tech-tag" style="background:rgba(245,56,68,0.1);color:#F53844;">数据预处理</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="tech-tag" style="background:rgba(108,99,255,0.1);color:#6C63FF;">模型评估指标</div>
+                            <div class="tech-tag" style="background:rgba(108,99,255,0.1);color:#6C63FF;">A/B测试</div>
+                            <div class="tech-tag" style="background:rgba(108,99,255,0.1);color:#6C63FF;">性能监控</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="phase-item">
+                    <h4><span class="week-badge" style="background:linear-gradient(135deg, var(--accent) 0%, #ff6b6b 100%);">第6-8周</span> 项目实践与协作整合</h4>
+                    <p>数据工程师A负责搭建标注平台和准备数据，数据工程师B负责模型评估体系，两人协作完成数据闭环。</p>
+                    <div class="row mt-2">
+                        <div class="col-md-4">
+                            <div class="tech-tag" style="background:rgba(245,56,68,0.1);color:#F53844;">标注平台部署</div>
+                            <div class="tech-tag" style="background:rgba(245,56,68,0.1);color:#F53844;">数据集构建</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="tech-tag" style="background:rgba(108,99,255,0.1);color:#6C63FF;">模型评测实践</div>
+                            <div class="tech-tag" style="background:rgba(108,99,255,0.1);color:#6C63FF;">错误分析</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="tech-tag" style="background:rgba(40,167,69,0.1);color:#28a745;">数据闭环协作</div>
+                            <div class="tech-tag" style="background:rgba(40,167,69,0.1);color:#28a745;">成果展示</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 并行学习路线展示 -->
+        <div class="learning-card">
+            <h2 class="section-title">📊 双数据工程师并行学习路线</h2>
+            
+            <div class="parallel-timeline">
+                <div class="parallel-column" style="background:rgba(245,56,68,0.05); border:1px solid rgba(245,56,68,0.2);">
+                    <h4 class="parallel-title" style="color:#F53844;">数据工程师A：数据管理与标注</h4>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#F53844;"></i>第1-3周：共同基础</h6>
+                        <ul class="small">
+                            <li>Python编程与数据分析基础</li>
+                            <li>Pandas数据清洗与处理</li>
+                            <li>SQL数据库基础操作</li>
+                            <li>Git团队协作开发</li>
+                            <li>数据可视化基础</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#F53844;"></i>第4-5周：数据标注专项</h6>
+                        <ul class="small">
+                            <li>Label-Studio标注工具使用</li>
+                            <li>多模态数据标注规范制定</li>
+                            <li>数据质量评估方法</li>
+                            <li>数据增强技术基础</li>
+                            <li>主动学习概念理解</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#F53844;"></i>第6-7周：数据平台搭建</h6>
+                        <ul class="small">
+                            <li>标注平台部署与配置</li>
+                            <li>多模态数据集构建</li>
+                            <li>数据版本控制方法</li>
+                            <li>数据预处理流水线</li>
+                            <li>与算法团队数据对接</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#F53844;"></i>第8周：项目实践</h6>
+                        <ul class="small">
+                            <li>搭建完整标注环境</li>
+                            <li>准备训练/测试数据集</li>
+                            <li>数据质量检查与报告</li>
+                            <li>根据评估反馈优化数据</li>
+                            <li>标注文档编写</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="parallel-column" style="background:rgba(108,99,255,0.05); border:1px solid rgba(108,99,255,0.2);">
+                    <h4 class="parallel-title" style="color:#6C63FF;">数据工程师B：模型评估与监控</h4>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#6C63FF;"></i>第1-3周：共同基础</h6>
+                        <ul class="small">
+                            <li>Python编程与数据分析基础</li>
+                            <li>Pandas数据清洗与处理</li>
+                            <li>SQL数据库基础操作</li>
+                            <li>Git团队协作开发</li>
+                            <li>数据可视化基础</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#6C63FF;"></i>第4-5周：评估专项</h6>
+                        <ul class="small">
+                            <li>机器学习评估指标深入</li>
+                            <li>混淆矩阵与错误分析</li>
+                            <li>A/B测试基本原理</li>
+                            <li>实验设计方法</li>
+                            <li>Weights & Biases工具基础</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#6C63FF;"></i>第6-7周：评估体系构建</h6>
+                        <ul class="small">
+                            <li>多模态评估指标体系设计</li>
+                            <li>评估流水线开发</li>
+                            <li>错误案例分析方法</li>
+                            <li>性能监控指标定义</li>
+                            <li>评估报告模板设计</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="split-card">
+                        <h6><i class="fas fa-calendar-week me-2" style="color:#6C63FF;"></i>第8周：项目实践</h6>
+                        <ul class="small">
+                            <li>评估团队算法模型</li>
+                            <li>生成模型评估报告</li>
+                            <li>进行错误案例分析</li>
+                            <li>提供优化建议</li>
+                            <li>评估文档编写</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据工程师A：数据管理与标注 -->
+        <div class="learning-card">
+            <div class="role-header">
+                <div class="role-icon" style="background:linear-gradient(135deg, #F53844 0%, #ff6b6b 100%);">
+                    <i class="fas fa-tags"></i>
+                </div>
+                <div>
+                    <h2 class="section-title mb-0">数据工程师A：数据管理与标注专家</h2>
+                    <p class="mb-0">负责数据收集、清洗、标注、质量控制和数据集构建</p>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week text-danger me-2"></i>第1-2周：编程与数据基础（共同学习）</h5>
+                        <ul class="small">
+                            <li><strong>Python编程基础</strong>：语法、函数、面向对象</li>
+                            <li><strong>Pandas数据分析</strong>：数据清洗、转换、合并</li>
+                            <li><strong>数据可视化</strong>：Matplotlib、Seaborn基础</li>
+                            <li><strong>SQL基础</strong>：查询、连接、聚合</li>
+                            <li><strong>Git与GitHub</strong>：版本控制与团队协作</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能用Pandas处理数据集，制作简单可视化图表，完成SQL基础查询
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week text-danger me-2"></i>第3周：机器学习基础与多模态数据理解</h5>
+                        <ul class="small">
+                            <li><strong>Scikit-learn基础</strong>：了解常用算法原理</li>
+                            <li><strong>模型评估指标</strong>：准确率、召回率、F1等</li>
+                            <li><strong>多模态数据特点</strong>：视频、音频、文本数据格式</li>
+                            <li><strong>数据标注概念</strong>：标注类型、标注流程</li>
+                            <li><strong>与算法团队沟通</strong>：理解模型数据需求</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能解释基本评估指标，理解多模态数据特点
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week text-danger me-2"></i>第4周：数据标注工具与实践</h5>
+                        <ul class="small">
+                            <li><strong>Label-Studio使用</strong>：安装、配置、项目创建</li>
+                            <li><strong>标注规范制定</strong>：设计标签体系</li>
+                            <li><strong>多模态标注实践</strong>：图像、文本、音频标注</li>
+                            <li><strong>数据质量控制</strong>：一致性检查、标注员管理</li>
+                            <li><strong>数据标注伦理</strong>：隐私保护、数据安全</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能使用Label-Studio创建和管理标注项目
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week text-danger me-2"></i>第5周：数据预处理与增强</h5>
+                        <ul class="small">
+                            <li><strong>数据清洗流程</strong>：处理缺失值、异常值</li>
+                            <li><strong>数据增强技术</strong>：图像增强、文本增强</li>
+                            <li><strong>数据版本控制</strong>：DVC工具基础</li>
+                            <li><strong>数据拆分策略</strong>：训练/验证/测试集划分</li>
+                            <li><strong>数据标注迭代</strong>：基于模型反馈优化数据</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能实现数据清洗和增强流程
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week text-danger me-2"></i>第6周：标注平台搭建与优化</h5>
+                        <ul class="small">
+                            <li><strong>标注平台部署</strong>：服务器配置、Docker基础</li>
+                            <li><strong>自动化标注辅助</strong>：预标注、主动学习集成</li>
+                            <li><strong>多模态数据管理</strong>：视频、音频、文本统一管理</li>
+                            <li><strong>数据流水线设计</strong>：从原始数据到训练集</li>
+                            <li><strong>标注效率提升</strong>：快捷键、批量操作</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能部署和管理标注平台
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week text-danger me-2"></i>第7周：数据集构建与质量控制</h5>
+                        <ul class="small">
+                            <li><strong>数据集设计</strong>：平衡性、代表性考虑</li>
+                            <li><strong>数据质量评估</strong>：制定质量指标</li>
+                            <li><strong>标注一致性检查</strong>：Kappa系数计算</li>
+                            <li><strong>数据文档编写</strong>：数据卡片、使用说明</li>
+                            <li><strong>与评估工程师协作</strong>：提供测试数据集</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能构建高质量数据集并编写文档
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-2">
+                <div class="col-md-12">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week text-danger me-2"></i>第8周：项目实践与团队协作</h5>
+                        <ul class="small">
+                            <li><strong>项目数据集构建</strong>：为高校内容分析准备数据</li>
+                            <li><strong>标注任务分配</strong>：与团队协作完成标注</li>
+                            <li><strong>数据质量监控</strong>：实时监控标注质量</li>
+                            <li><strong>数据迭代优化</strong>：根据评估反馈改进数据</li>
+                            <li><strong>成果展示准备</strong>：数据准备流程演示</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 完成项目所需数据集准备，支持算法团队开发
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h5 class="subsection-title">📚 学习资源推荐</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="resource-item">
+                            <h6><i class="fas fa-database me-2 text-danger"></i>数据管理</h6>
+                            <p class="small mb-1">1. 《利用Python进行数据分析》</p>
+                            <p class="small mb-1">2. SQL必知必会</p>
+                            <p class="small mb-0">3. 数据清洗最佳实践</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="resource-item">
+                            <h6><i class="fas fa-tags me-2 text-danger"></i>数据标注</h6>
+                            <p class="small mb-1">1. Label-Studio官方文档</p>
+                            <p class="small mb-1">2. 数据标注质量控制方法</p>
+                            <p class="small mb-0">3. 主动学习基础教程</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="resource-item">
+                            <h6><i class="fas fa-tools me-2 text-danger"></i>工具与平台</h6>
+                            <p class="small mb-1">1. DVC数据版本控制</p>
+                            <p class="small mb-1">2. Docker基础入门</p>
+                            <p class="small mb-0">3. 数据流水线设计模式</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据工程师B：模型评估与监控 -->
+        <div class="learning-card">
+            <div class="role-header">
+                <div class="role-icon" style="background:linear-gradient(135deg, #6C63FF 0%, #9d97ff 100%);">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <h2 class="section-title mb-0">数据工程师B：模型评估与监控专家</h2>
+                    <p class="mb-0">负责模型评估、性能监控、错误分析和优化建议</p>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week" style="color:#6C63FF;" class="me-2"></i>第1-2周：编程与数据基础（共同学习）</h5>
+                        <ul class="small">
+                            <li><strong>Python编程基础</strong>：语法、函数、面向对象</li>
+                            <li><strong>Pandas数据分析</strong>：数据清洗、转换、分析</li>
+                            <li><strong>数据可视化</strong>：Matplotlib、Seaborn深入</li>
+                            <li><strong>SQL基础</strong>：查询、连接、聚合</li>
+                            <li><strong>Git与GitHub</strong>：版本控制与团队协作</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能用Pandas进行复杂数据分析，制作专业可视化图表
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week" style="color:#6C63FF;" class="me-2"></i>第3周：机器学习评估基础</h5>
+                        <ul class="small">
+                            <li><strong>Scikit-learn评估模块</strong>：交叉验证、评估函数</li>
+                            <li><strong>分类评估指标</strong>：精确率、召回率、F1、AUC</li>
+                            <li><strong>回归评估指标</strong>：MSE、MAE、R²</li>
+                            <li><strong>混淆矩阵分析</strong>：解读与可视化</li>
+                            <li><strong>多模态评估特点</strong>：不同模态的评估差异</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能计算和解释各种评估指标
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week" style="color:#6C63FF;" class="me-2"></i>第4周：实验设计与A/B测试</h5>
+                        <ul class="small">
+                            <li><strong>实验设计原则</strong>：对照组、随机分配</li>
+                            <li><strong>A/B测试基础</strong>：假设检验、显著性检验</li>
+                            <li><strong>评估工具使用</strong>：Weights & Biases入门</li>
+                            <li><strong>评估流水线设计</strong>：自动化评估流程</li>
+                            <li><strong>多模型比较</strong>：统计显著性检验</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能设计简单的A/B测试实验
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week" style="color:#6C63FF;" class="me-2"></i>第5周：错误分析与模型诊断</h5>
+                        <ul class="small">
+                            <li><strong>错误分类方法</strong>：系统性错误、随机错误</li>
+                            <li><strong>错误案例收集</strong>：构建错误案例库</li>
+                            <li><strong>模型诊断工具</strong>：SHAP、LIME简介</li>
+                            <li><strong>评估报告编写</strong>：结构清晰、可视化丰富</li>
+                            <li><strong>与数据工程师协作</strong>：提供数据改进建议</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能进行错误分析并生成诊断报告
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week" style="color:#6C63FF;" class="me-2"></i>第6周：多模态评估体系构建</h5>
+                        <ul class="small">
+                            <li><strong>多模态评估指标设计</strong>：综合评估方案</li>
+                            <li><strong>评估流水线开发</strong>：自动化评估脚本</li>
+                            <li><strong>评估可视化仪表板</strong>：实时监控视图</li>
+                            <li><strong>评估基准建立</strong>：基线模型性能</li>
+                            <li><strong>与算法团队协作</strong>：理解模型技术细节</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能设计多模态评估体系
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week" style="color:#6C63FF;" class="me-2"></i>第7周：性能监控与告警系统</h5>
+                        <ul class="small">
+                            <li><strong>性能监控指标</strong>：延迟、吞吐量、准确率</li>
+                            <li><strong>监控工具基础</strong>：Prometheus、Grafana简介</li>
+                            <li><strong>告警规则设计</strong>：阈值设置、告警策略</li>
+                            <li><strong>性能衰退检测</strong>：概念漂移、数据漂移</li>
+                            <li><strong>监控仪表板创建</strong>：关键指标可视化</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 能设置基础性能监控和告警
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-2">
+                <div class="col-md-12">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-week" style="color:#6C63FF;" class="me-2"></i>第8周：项目实践与团队协作</h5>
+                        <ul class="small">
+                            <li><strong>项目模型评估</strong>：评估CV和NLP算法模型</li>
+                            <li><strong>生成评估报告</strong>：全面分析模型性能</li>
+                            <li><strong>错误案例分析</strong>：识别模型问题并提供建议</li>
+                            <li><strong>与数据工程师协作</strong>：反馈数据质量问题</li>
+                            <li><strong>成果展示准备</strong>：评估结果演示与解释</li>
+                        </ul>
+                        <div class="checkpoint">
+                            <strong>检查点：</strong> 完成全面模型评估报告，提供优化建议
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h5 class="subsection-title">📚 学习资源推荐</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="resource-item">
+                            <h6><i class="fas fa-chart-bar me-2" style="color:#6C63FF;"></i>评估方法</h6>
+                            <p class="small mb-1">1. 机器学习模型评估方法</p>
+                            <p class="small mb-1">2. A/B测试实战指南</p>
+                            <p class="small mb-0">3. 统计假设检验基础</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="resource-item">
+                            <h6><i class="fas fa-bug me-2" style="color:#6C63FF;"></i>错误分析</h6>
+                            <p class="small mb-1">1. 模型诊断与解释性方法</p>
+                            <p class="small mb-1">2. 错误案例分析方法论</p>
+                            <p class="small mb-0">3. SHAP与LIME工具教程</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="resource-item">
+                            <h6><i class="fas fa-desktop me-2" style="color:#6C63FF;"></i>监控工具</h6>
+                            <p class="small mb-1">1. Weights & Biases官方教程</p>
+                            <p class="small mb-1">2. Prometheus监控入门</p>
+                            <p class="small mb-0">3. Grafana仪表板设计</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 双数据工程师协作计划 -->
+        <div class="learning-card">
+            <h2 class="section-title">🤝 双数据工程师协作学习计划</h2>
+            
+            <div class="collab-section">
+                <h5><i class="fas fa-handshake me-2"></i>数据团队内部协作机制</h5>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="learning-item">
+                            <div class="learning-icon" style="background:rgba(245,56,68,0.1); color:#F53844;">
+                                <i class="fas fa-sync-alt"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">周二：数据质量对齐会</h6>
+                                <p class="small mb-0">数据工程师A分享标注进展和质量问题，B提供评估反馈</p>
+                            </div>
+                        </div>
+                        
+                        <div class="learning-item">
+                            <div class="learning-icon" style="background:rgba(108,99,255,0.1); color:#6C63FF;">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">周四：评估结果同步会</h6>
+                                <p class="small mb-0">数据工程师B分享模型评估结果，A根据反馈优化数据标注</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="learning-item">
+                            <div class="learning-icon" style="background:rgba(0,82,212,0.1); color:#0052D4;">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">数据闭环工作流</h6>
+                                <p class="small mb-0">A准备数据 → 算法团队训练模型 → B评估模型 → A优化数据</p>
+                            </div>
+                        </div>
+                        
+                        <div class="learning-item">
+                            <div class="learning-icon" style="background:rgba(40,167,69,0.1); color:#28a745;">
+                                <i class="fas fa-clipboard-check"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">联合检查点评审</h6>
+                                <p class="small mb-0">每周日共同评审数据质量和评估结果，确保项目进度</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-calendar-alt me-2 text-primary"></i>关键协作时间点</h5>
+                        <ul class="small">
+                            <li><strong>第3周末：</strong>共同完成多模态数据理解测试</li>
+                            <li><strong>第5周末：</strong>A提供第一批标注数据，B设计评估方案</li>
+                            <li><strong>第6周末：</strong>B评估算法团队初步模型，A根据反馈优化数据</li>
+                            <li><strong>第8周末：</strong>联合准备数据与评估报告，展示完整数据闭环</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <h5><i class="fas fa-lightbulb me-2 text-warning"></i>协作成功关键</h5>
+                        <ul class="small">
+                            <li><strong>数据质量标准统一：</strong>制定共同认可的质量指标</li>
+                            <li><strong>沟通频率固定：</strong>保持每日简短沟通，每周深入讨论</li>
+                            <li><strong>工具与流程标准化：</strong>使用相同的数据格式和评估工具</li>
+                            <li><strong>互相学习：</strong>A向B学习评估思维，B向A学习数据特性</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-graduation-cap me-2"></i>
+                <strong>学习建议：</strong> 两位数据工程师在前3周应保持紧密同步学习，确保基础一致。从第4周开始分工后，每周至少进行2次正式协作会议，确保数据准备和评估工作无缝衔接。
+            </div>
+        </div>
+
+        <!-- 学习成果预期 -->
+        <div class="learning-card">
+            <h2 class="section-title">🎯 2个月学习成果预期</h2>
+            
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <div class="p-3">
+                        <i class="fas fa-tags fa-3x text-danger mb-3"></i>
+                        <h5>数据工程师A</h5>
+                        <div class="mt-3 text-start">
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>掌握Label-Studio标注平台</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>构建多模态数据集</p>
+                            <p class="fas fa-check-circle text-success me-2"></i>设计数据质量控制流程</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>与评估工程师高效协作</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 text-center">
+                    <div class="p-3">
+                        <i class="fas fa-chart-line fa-3x" style="color:#6C63FF;" class="mb-3"></i>
+                        <h5>数据工程师B</h5>
+                        <div class="mt-3 text-start">
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>掌握模型评估指标体系</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>实现A/B测试与错误分析</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>构建性能监控仪表板</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>提供数据优化建议</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 text-center">
+                    <div class="p-3">
+                        <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                        <h5>团队协作成果</h5>
+                        <div class="mt-3 text-start">
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>建立完整数据闭环流程</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>实现数据与评估高效协作</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>支持算法团队快速迭代</p>
+                            <p class="small"><i class="fas fa-check-circle text-success me-2"></i>提升项目整体数据质量</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-3 bg-light rounded">
+                <h6><i class="fas fa-rocket me-2"></i>团队综合成果</h6>
+                <p class="mb-2">经过2个月学习，数据团队将具备以下能力：</p>
+                <ul class="mb-0">
+                    <li>能够协作完成高质量多模态数据集构建</li>
+                    <li>建立完整的模型评估与监控体系</li>
+                    <li>实现数据准备→模型训练→评估反馈的完整闭环</li>
+                    <li>为算法团队提供可靠的数据支持和评估指导</li>
+                    <li>为后续大规模项目开发打下坚实的数据基础</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

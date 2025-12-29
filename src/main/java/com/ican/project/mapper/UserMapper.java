@@ -25,4 +25,18 @@ public interface UserMapper extends BaseMapper<User> {
      * @return 插入的记录数
      */
     int insertUserRole(@Param("id") String id, @Param("userId") String userId, @Param("roleId") String roleId);
+    
+    /**
+     * 增加用户分析次数（+1）
+     * @param userId 用户ID
+     * @return 更新的记录数
+     */
+    int incrementAnalysisCount(@Param("userId") String userId);
+    
+    /**
+     * 获取用户分析次数
+     * @param userId 用户ID
+     * @return 分析次数
+     */
+    Integer getAnalysisCount(@Param("userId") String userId);
 }

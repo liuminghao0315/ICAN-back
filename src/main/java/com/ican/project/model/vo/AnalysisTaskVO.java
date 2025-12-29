@@ -1,0 +1,74 @@
+package com.ican.project.model.vo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+/**
+ * 分析任务VO
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "分析任务信息")
+public class AnalysisTaskVO {
+    
+    @Schema(description = "任务ID")
+    private String id;
+    
+    @Schema(description = "视频ID")
+    private String videoId;
+    
+    @Schema(description = "视频标题")
+    private String videoTitle;
+    
+    @Schema(description = "视频URL")
+    private String videoUrl;
+    
+    @Schema(description = "任务类型: FULL_ANALYSIS/VIDEO_ONLY/AUDIO_ONLY/TEXT_ONLY")
+    private String taskType;
+    
+    @Schema(description = "任务状态: PENDING/PROCESSING/COMPLETED/FAILED/CANCELLED")
+    private String status;
+    
+    @Schema(description = "处理进度(0-100)")
+    private Integer progress;
+    
+    @Schema(description = "错误信息")
+    private String errorMessage;
+    
+    @Schema(description = "开始处理时间")
+    private LocalDateTime startedAt;
+    
+    @Schema(description = "完成时间")
+    private LocalDateTime completedAt;
+    
+    @Schema(description = "创建时间")
+    private LocalDateTime gmtCreated;
+    
+    @Schema(description = "是否有分析结果")
+    private Boolean hasResult;
+    
+    @Schema(description = "分析结果ID（如果已完成）")
+    private String resultId;
+    
+    // ======== 分析结果摘要信息（已完成任务显示） ========
+    
+    @Schema(description = "风险评分(0-1)")
+    private Double riskScore;
+    
+    @Schema(description = "风险等级: LOW/MEDIUM/HIGH")
+    private String riskLevel;
+    
+    @Schema(description = "情感标签: POSITIVE/NEUTRAL/NEGATIVE")
+    private String sentimentLabel;
+    
+    @Schema(description = "视频时长（秒）")
+    private Double videoDuration;
+}
+

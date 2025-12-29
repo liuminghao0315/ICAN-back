@@ -20,7 +20,9 @@ public class NotFilterPaths {
             "/auth/",
             "/test/",
             "/swagger-ui/",
-            "/v3/api-docs/"
+            "/v3/api-docs/",
+            "/ws/",                    // WebSocket路径
+            "/api/algorithm/"          // 算法回调路径（生产环境应加安全验证）
     };
     public String[] startWithPathsInConfig;
 

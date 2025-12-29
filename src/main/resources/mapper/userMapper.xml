@@ -21,5 +21,18 @@
         INSERT INTO `relate_user_role` (id, user_id, role_id)
         VALUES (#{id}, #{userId}, #{roleId})
     </insert>
+    
+    <!-- 增加用户分析次数 -->
+    <update id="incrementAnalysisCount">
+        UPDATE `user` 
+        SET analysis_count = IFNULL(analysis_count, 0) + 1,
+            gmt_modified = NOW()
+        WHERE id = #{userId}
+    </update>
+    
+    <!-- 获取用户分析次数 -->
+    <select id="getAnalysisCount" resultType="java.lang.Integer">
+        SELECT IFNULL(analysis_count, 0) FROM `user` WHERE id = #{userId}
+    </select>
 
 </mapper>

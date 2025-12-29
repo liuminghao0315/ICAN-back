@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高校内容创作者行为分析平台 V2.0 | 6个月迭代方案</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0052D4;
+            --secondary: #00C9FF;
+            --accent: #F53844;
+            --success: #28a745;
+            --dark: #1A1A2E;
+            --light: #F5F7FA;
+            --v2-color: #9C27B0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--light) 0%, #e6f0ff 100%);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 30px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .v2-header {
+            background: linear-gradient(135deg, var(--v2-color) 0%, #E040FB 100%);
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .project-title {
+            font-weight: 800;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .version-badge {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .v2-badge {
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+
+        .section-card {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .section-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .v2-section-title {
+            color: var(--v2-color);
+        }
+
+        .roadmap-container {
+            position: relative;
+            margin: 3rem 0;
+        }
+
+        .roadmap-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(to bottom, var(--primary), var(--v2-color));
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        .roadmap-item {
+            display: flex;
+            margin-bottom: 3rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .roadmap-item:nth-child(odd) {
+            flex-direction: row;
+        }
+
+        .roadmap-item:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .roadmap-content {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            border-top: 5px solid var(--primary);
+        }
+
+        .roadmap-item:nth-child(2) .roadmap-content {
+            border-top-color: var(--success);
+        }
+
+        .roadmap-item:nth-child(3) .roadmap-content {
+            border-top-color: var(--v2-color);
+        }
+
+        .roadmap-item:nth-child(4) .roadmap-content {
+            border-top-color: var(--accent);
+        }
+
+        .roadmap-item:nth-child(5) .roadmap-content {
+            border-top-color: #FF9800;
+        }
+
+        .roadmap-item:nth-child(6) .roadmap-content {
+            border-top-color: #2196F3;
+        }
+
+        .roadpoint {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--dark);
+            box-shadow: 0 0 0 5px rgba(0,82,212,0.2);
+            margin: 0 2rem;
+            flex-shrink: 0;
+            z-index: 3;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .tech-item {
+            background: linear-gradient(135deg, rgba(0,201,255,0.1) 0%, rgba(0,82,212,0.1) 100%);
+            padding: 1.5rem;
+            border-radius: 15px;
+            border: 1px solid rgba(0,82,212,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .tech-item:hover {
+            background: linear-gradient(135deg, rgba(0,201,255,0.2) 0%, rgba(0,82,212,0.2) 100%);
+            transform: scale(1.02);
+        }
+
+        .v2-tech-item {
+            background: linear-gradient(135deg, rgba(156,39,176,0.1) 0%, rgba(224,64,251,0.1) 100%);
+            border: 1px solid rgba(156,39,176,0.3);
+        }
+
+        .tech-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .v2-tech-icon {
+            background: linear-gradient(135deg, var(--v2-color) 0%, #E040FB 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 5px solid var(--primary);
+            transition: all 0.3s ease;
+        }
+
+        .v2-feature-card {
+            border-left-color: var(--v2-color);
+        }
+
+        .feature-card:hover {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            transform: translateY(-3px);
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .comparison-table th {
+            background: var(--primary);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .comparison-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .v2-column {
+            background: rgba(156,39,176,0.05) !important;
+        }
+
+        .v2-column th {
+            background: var(--v2-color);
+        }
+
+        .milestone {
+            background: linear-gradient(135deg, rgba(245,56,68,0.1) 0%, rgba(245,56,68,0.2) 100%);
+            border-left: 5px solid var(--accent);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-v2 {
+            background: linear-gradient(135deg, var(--v2-color) 0%, #E040FB 100%);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,82,212,0.4);
+        }
+
+        .btn-v2:hover {
+            box-shadow: 0 5px 15px rgba(156,39,176,0.4);
+        }
+
+        .footer {
+            background: var(--dark);
+            color: white;
+            padding: 3rem 0;
+            margin-top: 3rem;
+            border-radius: 30px 30px 0 0;
+        }
+
+        .v2-highlight {
+            background: linear-gradient(120deg, rgba(156,39,176,0.1) 0%, transparent 100%);
+            border-radius: 10px;
+            padding: 1rem;
+            border-left: 4px solid var(--v2-color);
+        }
+
+        @media (max-width: 768px) {
+            .project-title {
+                font-size: 2rem;
+            }
+            
+            .tech-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .roadmap-line {
+                left: 30px;
+            }
+            
+            .roadmap-item {
+                flex-direction: row !important;
+            }
+            
+            .roadpoint {
+                margin: 0 1rem 0 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header v2-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <div class="version-badge v2-badge">V2.0 增强版 | 6个月迭代方案</div>
+                    <h1 class="project-title">高校内容创作者行为分析平台</h1>
+                    <p class="lead">从本地分析到全网监测的智能升级方案</p>
+                    <p class="mb-0">V1.0已完成基础功能，V2.0将扩展为全网智能监测预警系统</p>
+                </div>
+                <div class="col-lg-4 text-center mt-4 mt-lg-0">
+                    <i class="fas fa-rocket fa-8x" style="opacity: 0.2;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 版本对比 -->
+        <div class="section-card">
+            <h2 class="section-title v2-section-title">
+                <i class="fas fa-code-branch"></i>
+                V1.0 到 V2.0：核心升级对比
+            </h2>
+            
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>功能维度</th>
+                        <th>V1.0 基础版</th>
+                        <th class="v2-column">V2.0 增强版</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>数据来源</strong></td>
+                        <td>本地视频上传</td>
+                        <td class="v2-column"><strong>全网平台自动采集</strong> (B站、小红书、抖音等)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>分析范围</strong></td>
+                        <td>单视频内容分析</td>
+                        <td class="v2-column"><strong>创作者全周期行为追踪</strong> (历史作品、互动数据)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>预警机制</strong></td>
+                        <td>基于内容的风险评估</td>
+                        <td class="v2-column"><strong>实时动态预警 + 趋势预测</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>处理能力</strong></td>
+                        <td>单任务处理</td>
+                        <td class="v2-column"><strong>分布式并发处理</strong> (支持批量分析)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>可视化</strong></td>
+                        <td>基础报告生成</td>
+                        <td class="v2-column"><strong>交互式数据大屏 + 时间轴追踪</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>部署方式</strong></td>
+                        <td>单机/本地部署</td>
+                        <td class="v2-column"><strong>云原生架构 + 微服务</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 6个月迭代路线图 -->
+        <div class="section-card">
+            <h2 class="section-title v2-section-title">
+                <i class="fas fa-map-marked-alt"></i>
+                6个月迭代路线图
+            </h2>
+            
+            <div class="roadmap-container">
+                <div class="roadmap-line"></div>
+                
+                <!-- 第1个月 -->
+                <div class="roadmap-item">
+                    <div class="roadmap-content">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-primary rounded-pill me-2">第1个月</span>
+                            <h5 class="mb-0">架构升级与数据源扩展</h5>
+                        </div>
+                        <ul>
+                            <li>微服务架构改造，引入Docker容器化</li>
+                            <li>B站API接入与数据爬取模块开发</li>
+                            <li>小红书内容解析引擎搭建</li>
+                            <li>分布式任务队列系统设计</li>
+                        </ul>
+                        <div class="v2-highlight mt-2">
+                            <strong>技术重点：</strong> Flask/FastAPI微服务，Redis任务队列，反爬策略
+                        </div>
+                    </div>
+                    <div class="roadpoint">1</div>
+                    <div></div>
+                </div>
+                
+                <!-- 第2个月 -->
+                <div class="roadmap-item">
+                    <div></div>
+                    <div class="roadpoint">2</div>
+                    <div class="roadmap-content">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-success rounded-pill me-2">第2个月</span>
+                            <h5 class="mb-0">创作者全景画像系统</h5>
+                        </div>
+                        <ul>
+                            <li>跨平台创作者身份识别与关联</li>
+                            <li>创作者影响力评估模型开发</li>
+                            <li>粉丝互动行为分析模块</li>
+                            <li>内容发布规律挖掘算法</li>
+                        </ul>
+                        <div class="v2-highlight mt-2">
+                            <strong>技术重点：</strong> 图神经网络(GNN)用于身份关联，时间序列分析
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 第3个月 -->
+                <div class="roadmap-item">
+                    <div class="roadmap-content">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-purple rounded-pill me-2">第3个月</span>
+                            <h5 class="mb-0">实时流媒体分析</h5>
+                        </div>
+                        <ul>
+                            <li>直播流实时采集与处理框架</li>
+                            <li>实时弹幕/评论情感分析引擎</li>
+                            <li>直播内容风险实时监测</li>
+                            <li>流媒体存储与回放系统</li>
+                        </ul>
+                        <div class="v2-highlight mt-2">
+                            <strong>技术重点：</strong> WebSocket实时通信，流处理框架，实时NLP
+                        </div>
+                    </div>
+                    <div class="roadpoint">3</div>
+                    <div></div>
+                </div>
+                
+                <!-- 第4个月 -->
+                <div class="roadmap-item">
+                    <div></div>
+                    <div class="roadpoint">4</div>
+                    <div class="roadmap-content">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-danger rounded-pill me-2">第4个月</span>
+                            <h5 class="mb-0">智能预警与预测系统</h5>
+                        </div>
+                        <ul>
+                            <li>风险传播趋势预测模型</li>
+                            <li>多级预警策略配置系统</li>
+                            <li>智能推送与通知机制</li>
+                            <li>预警反馈学习闭环</li>
+                        </ul>
+                        <div class="v2-highlight mt-2">
+                            <strong>技术重点：</strong> 时间序列预测(LSTM/Prophet)，多通道通知系统
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 第5个月 -->
+                <div class="roadmap-item">
+                    <div class="roadmap-content">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-warning rounded-pill me-2">第5个月</span>
+                            <h5 class="mb-0">可视化大屏与报告系统</h5>
+                        </div>
+                        <ul>
+                            <li>交互式数据可视化大屏开发</li>
+                            <li>自动生成多维度分析报告</li>
+                            <li>创作者时间轴追踪视图</li>
+                            <li>移动端适配与响应式设计</li>
+                        </ul>
+                        <div class="v2-highlight mt-2">
+                            <strong>技术重点：</strong> ECharts/D3.js可视化，PDF自动生成，移动优先设计
+                        </div>
+                    </div>
+                    <div class="roadpoint">5</div>
+                    <div></div>
+                </div>
+                
+                <!-- 第6个月 -->
+                <div class="roadmap-item">
+                    <div></div>
+                    <div class="roadpoint">6</div>
+                    <div class="roadmap-content">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-info rounded-pill me-2">第6个月</span>
+                            <h5 class="mb-0">系统集成与性能优化</h5>
+                        </div>
+                        <ul>
+                            <li>全系统集成与压力测试</li>
+                            <li>性能调优与缓存策略优化</li>
+                            <li>安全加固与权限系统完善</li>
+                            <li>部署文档与运维手册编写</li>
+                        </ul>
+                        <div class="v2-highlight mt-2">
+                            <strong>技术重点：</strong> 性能监控(Prometheus)，自动化测试，安全审计
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- V2.0 核心技术栈 -->
+        <div class="section-card">
+            <h2 class="section-title v2-section-title">
+                <i class="fas fa-microchip"></i>
+                V2.0 核心技术栈升级
+            </h2>
+            
+            <div class="tech-grid">
+                <div class="tech-item v2-tech-item">
+                    <div class="tech-icon v2-tech-icon">
+                        <i class="fas fa-cloud"></i>
+                    </div>
+                    <h5>云原生架构</h5>
+                    <p><strong>技术栈：</strong>Docker, Kubernetes, Helm</p>
+                    <p><strong>功能：</strong>弹性伸缩、服务发现、持续部署</p>
+                </div>
+                
+                <div class="tech-item v2-tech-item">
+                    <div class="tech-icon v2-tech-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h5>高级AI模型</h5>
+                    <p><strong>技术栈：</strong>Transformers, GNN, LSTM</p>
+                    <p><strong>功能：</strong>跨平台身份识别、趋势预测</p>
+                </div>
+                
+                <div class="tech-item v2-tech-item">
+                    <div class="tech-icon v2-tech-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h5>实时处理引擎</h5>
+                    <p><strong>技术栈：</strong>Apache Flink, Kafka, WebSocket</p>
+                    <p><strong>功能：</strong>流媒体实时分析、实时预警</p>
+                </div>
+                
+                <div class="tech-item v2-tech-item">
+                    <div class="tech-icon v2-tech-icon">
+                        <i class="fas fa-chart-network"></i>
+                    </div>
+                    <h5>数据可视化</h5>
+                    <p><strong>技术栈：</strong>ECharts, D3.js, Three.js</p>
+                    <p><strong>功能：</strong>交互式大屏、3D关系图谱</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- V2.0 新功能模块 -->
+        <div class="section-card">
+            <h2 class="section-title v2-section-title">
+                <i class="fas fa-cubes"></i>
+                V2.0 新功能模块
+            </h2>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="feature-card v2-feature-card">
+                        <h5><i class="fas fa-spider text-purple me-2"></i>智能爬虫系统</h5>
+                        <p class="mb-0">自适应各平台反爬策略，支持增量爬取、智能去重、异常处理，确保数据采集的稳定性和完整性。</p>
+                    </div>
+                    
+                    <div class="feature-card v2-feature-card">
+                        <h5><i class="fas fa-user-friends text-success me-2"></i>创作者关系图谱</h5>
+                        <p class="mb-0">构建创作者之间的关联网络，识别核心意见领袖，分析信息传播路径和影响力扩散模式。</p>
+                    </div>
+                    
+                    <div class="feature-card v2-feature-card">
+                        <h5><i class="fas fa-bell text-warning me-2"></i>智能预警中心</h5>
+                        <p class="mb-0">多级预警策略（提醒/警告/严重），支持微信/邮件/短信多渠道通知，预警历史可追溯。</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="feature-card v2-feature-card">
+                        <h5><i class="fas fa-chart-line text-info me-2"></i>趋势预测引擎</h5>
+                        <p class="mb-0">基于历史数据的风险趋势预测，提前识别潜在舆情危机，提供处置时间窗口。</p>
+                    </div>
+                    
+                    <div class="feature-card v2-feature-card">
+                        <h5><i class="fas fa-tachometer-alt text-danger me-2"></i>运营监控大屏</h5>
+                        <p class="mb-0">实时数据可视化展示，支持多维度筛选、下钻分析，关键指标一目了然。</p>
+                    </div>
+                    
+                    <div class="feature-card v2-feature-card">
+                        <h5><i class="fas fa-cogs text-secondary me-2"></i>自动化报告系统</h5>
+                        <p class="mb-0">按日/周/月自动生成分析报告，支持自定义模板，一键导出PDF/Word格式。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 预期成果与指标 -->
+        <div class="section-card">
+            <h2 class="section-title v2-section-title">
+                <i class="fas fa-bullseye"></i>
+                V2.0 预期成果与关键指标
+            </h2>
+            
+            <div class="row">
+                <div class="col-md-3 text-center mb-4">
+                    <div class="display-4 fw-bold text-purple">10+</div>
+                    <p class="small">支持的内容平台数量</p>
+                </div>
+                
+                <div class="col-md-3 text-center mb-4">
+                    <div class="display-4 fw-bold text-success">95%</div>
+                    <p class="small">创作者识别准确率</p>
+                </div>
+                
+                <div class="col-md-3 text-center mb-4">
+                    <div class="display-4 fw-bold text-primary">5min</div>
+                    <p class="small">风险预警响应时间</p>
+                </div>
+                
+                <div class="col-md-3 text-center mb-4">
+                    <div class="display-4 fw-bold text-warning">1000+</div>
+                    <p class="small">并发分析任务能力</p>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-4 bg-light rounded">
+                <h5><i class="fas fa-flag-checkered me-2"></i>V2.0 里程碑交付物</h5>
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-start mb-3">
+                            <i class="fas fa-check-circle text-success mt-1 me-2"></i>
+                            <div>
+                                <h6 class="mb-1">可运营平台</h6>
+                                <p class="small mb-0">支持多租户的SaaS化系统</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-start mb-3">
+                            <i class="fas fa-check-circle text-success mt-1 me-2"></i>
+                            <div>
+                                <h6 class="mb-1">完整API接口</h6>
+                                <p class="small mb-0">开放平台接口，支持第三方集成</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-start mb-3">
+                            <i class="fas fa-check-circle text-success mt-1 me-2"></i>
+                            <div>
+                                <h6 class="mb-1">部署套件</h6>
+                                <p class="small mb-0">一键部署脚本与运维手册</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 下一步计划 -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-forward"></i>
+                立即开始 V2.0 迭代
+            </h2>
+            
+            <div class="alert alert-info">
+                <h5><i class="fas fa-lightbulb me-2"></i>迭代建议</h5>
+                <p class="mb-2">基于V1.0已完成的功能，建议按以下顺序启动V2.0开发：</p>
+                <ol class="mb-0">
+                    <li><strong>第1-2周：</strong>完成技术选型与架构设计，组建核心开发团队</li>
+                    <li><strong>第3-4周：</strong>搭建微服务基础框架，实现B站数据采集原型</li>
+                    <li><strong>第2个月：</strong>并行开发爬虫系统与创作者画像模块</li>
+                    <li><strong>第3-4个月：</strong>集中攻坚实时流媒体分析与预警系统</li>
+                    <li><strong>第5-6个月：</strong>完善可视化与报告系统，进行集成测试与优化</li>
+                </ol>
+            </div>
+            
+            <div class="text-center mt-4">
+                <button class="btn btn-primary btn-v2 btn-lg me-3">
+                    <i class="fas fa-download me-2"></i>下载详细设计方案
+                </button>
+                <button class="btn btn-outline-primary btn-lg">
+                    <i class="fas fa-calendar-alt me-2"></i>查看甘特图时间表
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8">
+                    <h5><i class="fas fa-graduation-cap me-2"></i>高校内容创作者行为分析平台 V2.0</h5>
+                    <p class="mb-0">从本地分析到全网智能监测的全面升级 | 6个月迭代方案</p>
+                    <p class="small mt-2">基于V1.0基础版，扩展为多平台、实时化、智能化的高校舆情监测预警系统</p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="mt-3">
+                        <span class="badge bg-light text-dark me-2">Docker</span>
+                        <span class="badge bg-light text-dark me-2">K8s</span>
+                        <span class="badge bg-light text-dark me-2">微服务</span>
+                        <span class="badge bg-light text-dark">AI模型</span>
+                    </div>
+                </div>
+            </div>
+            <hr class="mt-3 mb-3" style="border-color: rgba(255,255,255,0.1);">
+            <div class="text-center small">
+                <p class="mb-0">© 2023 高校内容创作者行为分析平台 | V1.0已完成，V2.0规划中</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 简单的交互效果
+        document.addEventListener('DOMContentLoaded', function() {
+            // 为路线图项目添加点击效果
+            const roadmapItems = document.querySelectorAll('.roadmap-content');
+            roadmapItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    this.style.transform = 'scale(1.02)';
+                    setTimeout(() => {
+                        this.style.transform = '';
+                    }, 200);
+                });
+            });
+            
+            // 版本对比表格行悬停效果
+            const tableRows = document.querySelectorAll('.comparison-table tbody tr');
+            tableRows.forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = 'rgba(0,0,0,0.03)';
+                });
+                row.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+            });
+            
+            // 按钮点击效果
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    if(this.classList.contains('btn-v2')) {
+                        alert('V2.0详细设计方案文档将在新页面打开');
+                    } else if(this.classList.contains('btn-outline-primary')) {
+                        alert('甘特图时间表功能将在V2.0开发过程中实现');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
