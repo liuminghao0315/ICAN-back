@@ -1,12 +1,15 @@
 package com.ican.project.controller;
 
 import com.ican.project.model.common.Result;
+import com.ican.project.model.dto.RefreshTokenDTO;
 import com.ican.project.utils.MailServiceUtil;
 import com.ican.project.model.dto.LoginDTO;
 import com.ican.project.model.dto.RegisterDTO;
+import com.ican.project.model.vo.TokenVO;
 import com.ican.project.service.LoginService;
 import com.ican.project.service.MailService;
 import com.ican.project.service.RegisterService;
+import com.ican.project.service.TokenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,10 +35,13 @@ public class AuthController {
     private RegisterService registerService;
 
     @Autowired
+    private TokenService tokenService;
+
+    @Autowired
     private Map<String, MailService> mailServiceMap;
 
     @PostMapping("/auth/login")
-    @Operation(summary = "用户登录", description = "用户登录接口，返回 JWT Token")
+    @Operation(summary = "用户登录", description = "用户登录接口，返回双Token（accessToken + refreshToken）")
     public Result<?> login(@Valid @RequestBody LoginDTO loginDTO) {
         logger.info("用户登录请求: username={}", loginDTO.getUsername());
         try {
@@ -48,6 +54,24 @@ public class AuthController {
             return result;
         } catch (Exception e) {
             logger.error("用户登录异常: username={}", loginDTO.getUsername(), e);
+            throw e;
+        }
+    }
+
+    @PostMapping("/auth/refresh")
+    @Operation(summary = "刷新Token", description = "使用refreshToken刷新accessToken，实现无感刷新")
+    public Result<TokenVO> refreshToken(@Valid @RequestBody RefreshTokenDTO refreshTokenDTO) {
+        logger.info("刷新Token请求");
+        try {
+            Result<TokenVO> result = tokenService.refreshToken(refreshTokenDTO.getRefreshToken());
+            if (result.isSuccess()) {
+                logger.info("Token刷新成功");
+            } else {
+                logger.warn("Token刷新失败: reason={}", result.getMessage());
+            }
+            return result;
+        } catch (Exception e) {
+            logger.error("Token刷新异常", e);
             throw e;
         }
     }
