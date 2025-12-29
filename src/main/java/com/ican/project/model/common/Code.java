@@ -35,6 +35,12 @@ public class Code {
     //认证失败（未登录）
     public static final int AUTH_FAILURE = 401;
 
+    //AccessToken过期，需要刷新（前端收到此code需要用refreshToken刷新）
+    public static final int TOKEN_EXPIRED = 4011;
+
+    //RefreshToken过期，需要重新登录
+    public static final int REFRESH_TOKEN_EXPIRED = 4012;
+
     //鉴权失败（权限不够）
     public static final int ACCESS_FAILURE = 403;
 
