@@ -20,6 +20,7 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
      * @param page 分页对象
      * @param userId 用户ID
      * @param status 状态筛选（可选）
+     * @param riskLevel 风险等级筛选（可选）: LOW/MEDIUM/HIGH
      * @param sortBy 排序字段
      * @param sortOrder 排序方向 (ASC/DESC)
      * @return 任务列表（包含关联字段）
@@ -34,6 +35,9 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
             "WHERE t.user_id = #{userId} " +
             "<if test='status != null and status != \"\"'>" +
             "  AND t.status = #{status} " +
+            "</if>" +
+            "<if test='riskLevel != null and riskLevel != \"\"'>" +
+            "  AND r.risk_level = #{riskLevel} " +
             "</if>" +
             "ORDER BY " +
             "<choose>" +
@@ -54,6 +58,7 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
             Page<?> page,
             @Param("userId") String userId,
             @Param("status") String status,
+            @Param("riskLevel") String riskLevel,
             @Param("sortBy") String sortBy,
             @Param("sortOrder") String sortOrder
     );
