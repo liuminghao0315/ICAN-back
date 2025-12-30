@@ -2,6 +2,7 @@ package com.ican.project.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.model.dto.AnalysisTaskDTO;
+import com.ican.project.model.entity.AnalysisTask;
 import com.ican.project.model.vo.AnalysisTaskVO;
 
 /**
@@ -16,6 +17,12 @@ public interface AnalysisTaskService {
      * @return 任务VO
      */
     AnalysisTaskVO createTask(AnalysisTaskDTO dto, String userId);
+    
+    /**
+     * 直接创建分析任务（供 Kafka 服务内部调用）
+     * @param task 任务实体
+     */
+    void createTask(AnalysisTask task);
     
     /**
      * 获取任务详情
@@ -69,6 +76,14 @@ public interface AnalysisTaskService {
      * @param errorMessage 错误信息
      */
     void updateTaskStatus(String taskId, String status, Integer progress, String errorMessage);
+    
+    /**
+     * 更新任务状态（简化版，供 Kafka 消费者调用）
+     * @param taskId 任务ID
+     * @param status 状态
+     * @param progress 进度
+     */
+    void updateTaskStatus(String taskId, String status, Integer progress);
     
     /**
      * 标记任务开始处理（内部调用）

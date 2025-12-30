@@ -17,6 +17,7 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
@@ -42,6 +43,13 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
     
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean shouldStop = new AtomicBoolean(false);
+    
+    /**
+     * Kafka 是否启用
+     * 当 Kafka 启用时，不启动自动轮询处理器，由 Kafka 消费者处理任务
+     */
+    @Value("${kafka.enabled:false}")
+    private boolean kafkaEnabled;
     
     @Autowired
     @Lazy
@@ -94,10 +102,17 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
     /**
      * 应用完全启动后再启动处理器
      * 这样可以确保@Async代理已经完全初始化
+     * 
+     * 注意：当 Kafka 启用时，不启动自动轮询处理器
+     * 任务由 Kafka 消费者 (VideoAnalysisConsumer) 处理
      */
     @Override
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
+        if (kafkaEnabled) {
+            logger.info("Kafka已启用，Mock算法处理器不启动自动轮询（由Kafka消费者处理任务）");
+            return;
+        }
         logger.info("应用启动完成，启动Mock算法处理器");
         startProcessor();
     }
@@ -165,6 +180,55 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
     @Override
     public boolean isRunning() {
         return running.get();
+    }
+    
+    @Override
+    @Async
+    public void analyzeVideoAsync(String taskId, String videoId, String filePath) {
+        logger.info("Kafka触发的异步视频分析: taskId={}, videoId={}, filePath={}", taskId, videoId, filePath);
+        
+        AnalysisTask taskEntity = analysisTaskMapper.selectById(taskId);
+        if (taskEntity == null) {
+            logger.error("任务不存在: taskId={}", taskId);
+            return;
+        }
+        
+        String userId = taskEntity.getUserId();
+        Video video = videoMapper.selectById(videoId);
+        if (video == null) {
+            logger.error("视频不存在: videoId={}", videoId);
+            analysisTaskService.markTaskFailed(taskId, "视频不存在");
+            return;
+        }
+        
+        try {
+            // 模拟分析过程
+            simulateAnalysisProcess(taskId, videoId, video, userId);
+            
+            // 生成模拟结果
+            AnalysisResult result = generateMockResult(taskId, videoId, video);
+            
+            // 保存结果
+            String resultId = analysisResultService.saveResult(result);
+            
+            // 标记任务完成
+            analysisTaskService.markTaskCompleted(taskId);
+            
+            // 发送WebSocket通知
+            if (userId != null) {
+                TaskProgressWebSocket.sendTaskCompleted(userId, taskId, videoId, resultId);
+            }
+            
+            logger.info("Kafka异步分析完成: taskId={}, resultId={}", taskId, resultId);
+            
+        } catch (Exception e) {
+            logger.error("Kafka异步分析失败: taskId={}, error={}", taskId, e.getMessage(), e);
+            analysisTaskService.markTaskFailed(taskId, e.getMessage());
+            
+            if (userId != null) {
+                TaskProgressWebSocket.sendTaskFailed(userId, taskId, videoId, e.getMessage());
+            }
+        }
     }
     
     /**

@@ -132,6 +132,12 @@
             <version>5.8.25</version>
         </dependency>
 
+        <!--Kafka 消息队列-->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
     </dependencies>
     <dependencyManagement>
         <dependencies>
