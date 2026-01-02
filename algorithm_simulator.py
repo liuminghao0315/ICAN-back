@@ -49,15 +49,24 @@ class AlgorithmSimulator:
         self.channel = None
         self.connect()
     
-    def connect(self):
-        """连接到 RabbitMQ"""
+    def connect(self, retry_count: int = 0, max_retries: int = 5):
+        """
+        连接到 RabbitMQ
+        支持自动重连机制
+        
+        Args:
+            retry_count: 当前重试次数
+            max_retries: 最大重试次数
+        """
         try:
             credentials = pika.PlainCredentials(RABBITMQ_USERNAME, RABBITMQ_PASSWORD)
             parameters = pika.ConnectionParameters(
                 host=RABBITMQ_HOST,
                 port=RABBITMQ_PORT,
                 virtual_host=RABBITMQ_VIRTUAL_HOST,
-                credentials=credentials
+                credentials=credentials,
+                connection_attempts=3,  # 连接尝试次数
+                retry_delay=2  # 重试延迟（秒）
             )
             self.connection = pika.BlockingConnection(parameters)
             self.channel = self.connection.channel()
@@ -67,8 +76,18 @@ class AlgorithmSimulator:
             self.channel.queue_declare(queue=RESULT_CALLBACK_QUEUE, durable=True)
             
             logger.info("成功连接到 RabbitMQ")
-        except Exception as e:
+        except pika.exceptions.AMQPConnectionError as e:
             logger.error(f"连接 RabbitMQ 失败: {e}")
+            if retry_count < max_retries:
+                wait_time = (retry_count + 1) * 2  # 递增等待时间
+                logger.info(f"等待 {wait_time} 秒后重试连接... (尝试 {retry_count + 1}/{max_retries})")
+                time.sleep(wait_time)
+                return self.connect(retry_count + 1, max_retries)
+            else:
+                logger.error(f"达到最大重试次数 ({max_retries})，连接失败")
+                raise
+        except Exception as e:
+            logger.error(f"连接 RabbitMQ 时发生未知错误: {e}", exc_info=True)
             raise
     
     def simulate_media_splitting(self, task_id: str, video_info: Dict[str, Any]) -> Dict[str, Any]:
@@ -101,14 +120,16 @@ class AlgorithmSimulator:
         return result
     
     
-    def send_result_message(self, task_id: str, module_type: str, result_data: Dict[str, Any]):
+    def send_result_message(self, task_id: str, module_type: str, result_data: Dict[str, Any], retry_count: int = 0):
         """
         发送模块完成消息到结果回调队列
+        支持自动重试机制
         
         Args:
             task_id: 任务ID
             module_type: 模块类型（video/audio/text）
             result_data: 该模块的分析结果数据
+            retry_count: 当前重试次数
         """
         message = {
             "taskId": task_id,
@@ -116,7 +137,13 @@ class AlgorithmSimulator:
             "resultData": result_data
         }
         
+        max_retries = 3
         try:
+            # 检查连接状态
+            if not self.connection or self.connection.is_closed:
+                logger.warning(f"[任务 {task_id}] RabbitMQ连接已断开，尝试重连...")
+                self.connect()
+            
             self.channel.basic_publish(
                 exchange='',
                 routing_key=RESULT_CALLBACK_QUEUE,
@@ -126,8 +153,22 @@ class AlgorithmSimulator:
                 )
             )
             logger.info(f"[任务 {task_id}] 已发送模块结果消息: {module_type}")
+        except (pika.exceptions.AMQPConnectionError, pika.exceptions.ChannelClosed) as e:
+            logger.error(f"[任务 {task_id}] 发送消息失败（连接错误）: {e}")
+            if retry_count < max_retries:
+                logger.info(f"[任务 {task_id}] 等待 {2 ** retry_count} 秒后重试发送... (尝试 {retry_count + 1}/{max_retries})")
+                time.sleep(2 ** retry_count)  # 指数退避
+                try:
+                    self.connect()
+                    return self.send_result_message(task_id, module_type, result_data, retry_count + 1)
+                except Exception as reconnect_error:
+                    logger.error(f"[任务 {task_id}] 重连失败: {reconnect_error}")
+                    raise
+            else:
+                logger.error(f"[任务 {task_id}] 达到最大重试次数 ({max_retries})，发送失败")
+                raise
         except Exception as e:
-            logger.error(f"[任务 {task_id}] 发送消息失败: {e}")
+            logger.error(f"[任务 {task_id}] 发送消息失败: {e}", exc_info=True)
             raise
     
     def process_visual_stream(self, task_id: str, task_message: Dict[str, Any]):

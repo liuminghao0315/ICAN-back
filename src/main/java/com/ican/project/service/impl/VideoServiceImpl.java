@@ -35,7 +35,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 视频服务实现
+ * 视频服务实现类
+ * 
+ * 功能包括：
+ * - 视频文件上传（简单上传和分片上传）
+ * - 视频文件管理（查询、删除）
+ * - 文件安全验证（类型、大小、路径）
+ * - 分片合并和断点续传
+ * 
+ * @author 系统
+ * @since 1.0.0
  */
 @Service
 public class VideoServiceImpl implements VideoService {
@@ -81,6 +90,15 @@ public class VideoServiceImpl implements VideoService {
             "mp4", "avi", "mov", "wmv", "flv", "mkv", "webm", "m4v", "mpeg", "mpg"
     );
     
+    // 最大文件大小：500MB
+    private static final long MAX_FILE_SIZE = 500 * 1024 * 1024L; // 500MB in bytes
+    
+    // 允许的MIME类型
+    private static final List<String> ALLOWED_MIME_TYPES = List.of(
+            "video/mp4", "video/x-msvideo", "video/quicktime", "video/x-ms-wmv",
+            "video/x-flv", "video/x-matroska", "video/webm", "video/mpeg"
+    );
+    
     @Override
     public ChunkUploadVO checkChunkUpload(String fileIdentifier, String fileName, 
                                           Integer totalChunks, String userId) {
@@ -124,6 +142,16 @@ public class VideoServiceImpl implements VideoService {
     public ChunkUploadVO uploadChunk(ChunkUploadDTO dto, MultipartFile chunk, String userId) {
         // 验证文件扩展名
         validateFileExtension(dto.getFileName());
+        
+        // 验证文件大小（总大小）
+        if (dto.getTotalSize() != null && dto.getTotalSize() > MAX_FILE_SIZE) {
+            throw new BusinessException("文件大小超过限制，最大允许500MB");
+        }
+        
+        // 验证分片大小
+        if (chunk.getSize() > MAX_FILE_SIZE) {
+            throw new BusinessException("分片大小超过限制");
+        }
         
         String fileIdentifier = dto.getFileIdentifier();
         int chunkNumber = dto.getChunkNumber();
@@ -226,6 +254,10 @@ public class VideoServiceImpl implements VideoService {
             // 获取文件信息
             UploadChunk firstChunk = chunks.get(0);
             long totalSize = firstChunk.getTotalSize();
+            
+            // 验证总文件大小
+            validateFileSize(totalSize);
+            
             String fileExt = FileUtil.extName(fileName);
             String contentType = getContentType(fileExt);
             
@@ -298,9 +330,21 @@ public class VideoServiceImpl implements VideoService {
         // 验证文件扩展名
         validateFileExtension(fileName);
         
+        // 验证文件大小
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new BusinessException("文件大小超过限制，最大允许500MB");
+        }
+        
+        // 验证MIME类型（如果提供）
+        String contentType = file.getContentType();
+        if (contentType != null && !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
+            logger.warn("文件MIME类型不匹配: fileName={}, contentType={}", fileName, contentType);
+            // 不抛出异常，因为有些浏览器可能不提供正确的MIME类型，仅记录警告
+        }
+        
         try {
             String fileExt = FileUtil.extName(fileName);
-            String contentType = file.getContentType();
+            // contentType已在上面定义，这里直接使用
             
             // 生成存储路径
             String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
@@ -454,9 +498,31 @@ public class VideoServiceImpl implements VideoService {
         if (fileName == null || fileName.isEmpty()) {
             throw new BusinessException("文件名不能为空");
         }
+        
+        // 检查文件名是否包含路径分隔符（防止路径遍历攻击）
+        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
+            throw new BusinessException("文件名包含非法字符");
+        }
+        
         String extension = FileUtil.extName(fileName);
-        if (extension == null || !ALLOWED_EXTENSIONS.contains(extension.toLowerCase())) {
+        if (extension == null || extension.isEmpty()) {
+            throw new BusinessException("文件必须包含扩展名");
+        }
+        
+        if (!ALLOWED_EXTENSIONS.contains(extension.toLowerCase())) {
             throw new BusinessException("不支持的视频格式，允许的格式: " + String.join(", ", ALLOWED_EXTENSIONS));
+        }
+    }
+    
+    /**
+     * 验证文件大小
+     */
+    private void validateFileSize(long fileSize) {
+        if (fileSize <= 0) {
+            throw new BusinessException("文件大小无效");
+        }
+        if (fileSize > MAX_FILE_SIZE) {
+            throw new BusinessException("文件大小超过限制，最大允许500MB");
         }
     }
     
