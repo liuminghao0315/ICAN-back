@@ -158,7 +158,7 @@ class AlgorithmSimulator:
         
         Args:
             task_id: 任务ID
-            module_type: 模块类型（音频/视频/文本）
+            module_type: 模块类型（audio/video/text）
             progress: 进度百分比（0-100）
             result_data: 该模块的分析结果数据
         """
@@ -186,7 +186,8 @@ class AlgorithmSimulator:
     def process_task(self, task_message: Dict[str, Any]):
         """
         处理单个分析任务
-        按照顺序执行：音频分析(33%) -> 视频分析(66%) -> 文本分析(100%)
+        按照顺序执行：音频分析(25%) -> 视频分析(50%) -> 文本分析(75%)
+        注意：第4步整合分析由Java后端负责，进度100%
         
         Args:
             task_message: 任务消息，包含 taskId, videoId 等信息
@@ -199,50 +200,26 @@ class AlgorithmSimulator:
         logger.info(f"[任务 {task_id}] 开始处理分析任务")
         
         try:
-            # 第一阶段：音频分析 -> 33%
+            # 第一阶段：音频分析 -> 25%
             audio_result = self.simulate_audio_analysis(task_id, task_message)
-            self.send_progress_message(task_id, "音频", 33, audio_result)
+            self.send_progress_message(task_id, "audio", 25, audio_result)
             
-            # 第二阶段：视频分析 -> 66%
+            # 第二阶段：视频分析 -> 50%
             video_result = self.simulate_video_analysis(task_id, task_message)
-            self.send_progress_message(task_id, "视频", 66, video_result)
+            self.send_progress_message(task_id, "video", 50, video_result)
             
-            # 第三阶段：文本分析 -> 100%
+            # 第三阶段：文本分析 -> 75%
             text_result = self.simulate_text_analysis(task_id, task_message)
+            self.send_progress_message(task_id, "text", 75, text_result)
             
-            # 合并所有结果作为最终结果
-            risk_score = round(random.uniform(0, 1), 4)
-            risk_level = "LOW" if risk_score < 0.3 else ("MEDIUM" if risk_score < 0.7 else "HIGH")
-            is_university_related = random.random() > 0.3
-            university_name = random.choice([
-                "清华大学", "北京大学", "复旦大学", "上海交通大学", "浙江大学",
-                "南京大学", "中国科学技术大学", "哈尔滨工业大学", "西安交通大学", "武汉大学"
-            ]) if is_university_related else None
-            
-            final_result = {
-                "audioResult": audio_result,
-                "videoResult": video_result,
-                "textResult": text_result,
-                # 综合评估结果
-                "riskScore": risk_score,
-                "riskLevel": risk_level,
-                "isUniversityRelated": is_university_related,
-                "universityName": university_name,
-                "universityConfidence": round(random.uniform(0.7, 1.0), 4) if is_university_related else None,
-                "spreadPotential": round(random.uniform(0, 1), 4)
-            }
-            
-            # 发送最终结果（进度100%）
-            self.send_progress_message(task_id, "文本", 100, final_result)
-            
-            logger.info(f"[任务 {task_id}] 分析任务全部完成")
+            logger.info(f"[任务 {task_id}] Python端分析任务完成（前三步），等待Java端整合分析")
             
         except Exception as e:
             logger.error(f"[任务 {task_id}] 处理任务失败: {e}")
             # 可以发送错误消息到结果队列
             error_message = {
                 "taskId": task_id,
-                "moduleType": "错误",
+                "moduleType": "error",
                 "progress": -1,
                 "resultData": {
                     "error": str(e)
