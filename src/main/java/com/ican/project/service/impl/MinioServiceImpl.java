@@ -20,33 +20,30 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 public class MinioServiceImpl implements MinioService {
-
+    
     private static final Logger logger = LoggerFactory.getLogger(MinioServiceImpl.class);
-
+    
     @Autowired
     private MinioClient minioClient;
-
+    
     @Value("${minio.bucketName}")
     private String bucketName;
-
+    
     @Value("${minio.endpoint}")
     private String endpoint;
-
-    @Value("${minio.public-endpoint}")
-    private String publicEndpoint;
-
+    
     @PostConstruct
     public void init() {
         ensureBucketExists();
     }
-
+    
     @Override
     public void ensureBucketExists() {
         try {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder()
                     .bucket(bucketName)
                     .build());
-
+            
             if (!exists) {
                 minioClient.makeBucket(MakeBucketArgs.builder()
                         .bucket(bucketName)
@@ -58,21 +55,21 @@ public class MinioServiceImpl implements MinioService {
             // 不抛出异常，允许应用启动（MinIO可能稍后才可用）
         }
     }
-
+    
     @Override
     public String uploadFile(String objectName, MultipartFile file) {
         try {
-            return uploadFile(objectName, file.getInputStream(),
+            return uploadFile(objectName, file.getInputStream(), 
                     file.getContentType(), file.getSize());
         } catch (Exception e) {
             logger.error("上传文件失败: {}", e.getMessage(), e);
             throw new BusinessException("上传文件失败: " + e.getMessage());
         }
     }
-
+    
     @Override
-    public String uploadFile(String objectName, InputStream inputStream,
-                             String contentType, long size) {
+    public String uploadFile(String objectName, InputStream inputStream, 
+                            String contentType, long size) {
         try {
             minioClient.putObject(PutObjectArgs.builder()
                     .bucket(bucketName)
@@ -80,7 +77,7 @@ public class MinioServiceImpl implements MinioService {
                     .stream(inputStream, size, -1)
                     .contentType(contentType)
                     .build());
-
+            
             logger.info("文件上传成功: {}", objectName);
             return getFileUrl(objectName);
         } catch (Exception e) {
@@ -88,26 +85,24 @@ public class MinioServiceImpl implements MinioService {
             throw new BusinessException("上传文件失败: " + e.getMessage());
         }
     }
-
+    
     @Override
     public String getFileUrl(String objectName) {
         try {
             // 生成7天有效的预签名URL
-            String presignedUrl = minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+            return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .bucket(bucketName)
                     .object(objectName)
                     .method(Method.GET)
                     .expiry(7, TimeUnit.DAYS)
                     .build());
-            // 将内部endpoint替换为公共endpoint，使浏览器可以访问
-            return presignedUrl.replace(endpoint, publicEndpoint);
         } catch (Exception e) {
             logger.error("获取文件URL失败: {}", e.getMessage(), e);
             // 返回直接访问URL
-            return publicEndpoint + "/" + bucketName + "/" + objectName;
+            return endpoint + "/" + bucketName + "/" + objectName;
         }
     }
-
+    
     @Override
     public void deleteFile(String objectName) {
         try {
@@ -121,7 +116,7 @@ public class MinioServiceImpl implements MinioService {
             throw new BusinessException("删除文件失败: " + e.getMessage());
         }
     }
-
+    
     @Override
     public boolean fileExists(String objectName) {
         try {

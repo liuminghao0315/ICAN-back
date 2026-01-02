@@ -85,8 +85,6 @@ public class AnalysisTaskController {
     public Result<Page<AnalysisTaskVO>> getMyTasks(
             @Parameter(description = "状态筛选（可选）: PENDING/PROCESSING/COMPLETED/FAILED/CANCELLED") 
             @RequestParam(required = false) String status,
-            @Parameter(description = "风险等级筛选（可选）: LOW/MEDIUM/HIGH") 
-            @RequestParam(required = false) String riskLevel,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "排序字段: gmtCreated, riskScore, videoDuration") @RequestParam(defaultValue = "gmtCreated") String sortBy,
@@ -94,7 +92,7 @@ public class AnalysisTaskController {
             @AuthenticationPrincipal MyUserDetails userDetails) {
         
         Page<AnalysisTaskVO> result = analysisTaskService.getUserTasks(
-                userDetails.getUserId(), status, riskLevel, page, size, sortBy, sortOrder);
+                userDetails.getUserId(), status, page, size, sortBy, sortOrder);
         
         return Result.success(result);
     }

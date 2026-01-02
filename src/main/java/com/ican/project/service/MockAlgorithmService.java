@@ -34,13 +34,5 @@ public interface MockAlgorithmService {
      * 用于在应用完全启动后启动处理器
      */
     void onApplicationReady();
-    
-    /**
-     * 异步分析视频（供 Kafka 消费者调用）
-     * @param taskId 任务ID
-     * @param videoId 视频ID
-     * @param filePath 视频文件路径
-     */
-    void analyzeVideoAsync(String taskId, String videoId, String filePath);
 }
 

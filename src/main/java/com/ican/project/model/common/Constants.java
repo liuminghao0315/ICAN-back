@@ -18,33 +18,11 @@ public class Constants {
         /** 用户ID Redis Key 前缀 */
         public static final String USER_ID_PREFIX = "userId:";
 
-        /** RefreshToken Redis Key 前缀 */
-        public static final String REFRESH_TOKEN_PREFIX = "refreshToken:";
-
         /** 注册验证码 Redis Key 前缀 */
         public static final String VERIFY_CODE_REGISTER_PREFIX = "verifyCodeToRegister:";
 
         /** 重置密码验证码 Redis Key 前缀 */
         public static final String VERIFY_CODE_RESET_PWD_PREFIX = "verifyCodeToResetPwd:";
-    }
-
-    /**
-     * JWT Token相关常量
-     */
-    public static class Token {
-        private Token() {}
-
-        /** AccessToken有效期（分钟） */
-        public static final long ACCESS_TOKEN_EXPIRE_MINUTES = 15;
-
-        /** RefreshToken有效期（天） */
-        public static final long REFRESH_TOKEN_EXPIRE_DAYS = 30;
-
-        /** Token类型 - AccessToken */
-        public static final String TYPE_ACCESS = "access";
-
-        /** Token类型 - RefreshToken */
-        public static final String TYPE_REFRESH = "refresh";
     }
 
     /**

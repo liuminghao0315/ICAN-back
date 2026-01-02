@@ -12,7 +12,6 @@ import com.ican.project.model.entity.UploadChunk;
 import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.ChunkUploadVO;
 import com.ican.project.model.vo.VideoVO;
-import com.ican.project.kafka.service.KafkaVideoAnalysisService;
 import com.ican.project.service.MinioService;
 import com.ican.project.service.UploadStatisticsService;
 import com.ican.project.service.VideoService;
@@ -21,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -55,10 +53,6 @@ public class VideoServiceImpl implements VideoService {
     
     @Autowired
     private UploadStatisticsService uploadStatisticsService;
-    
-    @Autowired(required = false)
-    @Lazy
-    private KafkaVideoAnalysisService kafkaVideoAnalysisService;
     
     @Value("${upload.temp-dir:${java.io.tmpdir}/ican-upload-chunks}")
     private String tempDir;
@@ -288,8 +282,6 @@ public class VideoServiceImpl implements VideoService {
             
             logger.info("视频上传成功: videoId={}, fileName={}", video.getId(), fileName);
             
-            // 注意：不自动触发分析，由用户手动点击"开始分析"按钮触发
-            
             return convertToVO(video);
             
         } catch (Exception e) {
@@ -341,8 +333,6 @@ public class VideoServiceImpl implements VideoService {
             }
             
             logger.info("视频上传成功: videoId={}, fileName={}", video.getId(), fileName);
-            
-            // 注意：不自动触发分析，由用户手动点击"开始分析"按钮触发
             
             return convertToVO(video);
             

@@ -14,15 +14,12 @@ import com.ican.project.model.entity.AnalysisResult;
 import com.ican.project.model.entity.AnalysisTask;
 import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.AnalysisTaskVO;
-import com.ican.project.kafka.message.VideoAnalysisMessage;
-import com.ican.project.kafka.producer.VideoAnalysisProducer;
 import com.ican.project.service.AnalysisTaskService;
 import com.ican.project.service.MinioService;
 import com.ican.project.service.VideoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,18 +51,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Autowired
     private MinioService minioService;
-    
-    /**
-     * Kafka 生产者（可选，Kafka 禁用时为 null）
-     */
-    @Autowired(required = false)
-    private VideoAnalysisProducer videoAnalysisProducer;
-    
-    /**
-     * Kafka 是否启用
-     */
-    @Value("${kafka.enabled:false}")
-    private boolean kafkaEnabled;
     
     @Override
     @Transactional
@@ -140,38 +125,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         logger.info("创建分析任务成功: taskId={}, videoId={}, taskType={}", 
                 task.getId(), dto.getVideoId(), taskType);
         
-        // 如果 Kafka 启用，发送消息到 Kafka 队列
-        if (kafkaEnabled && videoAnalysisProducer != null) {
-            try {
-                VideoAnalysisMessage message = VideoAnalysisMessage.builder()
-                        .taskId(task.getId())
-                        .videoId(video.getId())
-                        .userId(userId)
-                        .videoTitle(video.getTitle())
-                        .fileName(video.getFileName())
-                        .filePath(video.getFilePath())
-                        .videoUrl(minioService.getFileUrl(video.getFilePath()))
-                        .fileSize(video.getFileSize())
-                        .fileType(video.getFileType())
-                        .createTime(LocalDateTime.now())
-                        .priority(5)
-                        .build();
-                videoAnalysisProducer.sendVideoAnalysisTask(message);
-                logger.info("分析任务已发送到Kafka: taskId={}, videoId={}", task.getId(), video.getId());
-            } catch (Exception e) {
-                logger.error("发送Kafka消息失败: taskId={}, error={}", task.getId(), e.getMessage());
-                // 不抛出异常，任务已创建，Mock服务可以兜底处理
-            }
-        }
-        
         return convertToVO(task, video, null);
-    }
-    
-    @Override
-    @Transactional
-    public void createTask(AnalysisTask task) {
-        analysisTaskMapper.insert(task);
-        logger.info("直接创建分析任务: taskId={}, videoId={}", task.getId(), task.getVideoId());
     }
     
     @Override
@@ -217,17 +171,16 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     }
     
     @Override
-    public Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder) {
+    public Page<AnalysisTaskVO> getUserTasks(String userId, String status, int page, int size, String sortBy, String sortOrder) {
         Page<java.util.Map<String, Object>> taskPage = new Page<>(page, size);
         
-        // 使用 JOIN 查询，在数据库层面进行全局排序和筛选
+        // 使用 JOIN 查询，在数据库层面进行全局排序
         String effectiveStatus = (status != null && !status.isEmpty()) ? status.toUpperCase() : null;
-        String effectiveRiskLevel = (riskLevel != null && !riskLevel.isEmpty()) ? riskLevel.toUpperCase() : null;
         String effectiveSortBy = sortBy != null ? sortBy : "gmtCreated";
         String effectiveSortOrder = "asc".equalsIgnoreCase(sortOrder) ? "asc" : "desc";
         
         Page<java.util.Map<String, Object>> result = analysisTaskMapper.selectTasksWithJoin(
-                taskPage, userId, effectiveStatus, effectiveRiskLevel, effectiveSortBy, effectiveSortOrder);
+                taskPage, userId, effectiveStatus, effectiveSortBy, effectiveSortOrder);
         
         // 转换为VO
         java.util.List<AnalysisTaskVO> voList = result.getRecords().stream()
@@ -366,12 +319,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         
         analysisTaskMapper.update(null, wrapper);
         logger.debug("更新任务状态: taskId={}, status={}, progress={}", taskId, status, progress);
-    }
-    
-    @Override
-    @Transactional
-    public void updateTaskStatus(String taskId, String status, Integer progress) {
-        updateTaskStatus(taskId, status, progress, null);
     }
     
     @Override

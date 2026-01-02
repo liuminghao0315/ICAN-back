@@ -6,8 +6,6 @@ import com.ican.project.model.common.NotFilterPaths;
 import com.ican.project.model.common.Result;
 import com.ican.project.utils.JwtUtil;
 import com.ican.project.utils.ResponseUtil;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,12 +21,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * JWT认证过滤器
- * 支持双Token机制：
- * - AccessToken过期返回 4011，前端需用RefreshToken刷新
- * - RefreshToken过期返回 4012，需要重新登录
- */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
@@ -110,36 +102,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String userId;
         try {
-            // 尝试解析Token
-            Claims claims = JwtUtil.parseToken(accessToken);
+            var claims = JwtUtil.parseToken(accessToken);
             if (claims == null) {
                 logger.warn("Token解析结果为空: path={}", path);
-                ResponseUtil.write(response, Result.authFail("accessToken错误"), Code.AUTH_FAILURE);
-                return;
-            }
-
-            // 检查是否为AccessToken类型
-            if (!JwtUtil.isAccessToken(claims)) {
-                logger.warn("Token类型错误，需要AccessToken: path={}", path);
-                ResponseUtil.write(response, Result.authFail("请使用accessToken进行认证"), Code.AUTH_FAILURE);
+                ResponseUtil.write(response, Result.authFail("accessToken错误或过期"), Code.AUTH_FAILURE);
                 return;
             }
 
             userId = claims.getSubject();
             if (userId == null || userId.trim().isEmpty()) {
                 logger.warn("Token中用户ID为空: path={}", path);
-                ResponseUtil.write(response, Result.authFail("accessToken错误"), Code.AUTH_FAILURE);
+                ResponseUtil.write(response, Result.authFail("accessToken错误或过期"), Code.AUTH_FAILURE);
                 return;
             }
-        } catch (ExpiredJwtException e) {
-            // AccessToken过期，返回特定错误码，前端需要用RefreshToken刷新
-            // HTTP状态码使用401，但response body中的code是4011
-            logger.info("AccessToken已过期，需要刷新: path={}", path);
-            ResponseUtil.write(response, Result.fail(Code.TOKEN_EXPIRED, "accessToken已过期，请刷新"), Code.AUTH_FAILURE);
-            return;
         } catch (Exception e) {
             logger.warn("Token解析异常: path={}, error={}", path, e.getMessage());
-            ResponseUtil.write(response, Result.authFail("accessToken错误"), Code.AUTH_FAILURE);
+            ResponseUtil.write(response, Result.authFail("accessToken错误或过期"), Code.AUTH_FAILURE);
             return;
         }
 
@@ -147,8 +125,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Object value = redisTemplate.opsForValue().get(userId);
             if (value == null) {
                 logger.warn("Redis中读取不到用户信息: userId={}, path={}", userId, path);
-                // 用户信息不存在，可能是RefreshToken也过期了
-                ResponseUtil.write(response, Result.fail(Code.REFRESH_TOKEN_EXPIRED, "登录已过期，请重新登录"), Code.AUTH_FAILURE);
+                ResponseUtil.write(response, Result.authFail("登录已过期，请重新登录"), Code.AUTH_FAILURE);
                 return;
             }
 

@@ -93,18 +93,6 @@ public class TaskProgressWebSocket {
     }
     
     /**
-     * 向指定用户发送任务进度更新（简化版，供 Kafka 消费者调用）
-     * @param userId 用户ID
-     * @param taskId 任务ID
-     * @param status 任务状态
-     * @param progress 进度（0-100）
-     * @param message 消息
-     */
-    public void sendProgress(String userId, String taskId, String status, Integer progress, String message) {
-        sendTaskProgress(userId, taskId, null, status, progress, message);
-    }
-    
-    /**
      * 向指定用户发送任务进度更新
      * @param userId 用户ID
      * @param taskId 任务ID
