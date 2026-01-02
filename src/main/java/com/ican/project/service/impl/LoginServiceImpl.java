@@ -3,6 +3,7 @@ package com.ican.project.service.impl;
 import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.dto.LoginDTO;
+import com.ican.project.model.dto.TokenResponse;
 import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.LoginService;
 import com.ican.project.utils.JwtUtil;
@@ -31,6 +32,14 @@ public class LoginServiceImpl implements LoginService {
 
     @Value("${jwt-expire-minutes}")
     private long expire;
+
+    // AccessToken有效期（分钟），默认15分钟
+    @Value("${jwt-access-token-expire-minutes:15}")
+    private long accessTokenExpireMinutes;
+
+    // RefreshToken有效期（天），默认7天
+    @Value("${jwt-refresh-token-expire-days:7}")
+    private long refreshTokenExpireDays;
 
     @Override
     public Result<?> checkLogin(LoginDTO loginDTO) {
@@ -80,10 +89,27 @@ public class LoginServiceImpl implements LoginService {
                 }
 
                 String userId = Constants.RedisKey.USER_ID_PREFIX + user.getUser().getId();
-                redisTemplate.opsForValue().set(userId, user, expire, TimeUnit.MINUTES);
-                String token = JwtUtil.createToken(userId, 1000 * 60 * expire);
-                logger.debug("登录成功，生成Token: userId={}", userId);
-                return Result.success(token);
+                
+                // 存储用户信息到Redis，使用refreshToken的过期时间
+                long refreshTokenExpireMinutes = refreshTokenExpireDays * 24 * 60;
+                redisTemplate.opsForValue().set(userId, user, refreshTokenExpireMinutes, TimeUnit.MINUTES);
+                
+                // 生成AccessToken（短期有效）
+                long accessTokenExpireMillis = accessTokenExpireMinutes * 60 * 1000;
+                String accessToken = JwtUtil.createToken(userId, accessTokenExpireMillis);
+                
+                // 生成RefreshToken（长期有效）
+                long refreshTokenExpireMillis = refreshTokenExpireDays * 24 * 60 * 60 * 1000;
+                String refreshToken = JwtUtil.createToken(userId + ":refresh", refreshTokenExpireMillis);
+                
+                // 将refreshToken存储到Redis，用于验证刷新请求
+                String refreshTokenKey = Constants.RedisKey.USER_ID_PREFIX + user.getUser().getId() + ":refresh";
+                redisTemplate.opsForValue().set(refreshTokenKey, refreshToken, refreshTokenExpireDays, TimeUnit.DAYS);
+                
+                TokenResponse tokenResponse = new TokenResponse(accessToken, refreshToken);
+                logger.debug("登录成功，生成双Token: userId={}, accessTokenExpire={}分钟, refreshTokenExpire={}天", 
+                        userId, accessTokenExpireMinutes, refreshTokenExpireDays);
+                return Result.success(tokenResponse);
             } else {
                 logger.warn("认证未通过: username={}", username);
                 return Result.authFail("用户名或密码错误");

@@ -34,6 +34,9 @@ public class AuthController {
     @Autowired
     private Map<String, MailService> mailServiceMap;
 
+    @Autowired
+    private com.ican.project.service.TokenRefreshService tokenRefreshService;
+
     @PostMapping("/auth/login")
     @Operation(summary = "用户登录", description = "用户登录接口，返回 JWT Token")
     public Result<?> login(@Valid @RequestBody LoginDTO loginDTO) {
@@ -97,6 +100,26 @@ public class AuthController {
             return result;
         } catch (Exception e) {
             logger.error("发送注册验证邮件异常: mailType={}, mailTo={}", mailType, mailTo, e);
+            throw e;
+        }
+    }
+
+    @PostMapping("/auth/refresh")
+    @Operation(summary = "刷新Token", description = "使用refreshToken刷新accessToken，返回新的双Token")
+    public Result<?> refreshToken(
+            @Parameter(description = "刷新令牌", required = true)
+            @RequestParam("refreshToken") @NotBlank(message = "refreshToken不能为空") String refreshToken) {
+        logger.info("Token刷新请求");
+        try {
+            Result<?> result = tokenRefreshService.refreshToken(refreshToken);
+            if (result.isSuccess()) {
+                logger.info("Token刷新成功");
+            } else {
+                logger.warn("Token刷新失败: reason={}", result.getMessage());
+            }
+            return result;
+        } catch (Exception e) {
+            logger.error("Token刷新异常", e);
             throw e;
         }
     }
