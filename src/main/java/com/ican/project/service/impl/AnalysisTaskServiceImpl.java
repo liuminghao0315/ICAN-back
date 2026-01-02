@@ -171,16 +171,17 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     }
     
     @Override
-    public Page<AnalysisTaskVO> getUserTasks(String userId, String status, int page, int size, String sortBy, String sortOrder) {
+    public Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder) {
         Page<java.util.Map<String, Object>> taskPage = new Page<>(page, size);
         
-        // 使用 JOIN 查询，在数据库层面进行全局排序
+        // 使用 JOIN 查询，在数据库层面进行全局排序和筛选
         String effectiveStatus = (status != null && !status.isEmpty()) ? status.toUpperCase() : null;
+        String effectiveRiskLevel = (riskLevel != null && !riskLevel.isEmpty()) ? riskLevel.toUpperCase() : null;
         String effectiveSortBy = sortBy != null ? sortBy : "gmtCreated";
         String effectiveSortOrder = "asc".equalsIgnoreCase(sortOrder) ? "asc" : "desc";
         
         Page<java.util.Map<String, Object>> result = analysisTaskMapper.selectTasksWithJoin(
-                taskPage, userId, effectiveStatus, effectiveSortBy, effectiveSortOrder);
+                taskPage, userId, effectiveStatus, effectiveRiskLevel, effectiveSortBy, effectiveSortOrder);
         
         // 转换为VO
         java.util.List<AnalysisTaskVO> voList = result.getRecords().stream()

@@ -37,13 +37,14 @@ public interface AnalysisTaskService {
      * 获取用户任务列表
      * @param userId 用户ID
      * @param status 状态筛选（可选）
+     * @param riskLevel 风险等级筛选（可选）
      * @param page 页码
      * @param size 每页数量
      * @param sortBy 排序字段（gmtCreated, riskScore, videoDuration）
      * @param sortOrder 排序方向（asc, desc）
      * @return 任务列表
      */
-    Page<AnalysisTaskVO> getUserTasks(String userId, String status, int page, int size, String sortBy, String sortOrder);
+    Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder);
     
     /**
      * 取消任务
