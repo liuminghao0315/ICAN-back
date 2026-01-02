@@ -11,11 +11,14 @@ import com.ican.project.mapper.VideoMapper;
 import com.ican.project.service.AnalysisResultService;
 import com.ican.project.service.AnalysisTaskService;
 import com.ican.project.service.MockAlgorithmService;
+import com.ican.project.service.MinioService;
+import com.ican.project.config.RabbitMQConfig;
 import com.ican.project.websocket.TaskProgressWebSocket;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Lazy;
@@ -55,6 +58,12 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
     
     @Autowired
     private AnalysisTaskMapper analysisTaskMapper;
+    
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+    
+    @Autowired
+    private MinioService minioService;
     
     // 随机数生成器
     private final Random random = new Random();
@@ -169,6 +178,7 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
     
     /**
      * 处理单个任务
+     * 将任务发送到 RabbitMQ 队列，由 Python 脚本处理
      */
     private void processTask(AnalysisTaskVO task) {
         String taskId = task.getId();
@@ -196,66 +206,33 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
                 throw new RuntimeException("视频不存在: " + videoId);
             }
             
-            // 2. 模拟分析过程（分阶段更新进度）
-            simulateAnalysisProcess(taskId, videoId, video, userId);
+            // 2. 构造任务消息，发送到 RabbitMQ 队列，由 Python 脚本处理
+            Map<String, Object> taskMessage = new HashMap<>();
+            taskMessage.put("taskId", taskId);
+            taskMessage.put("videoId", videoId);
+            // 使用 MinioService 获取视频 URL
+            String videoUrl = video.getFilePath() != null ? minioService.getFileUrl(video.getFilePath()) : null;
+            taskMessage.put("videoUrl", videoUrl);
+            taskMessage.put("videoTitle", video.getTitle());
+            taskMessage.put("videoDuration", video.getDuration());
+            taskMessage.put("fileSize", video.getFileSize());
             
-            // 3. 生成模拟分析结果
-            AnalysisResult result = generateMockResult(taskId, videoId, video);
+            // 发送任务到 RabbitMQ 队列
+            rabbitTemplate.convertAndSend(RabbitMQConfig.ALGORITHM_TASK_QUEUE, JSON.toJSONString(taskMessage));
             
-            // 4. 保存分析结果
-            String resultId = analysisResultService.saveResult(result);
+            logger.info("任务已发送到 RabbitMQ 队列，等待 Python 脚本处理: taskId={}", taskId);
             
-            // 5. 标记任务完成
-            analysisTaskService.markTaskCompleted(taskId);
-            
-            // 发送WebSocket通知：任务完成
-            if (userId != null) {
-                TaskProgressWebSocket.sendTaskCompleted(userId, taskId, videoId, resultId);
-            }
-            
-            logger.info("分析任务完成: taskId={}, riskLevel={}", taskId, result.getRiskLevel());
+            // 注意：进度更新和结果保存将由 Python 脚本通过 RabbitMQ 结果队列返回
+            // Java 端的 AlgorithmResultListener 会监听结果队列并处理
             
         } catch (Exception e) {
-            logger.error("分析任务失败: taskId={}, error={}", taskId, e.getMessage(), e);
+            logger.error("发送任务到队列失败: taskId={}, error={}", taskId, e.getMessage(), e);
             analysisTaskService.markTaskFailed(taskId, e.getMessage());
             
             // 发送WebSocket通知：任务失败
             if (userId != null) {
                 TaskProgressWebSocket.sendTaskFailed(userId, taskId, videoId, e.getMessage());
             }
-        }
-    }
-    
-    /**
-     * 模拟分析过程，分阶段更新进度
-     */
-    private void simulateAnalysisProcess(String taskId, String videoId, Video video, String userId) throws InterruptedException {
-        // 根据视频大小计算模拟处理时间（5-30秒）
-        long fileSize = video.getFileSize() != null ? video.getFileSize() : 1024 * 1024;
-        int baseTime = 5000; // 5秒基础时间
-        int extraTime = (int) Math.min(25000, fileSize / (1024 * 1024) * 500); // 每MB增加0.5秒
-        int totalTime = baseTime + random.nextInt(extraTime + 1);
-        
-        // 分5个阶段更新进度
-        String[] stages = {"视频预处理", "视频特征提取", "音频分析", "文本分析", "综合评估"};
-        int stageTime = totalTime / stages.length;
-        
-        for (int i = 0; i < stages.length; i++) {
-            int progress = (i + 1) * 20;
-            String stageName = stages[i];
-            
-            logger.debug("任务 {} 进度: {}% - {}", taskId, progress, stageName);
-            analysisTaskService.updateTaskStatus(taskId, 
-                    AnalysisTask.Status.PROCESSING.name(), progress, null);
-            
-            // 发送WebSocket进度通知
-            if (userId != null) {
-                TaskProgressWebSocket.sendTaskProgress(userId, taskId, videoId,
-                        AnalysisTask.Status.PROCESSING.name(), progress, stageName);
-            }
-            
-            // 模拟处理时间
-            Thread.sleep(stageTime);
         }
     }
     
