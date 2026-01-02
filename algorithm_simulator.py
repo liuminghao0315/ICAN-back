@@ -10,6 +10,7 @@ import time
 import random
 import pika
 import logging
+import threading
 from typing import Dict, Any
 
 # 配置日志
@@ -152,20 +153,18 @@ class AlgorithmSimulator:
         logger.info(f"[任务 {task_id}] 文本分析完成")
         return result
     
-    def send_progress_message(self, task_id: str, module_type: str, progress: int, result_data: Dict[str, Any]):
+    def send_progress_message(self, task_id: str, module_type: str, result_data: Dict[str, Any]):
         """
-        发送进度消息到结果队列
+        发送模块完成消息到结果队列（不包含进度百分比，由Java动态计算）
         
         Args:
             task_id: 任务ID
             module_type: 模块类型（audio/video/text）
-            progress: 进度百分比（0-100）
             result_data: 该模块的分析结果数据
         """
         message = {
             "taskId": task_id,
             "moduleType": module_type,
-            "progress": progress,
             "resultData": result_data
         }
         
@@ -178,51 +177,47 @@ class AlgorithmSimulator:
                     delivery_mode=2,  # 消息持久化
                 )
             )
-            logger.info(f"[任务 {task_id}] 已发送进度消息: {module_type} - {progress}%")
+            logger.info(f"[任务 {task_id}] 已发送模块完成消息: {module_type}")
         except Exception as e:
-            logger.error(f"[任务 {task_id}] 发送进度消息失败: {e}")
+            logger.error(f"[任务 {task_id}] 发送消息失败: {e}")
             raise
     
-    def process_task(self, task_message: Dict[str, Any]):
+    def process_module(self, task_id: str, task_message: Dict[str, Any], module_type: str, 
+                      simulate_func, module_name: str):
         """
-        处理单个分析任务
-        按照顺序执行：音频分析(25%) -> 视频分析(50%) -> 文本分析(75%)
-        注意：第4步整合分析由Java后端负责，进度100%
+        处理单个分析模块（在独立线程中执行）
         
         Args:
-            task_message: 任务消息，包含 taskId, videoId 等信息
+            task_id: 任务ID
+            task_message: 任务消息
+            module_type: 模块类型（audio/video/text）
+            simulate_func: 模拟分析函数
+            module_name: 模块名称（用于日志）
         """
-        task_id = task_message.get("taskId")
-        if not task_id:
-            logger.error("任务消息缺少 taskId")
-            return
-        
-        logger.info(f"[任务 {task_id}] 开始处理分析任务")
-        
         try:
-            # 第一阶段：音频分析 -> 25%
-            audio_result = self.simulate_audio_analysis(task_id, task_message)
-            self.send_progress_message(task_id, "audio", 25, audio_result)
+            logger.info(f"[任务 {task_id}] 开始{module_name}分析...")
             
-            # 第二阶段：视频分析 -> 50%
-            video_result = self.simulate_video_analysis(task_id, task_message)
-            self.send_progress_message(task_id, "video", 50, video_result)
+            # 执行模拟分析
+            result = simulate_func(task_id, task_message)
             
-            # 第三阶段：文本分析 -> 75%
-            text_result = self.simulate_text_analysis(task_id, task_message)
-            self.send_progress_message(task_id, "text", 75, text_result)
+            # 随机延时，模拟不同模块在不同时间完成
+            delay = random.uniform(2, 8)  # 2-8秒随机延时
+            time.sleep(delay)
             
-            logger.info(f"[任务 {task_id}] Python端分析任务完成（前三步），等待Java端整合分析")
+            # 发送模块完成消息（不包含进度，由Java动态计算）
+            self.send_progress_message(task_id, module_type, result)
+            
+            logger.info(f"[任务 {task_id}] {module_name}分析完成")
             
         except Exception as e:
-            logger.error(f"[任务 {task_id}] 处理任务失败: {e}")
-            # 可以发送错误消息到结果队列
+            logger.error(f"[任务 {task_id}] {module_name}分析失败: {e}")
+            # 发送错误消息
             error_message = {
                 "taskId": task_id,
                 "moduleType": "error",
-                "progress": -1,
                 "resultData": {
-                    "error": str(e)
+                    "error": str(e),
+                    "failedModule": module_type
                 }
             }
             try:
@@ -236,6 +231,63 @@ class AlgorithmSimulator:
                 )
             except:
                 pass
+    
+    def process_task(self, task_message: Dict[str, Any]):
+        """
+        处理单个分析任务（并发执行三个模块）
+        使用多线程同时启动音频、视频、文本分析，它们会在不同时间点完成
+        
+        Args:
+            task_message: 任务消息，包含 taskId, videoId 等信息
+        """
+        task_id = task_message.get("taskId")
+        if not task_id:
+            logger.error("任务消息缺少 taskId")
+            return
+        
+        logger.info(f"[任务 {task_id}] 开始并发处理分析任务（音频、视频、文本同时启动）")
+        
+        try:
+            # 创建三个线程，并发执行三个分析模块
+            threads = []
+            
+            # 音频分析线程
+            audio_thread = threading.Thread(
+                target=self.process_module,
+                args=(task_id, task_message, "audio", self.simulate_audio_analysis, "音频"),
+                name=f"Audio-{task_id}"
+            )
+            threads.append(audio_thread)
+            
+            # 视频分析线程
+            video_thread = threading.Thread(
+                target=self.process_module,
+                args=(task_id, task_message, "video", self.simulate_video_analysis, "视频"),
+                name=f"Video-{task_id}"
+            )
+            threads.append(video_thread)
+            
+            # 文本分析线程
+            text_thread = threading.Thread(
+                target=self.process_module,
+                args=(task_id, task_message, "text", self.simulate_text_analysis, "文本"),
+                name=f"Text-{task_id}"
+            )
+            threads.append(text_thread)
+            
+            # 启动所有线程
+            for thread in threads:
+                thread.start()
+                logger.debug(f"[任务 {task_id}] 启动线程: {thread.name}")
+            
+            # 等待所有线程完成
+            for thread in threads:
+                thread.join()
+            
+            logger.info(f"[任务 {task_id}] Python端所有模块分析完成，等待Java端整合分析")
+            
+        except Exception as e:
+            logger.error(f"[任务 {task_id}] 处理任务失败: {e}")
     
     def on_task_received(self, ch, method, properties, body):
         """

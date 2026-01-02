@@ -16,6 +16,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import com.rabbitmq.client.Channel;
@@ -26,6 +27,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * RabbitMQ 消息监听器
@@ -45,13 +48,27 @@ public class AlgorithmResultListener {
     @Autowired
     private AnalysisResultService analysisResultService;
     
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+    
     /**
-     * 存储每个任务已接收的模块结果
-     * key: taskId
-     * value: Map<moduleType, resultData>
+     * Redis Key 前缀：存储任务已完成的模块
+     * Key格式: analysis:modules:{taskId}
+     * Value: Set<String> 包含已完成的模块类型（audio, video, text）
      */
-    private final java.util.concurrent.ConcurrentHashMap<String, java.util.Map<String, Object>> taskModuleResults = 
-            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final String REDIS_KEY_PREFIX = "analysis:modules:";
+    
+    /**
+     * Redis Key 前缀：存储任务模块结果数据
+     * Key格式: analysis:results:{taskId}:{moduleType}
+     * Value: Map<String, Object> 模块结果数据
+     */
+    private static final String REDIS_RESULT_KEY_PREFIX = "analysis:results:";
+    
+    /**
+     * Redis Key 过期时间（小时）
+     */
+    private static final long REDIS_KEY_EXPIRE_HOURS = 24;
     
     /**
      * 随机数生成器（用于整合分析）
@@ -72,17 +89,23 @@ public class AlgorithmResultListener {
             String messageBody = new String(message.getBody(), StandardCharsets.UTF_8);
             logger.info("收到算法分析结果消息: {}", messageBody);
             
-            // 解析消息
+            // 解析消息（新格式：不包含progress字段，由Java动态计算）
             JSONObject jsonMessage = JSON.parseObject(messageBody);
             String taskId = jsonMessage.getString("taskId");
             String moduleType = jsonMessage.getString("moduleType"); // audio/video/text
-            Integer progress = jsonMessage.getInteger("progress");
             Map<String, Object> resultData = jsonMessage.getObject("resultData", Map.class);
             
-            if (taskId == null || moduleType == null || progress == null) {
-                logger.error("消息格式错误，缺少必要字段: taskId={}, moduleType={}, progress={}", 
-                        taskId, moduleType, progress);
+            if (taskId == null || moduleType == null || resultData == null) {
+                logger.error("消息格式错误，缺少必要字段: taskId={}, moduleType={}, resultData={}", 
+                        taskId, moduleType, resultData);
                 // 拒绝消息，不重新入队
+                channel.basicNack(deliveryTag, false, false);
+                return;
+            }
+            
+            // 验证模块类型
+            if (!"audio".equals(moduleType) && !"video".equals(moduleType) && !"text".equals(moduleType)) {
+                logger.error("无效的模块类型: moduleType={}", moduleType);
                 channel.basicNack(deliveryTag, false, false);
                 return;
             }
@@ -99,8 +122,29 @@ public class AlgorithmResultListener {
             String userId = task.getUserId();
             String videoId = task.getVideoId();
             
-            // 存储当前模块的结果
-            taskModuleResults.computeIfAbsent(taskId, k -> new java.util.HashMap<>()).put(moduleType, resultData);
+            // 使用Redis存储模块结果数据
+            String resultKey = REDIS_RESULT_KEY_PREFIX + taskId + ":" + moduleType;
+            redisTemplate.opsForValue().set(resultKey, resultData, REDIS_KEY_EXPIRE_HOURS, TimeUnit.HOURS);
+            
+            // 使用Redis Set记录已完成的模块
+            String modulesKey = REDIS_KEY_PREFIX + taskId;
+            Long added = redisTemplate.opsForSet().add(modulesKey, moduleType);
+            redisTemplate.expire(modulesKey, REDIS_KEY_EXPIRE_HOURS, TimeUnit.HOURS);
+            
+            // 获取当前已完成的模块数量
+            Long completedCount = redisTemplate.opsForSet().size(modulesKey);
+            if (completedCount == null) {
+                completedCount = 0L;
+            }
+            
+            // 动态计算进度：1个模块=25%，2个=50%，3个=75%
+            int progress = (int) (completedCount * 25);
+            if (progress > 75) {
+                progress = 75; // 前三步最多75%
+            }
+            
+            logger.info("任务模块状态更新: taskId={}, moduleType={}, 已完成模块数={}, 计算进度={}%", 
+                    taskId, moduleType, completedCount, progress);
             
             // 更新任务进度
             analysisTaskService.updateTaskStatus(taskId, 
@@ -130,15 +174,28 @@ public class AlgorithmResultListener {
             }
             
             // 检查是否所有三个基础模块都已完成（audio, video, text）
-            Map<String, Object> moduleResults = taskModuleResults.get(taskId);
-            boolean allModulesCompleted = moduleResults != null 
-                    && moduleResults.containsKey("audio") 
-                    && moduleResults.containsKey("video") 
-                    && moduleResults.containsKey("text");
-            
-            // 如果三个基础模块都完成，且当前是文本分析（75%），则触发第4步整合分析
-            if (allModulesCompleted && "text".equals(moduleType) && progress == 75) {
-                logger.info("检测到前三步分析完成，开始执行第4步整合分析: taskId={}", taskId);
+            if (completedCount == 3) {
+                logger.info("检测到前三步分析全部完成，开始执行第4步整合分析: taskId={}", taskId);
+                
+                // 从Redis获取所有模块结果
+                Map<String, Object> moduleResults = new java.util.HashMap<>();
+                Object audioResult = redisTemplate.opsForValue().get(REDIS_RESULT_KEY_PREFIX + taskId + ":audio");
+                Object videoResult = redisTemplate.opsForValue().get(REDIS_RESULT_KEY_PREFIX + taskId + ":video");
+                Object textResult = redisTemplate.opsForValue().get(REDIS_RESULT_KEY_PREFIX + taskId + ":text");
+                
+                // 类型转换
+                if (audioResult instanceof Map) {
+                    moduleResults.put("audio", (Map<String, Object>) audioResult);
+                }
+                if (videoResult instanceof Map) {
+                    moduleResults.put("video", (Map<String, Object>) videoResult);
+                }
+                if (textResult instanceof Map) {
+                    moduleResults.put("text", (Map<String, Object>) textResult);
+                }
+                
+                logger.info("从Redis获取模块结果: taskId={}, audio={}, video={}, text={}", 
+                        taskId, audioResult != null, videoResult != null, textResult != null);
                 
                 // 执行整合分析（生成受众年龄分布）
                 Map<String, Object> integrationResult = performIntegrationAnalysis(taskId, moduleResults);
@@ -172,8 +229,12 @@ public class AlgorithmResultListener {
                     logger.info("整合分析完成并已推送: userId={}, taskId={}, progress=100%", userId, taskId);
                 }
                 
-                // 清理该任务的状态缓存
-                taskModuleResults.remove(taskId);
+                // 清理Redis中的任务状态和结果数据
+                redisTemplate.delete(modulesKey);
+                redisTemplate.delete(REDIS_RESULT_KEY_PREFIX + taskId + ":audio");
+                redisTemplate.delete(REDIS_RESULT_KEY_PREFIX + taskId + ":video");
+                redisTemplate.delete(REDIS_RESULT_KEY_PREFIX + taskId + ":text");
+                logger.info("已清理Redis中的任务状态: taskId={}", taskId);
             }
             
             // 手动确认消息已处理
