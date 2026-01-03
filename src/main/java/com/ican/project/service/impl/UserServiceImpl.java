@@ -201,9 +201,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 return Result.fail(Code.INTERNAL_ERROR, "用户数据异常");
             }
 
+            // 如果新旧密码相同，直接返回成功（不更新数据库，用户察觉不到）
             if (passwordEncoder.matches(newPwd, user.getPassword())) {
-                logger.warn("新旧密码相同: email={}", emailByCode);
-                return Result.fail(Code.NEW_PWD_EQ_OLD, "新旧密码相同");
+                logger.info("新旧密码相同，直接返回成功: email={}", emailByCode);
+                return Result.success("密码重置成功");
             }
 
             String encodedPassword = passwordEncoder.encode(newPwd);
