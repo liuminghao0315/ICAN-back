@@ -196,29 +196,14 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Override
     public Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder) {
-        // 构建缓存键（仅第一页缓存）
-        String cacheKey = RedisCacheUtil.CacheKey.TASK_LIST + userId + ":" + 
-                (status != null ? status : "") + ":" + (riskLevel != null ? riskLevel : "") + 
-                ":" + (sortBy != null ? sortBy : "") + ":" + (sortOrder != null ? sortOrder : "") + 
-                ":" + page + ":" + size;
-        
-        // 先从缓存获取（仅第一页）
-        if (page == 1) {
-            @SuppressWarnings("unchecked")
-            Page<AnalysisTaskVO> cachedPage = redisCacheUtil.get(cacheKey, Page.class);
-            if (cachedPage != null) {
-                logger.debug("从缓存获取任务列表: userId={}, page={}", userId, page);
-                return cachedPage;
-            }
-        }
-        
-        Page<java.util.Map<String, Object>> taskPage = new Page<>(page, size);
-        
         // 使用 JOIN 查询，在数据库层面进行全局排序和筛选
         String effectiveStatus = (status != null && !status.isEmpty()) ? status.toUpperCase() : null;
         String effectiveRiskLevel = (riskLevel != null && !riskLevel.isEmpty()) ? riskLevel.toUpperCase() : null;
         String effectiveSortBy = sortBy != null ? sortBy : "gmtCreated";
         String effectiveSortOrder = "asc".equalsIgnoreCase(sortOrder) ? "asc" : "desc";
+        
+        // 直接查询数据库，不使用缓存，确保数据准确性（特别是 total 总数）
+        Page<java.util.Map<String, Object>> taskPage = new Page<>(page, size);
         
         Page<java.util.Map<String, Object>> result = analysisTaskMapper.selectTasksWithJoin(
                 taskPage, userId, effectiveStatus, effectiveRiskLevel, effectiveSortBy, effectiveSortOrder);
@@ -230,11 +215,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         
         Page<AnalysisTaskVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         voPage.setRecords(voList);
-        
-        // 仅缓存第一页
-        if (page == 1) {
-            redisCacheUtil.set(cacheKey, voPage, 10); // 列表缓存10分钟
-        }
         
         return voPage;
     }
