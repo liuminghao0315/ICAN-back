@@ -15,6 +15,7 @@ import com.ican.project.model.vo.VideoVO;
 import com.ican.project.service.MinioService;
 import com.ican.project.service.UploadStatisticsService;
 import com.ican.project.service.VideoService;
+import com.ican.project.utils.RedisCacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
@@ -62,6 +63,9 @@ public class VideoServiceImpl implements VideoService {
     
     @Autowired
     private UploadStatisticsService uploadStatisticsService;
+    
+    @Autowired
+    private RedisCacheUtil redisCacheUtil;
     
     @Value("${upload.temp-dir:${java.io.tmpdir}/ican-upload-chunks}")
     private String tempDir;
@@ -297,6 +301,9 @@ public class VideoServiceImpl implements VideoService {
                     .build();
             videoMapper.insert(video);
             
+            // 清除用户视频列表缓存
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+            
             // 记录上传统计（持久化）
             try {
                 uploadStatisticsService.recordUpload(userId, totalSize);
@@ -369,6 +376,9 @@ public class VideoServiceImpl implements VideoService {
                     .build();
             videoMapper.insert(video);
             
+            // 清除用户视频列表缓存
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+            
             // 记录上传统计（持久化）
             try {
                 uploadStatisticsService.recordUpload(userId, file.getSize());
@@ -388,18 +398,47 @@ public class VideoServiceImpl implements VideoService {
     
     @Override
     public VideoVO getVideoById(String videoId, String userId) {
+        // 先从缓存获取
+        String cacheKey = RedisCacheUtil.CacheKey.VIDEO_BY_ID + videoId + ":" + userId;
+        VideoVO cachedVideo = redisCacheUtil.get(cacheKey, VideoVO.class);
+        if (cachedVideo != null) {
+            logger.debug("从缓存获取视频: videoId={}", videoId);
+            return cachedVideo;
+        }
+        
+        // 缓存未命中，查询数据库
         Video video = videoMapper.selectById(videoId);
         if (video == null) {
             throw new BusinessException("视频不存在");
         }
-        if (!video.getUserId().equals(userId)) {
+        if (video.getUserId() == null || !video.getUserId().equals(userId)) {
             throw new BusinessException("无权访问该视频");
         }
-        return convertToVO(video);
+        
+        VideoVO videoVO = convertToVO(video);
+        // 存入缓存
+        redisCacheUtil.set(cacheKey, videoVO);
+        return videoVO;
     }
     
     @Override
     public Page<VideoVO> getUserVideos(String userId, int page, int size, String status, String sortBy, String sortOrder) {
+        // 构建缓存键（包含所有查询参数）
+        String cacheKey = RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":" + page + ":" + size + 
+                ":" + (status != null ? status : "") + ":" + (sortBy != null ? sortBy : "") + 
+                ":" + (sortOrder != null ? sortOrder : "");
+        
+        // 先从缓存获取（仅第一页缓存，其他页不缓存）
+        if (page == 1) {
+            @SuppressWarnings("unchecked")
+            Page<VideoVO> cachedPage = redisCacheUtil.get(cacheKey, Page.class);
+            if (cachedPage != null) {
+                logger.debug("从缓存获取视频列表: userId={}, page={}", userId, page);
+                return cachedPage;
+            }
+        }
+        
+        // 缓存未命中，查询数据库
         Page<Video> videoPage = new Page<>(page, size);
         LambdaQueryWrapper<Video> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Video::getUserId, userId);
@@ -431,6 +470,11 @@ public class VideoServiceImpl implements VideoService {
                 .map(this::convertToVO)
                 .collect(Collectors.toList()));
         
+        // 仅缓存第一页
+        if (page == 1) {
+            redisCacheUtil.set(cacheKey, voPage, 10); // 列表缓存10分钟
+        }
+        
         return voPage;
     }
     
@@ -441,7 +485,7 @@ public class VideoServiceImpl implements VideoService {
         if (video == null) {
             throw new BusinessException("视频不存在");
         }
-        if (!video.getUserId().equals(userId)) {
+        if (video.getUserId() == null || !video.getUserId().equals(userId)) {
             throw new BusinessException("无权删除该视频");
         }
         
@@ -457,6 +501,11 @@ public class VideoServiceImpl implements VideoService {
         
         // 删除数据库记录
         videoMapper.deleteById(videoId);
+        
+        // 清除相关缓存
+        redisCacheUtil.delete(RedisCacheUtil.CacheKey.VIDEO_BY_ID + videoId + ":" + userId);
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+        
         logger.info("视频删除成功: videoId={}", videoId);
     }
     
