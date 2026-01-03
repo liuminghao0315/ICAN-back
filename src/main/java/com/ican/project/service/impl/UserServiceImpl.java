@@ -7,6 +7,7 @@ import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.entity.User;
 import com.ican.project.service.UserService;
+import com.ican.project.utils.RedisCacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+    
+    @Autowired
+    private RedisCacheUtil redisCacheUtil;
 
     @Override
     public List<String> getUserPermissions(String userId) {
@@ -43,7 +47,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         try {
-            return userMapper.selectPermsByUserId(userId);
+            // 先从缓存获取
+            String cacheKey = RedisCacheUtil.CacheKey.USER_PERMISSIONS + userId;
+            @SuppressWarnings("unchecked")
+            List<String> cachedPermissions = redisCacheUtil.get(cacheKey, List.class);
+            if (cachedPermissions != null) {
+                logger.debug("从缓存获取用户权限: userId={}", userId);
+                return cachedPermissions;
+            }
+            
+            // 缓存未命中，查询数据库
+            List<String> permissions = userMapper.selectPermsByUserId(userId);
+            
+            // 存入缓存（包括空列表，避免重复查询）
+            if (permissions != null) {
+                redisCacheUtil.setUserCache(cacheKey, permissions);
+            }
+            
+            return permissions != null ? permissions : List.of();
         } catch (Exception e) {
             logger.error("获取用户权限异常: userId={}", userId, e);
             return List.of();
@@ -63,12 +84,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         try {
-            List<User> users = userMapper.selectByMap(Map.of("name", username));
-            if (users != null && !users.isEmpty()) {
-                return users.get(0);
+            // 先从缓存获取
+            String cacheKey = RedisCacheUtil.CacheKey.USER_BY_USERNAME + username;
+            User cachedUser = redisCacheUtil.get(cacheKey, User.class);
+            if (cachedUser != null) {
+                logger.debug("从缓存获取用户: username={}", username);
+                return cachedUser;
             }
-            logger.debug("用户不存在: username={}", username);
-            return null;
+            
+            // 缓存未命中，查询数据库
+            List<User> users = userMapper.selectByMap(Map.of("name", username));
+            User user = null;
+            if (users != null && !users.isEmpty()) {
+                user = users.get(0);
+                // 存入缓存
+                redisCacheUtil.setUserCache(cacheKey, user);
+            } else {
+                logger.debug("用户不存在: username={}", username);
+            }
+            return user;
         } catch (Exception e) {
             logger.error("根据用户名查询用户异常: username={}", username, e);
             return null;
@@ -88,12 +122,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         try {
-            List<User> users = userMapper.selectByMap(Map.of("email", email));
-            if (users != null && !users.isEmpty()) {
-                return users.get(0);
+            // 先从缓存获取
+            String cacheKey = RedisCacheUtil.CacheKey.USER_BY_EMAIL + email;
+            User cachedUser = redisCacheUtil.get(cacheKey, User.class);
+            if (cachedUser != null) {
+                logger.debug("从缓存获取用户: email={}", email);
+                return cachedUser;
             }
-            logger.debug("用户不存在: email={}", email);
-            return null;
+            
+            // 缓存未命中，查询数据库
+            List<User> users = userMapper.selectByMap(Map.of("email", email));
+            User user = null;
+            if (users != null && !users.isEmpty()) {
+                user = users.get(0);
+                // 存入缓存
+                redisCacheUtil.setUserCache(cacheKey, user);
+            } else {
+                logger.debug("用户不存在: email={}", email);
+            }
+            return user;
         } catch (Exception e) {
             logger.error("根据邮箱查询用户异常: email={}", email, e);
             return null;
@@ -170,6 +217,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
             int result = userMapper.updateById(updatedUser);
             if (result > 0) {
+                // 清除相关缓存（使用已查询的user对象，避免重复查询）
+                if (user != null) {
+                    if (user.getName() != null) {
+                        redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_BY_USERNAME + user.getName());
+                    }
+                    redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_BY_EMAIL + emailByCode);
+                    if (user.getId() != null) {
+                        redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_PERMISSIONS + user.getId());
+                    }
+                }
+                
                 logger.info("密码重置成功: email={}", emailByCode);
                 return Result.success("密码重置成功");
             } else {

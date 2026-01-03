@@ -16,6 +16,7 @@ import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.AnalysisResultVO;
 import com.ican.project.service.AnalysisResultService;
 import com.ican.project.service.MinioService;
+import com.ican.project.utils.RedisCacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,9 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     @Autowired
     private MinioService minioService;
     
+    @Autowired
+    private RedisCacheUtil redisCacheUtil;
+    
     @Override
     @Transactional
     public String saveResult(AnalysisResult result) {
@@ -63,6 +67,22 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         result.setGmtModified(LocalDateTime.now());
         
         analysisResultMapper.insert(result);
+        
+        // 清除相关缓存
+        if (result.getVideoId() != null) {
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RESULT_BY_VIDEO_ID + result.getVideoId() + ":*");
+        }
+        if (result.getTaskId() != null) {
+            // 查询任务获取userId，避免空指针异常
+            AnalysisTask task = analysisTaskMapper.selectById(result.getTaskId());
+            if (task != null && task.getUserId() != null) {
+                redisCacheUtil.delete(RedisCacheUtil.CacheKey.RESULT_BY_TASK_ID + result.getTaskId() + ":" + task.getUserId());
+            }
+        }
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RESULT_LIST + "*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RESULT_STATS + "*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RISK_DISTRIBUTION + "*");
+        
         logger.info("保存分析结果: resultId={}, taskId={}, videoId={}", 
                 result.getId(), result.getTaskId(), result.getVideoId());
         
@@ -71,29 +91,57 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     
     @Override
     public AnalysisResultVO getResultById(String resultId, String userId) {
+        // 先从缓存获取
+        String cacheKey = RedisCacheUtil.CacheKey.RESULT_BY_ID + resultId + ":" + userId;
+        AnalysisResultVO cachedResult = redisCacheUtil.get(cacheKey, AnalysisResultVO.class);
+        if (cachedResult != null) {
+            logger.debug("从缓存获取分析结果: resultId={}", resultId);
+            return cachedResult;
+        }
+        
+        // 缓存未命中，查询数据库
         AnalysisResult result = analysisResultMapper.selectById(resultId);
         if (result == null) {
             throw new BusinessException("分析结果不存在");
         }
         
-        // 验证权限
+        // 验证权限（检查必要字段）
+        if (result.getTaskId() == null) {
+            throw new BusinessException("分析结果数据异常：任务ID为空");
+        }
         AnalysisTask task = analysisTaskMapper.selectById(result.getTaskId());
-        if (task == null || !task.getUserId().equals(userId)) {
+        if (task == null || task.getUserId() == null || !task.getUserId().equals(userId)) {
             throw new BusinessException("无权访问该分析结果");
         }
         
-        Video video = videoMapper.selectById(result.getVideoId());
-        return convertToVO(result, video);
+        // 获取视频信息
+        Video video = null;
+        if (result.getVideoId() != null) {
+            video = videoMapper.selectById(result.getVideoId());
+        }
+        AnalysisResultVO resultVO = convertToVO(result, video);
+        
+        // 存入缓存
+        redisCacheUtil.set(cacheKey, resultVO);
+        return resultVO;
     }
     
     @Override
     public AnalysisResultVO getResultByTaskId(String taskId, String userId) {
+        // 先从缓存获取
+        String cacheKey = RedisCacheUtil.CacheKey.RESULT_BY_TASK_ID + taskId + ":" + userId;
+        AnalysisResultVO cachedResult = redisCacheUtil.get(cacheKey, AnalysisResultVO.class);
+        if (cachedResult != null) {
+            logger.debug("从缓存获取分析结果: taskId={}", taskId);
+            return cachedResult;
+        }
+        
         // 验证任务权限
         AnalysisTask task = analysisTaskMapper.selectById(taskId);
         if (task == null) {
             throw new BusinessException("任务不存在");
         }
-        if (!task.getUserId().equals(userId)) {
+        if (task.getUserId() == null || !task.getUserId().equals(userId)) {
             throw new BusinessException("无权访问该任务的分析结果");
         }
         
@@ -105,18 +153,34 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             return null;
         }
         
-        Video video = videoMapper.selectById(result.getVideoId());
-        return convertToVO(result, video);
+        // 获取视频信息
+        Video video = null;
+        if (result.getVideoId() != null) {
+            video = videoMapper.selectById(result.getVideoId());
+        }
+        AnalysisResultVO resultVO = convertToVO(result, video);
+        
+        // 存入缓存
+        redisCacheUtil.set(cacheKey, resultVO);
+        return resultVO;
     }
     
     @Override
     public AnalysisResultVO getLatestResultByVideoId(String videoId, String userId) {
+        // 先从缓存获取
+        String cacheKey = RedisCacheUtil.CacheKey.RESULT_BY_VIDEO_ID + videoId + ":" + userId;
+        AnalysisResultVO cachedResult = redisCacheUtil.get(cacheKey, AnalysisResultVO.class);
+        if (cachedResult != null) {
+            logger.debug("从缓存获取最新分析结果: videoId={}", videoId);
+            return cachedResult;
+        }
+        
         // 验证视频权限
         Video video = videoMapper.selectById(videoId);
         if (video == null) {
             throw new BusinessException("视频不存在");
         }
-        if (!video.getUserId().equals(userId)) {
+        if (video.getUserId() == null || !video.getUserId().equals(userId)) {
             throw new BusinessException("无权访问该视频的分析结果");
         }
         
@@ -131,11 +195,29 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             return null;
         }
         
-        return convertToVO(result, video);
+        AnalysisResultVO resultVO = convertToVO(result, video);
+        
+        // 存入缓存
+        redisCacheUtil.set(cacheKey, resultVO);
+        return resultVO;
     }
     
     @Override
     public Page<AnalysisResultVO> getUserResults(String userId, String riskLevel, int page, int size) {
+        // 构建缓存键（仅第一页缓存）
+        String cacheKey = RedisCacheUtil.CacheKey.RESULT_LIST + userId + ":" + 
+                (riskLevel != null ? riskLevel : "") + ":" + page + ":" + size;
+        
+        // 先从缓存获取（仅第一页）
+        if (page == 1) {
+            @SuppressWarnings("unchecked")
+            Page<AnalysisResultVO> cachedPage = redisCacheUtil.get(cacheKey, Page.class);
+            if (cachedPage != null) {
+                logger.debug("从缓存获取分析结果列表: userId={}, page={}", userId, page);
+                return cachedPage;
+            }
+        }
+        
         // 先获取用户的所有视频ID
         LambdaQueryWrapper<Video> videoWrapper = new LambdaQueryWrapper<>();
         videoWrapper.eq(Video::getUserId, userId)
@@ -143,7 +225,12 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         List<Video> videos = videoMapper.selectList(videoWrapper);
         
         if (videos.isEmpty()) {
-            return new Page<>(page, size, 0);
+            Page<AnalysisResultVO> emptyPage = new Page<>(page, size, 0);
+            // 空结果也缓存（仅第一页），避免重复查询
+            if (page == 1) {
+                redisCacheUtil.set(cacheKey, emptyPage, 10);
+            }
+            return emptyPage;
         }
         
         List<String> videoIds = videos.stream()
@@ -171,19 +258,36 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         Page<AnalysisResultVO> voPage = new Page<>(resultList.getCurrent(), resultList.getSize(), resultList.getTotal());
         voPage.setRecords(resultList.getRecords().stream()
                 .map(result -> {
-                    Video video = videoMap.get(result.getVideoId());
-                    if (video == null) {
-                        video = videoMapper.selectById(result.getVideoId());
+                    Video video = null;
+                    if (result.getVideoId() != null) {
+                        video = videoMap.get(result.getVideoId());
+                        if (video == null) {
+                            video = videoMapper.selectById(result.getVideoId());
+                        }
                     }
                     return convertToVO(result, video);
                 })
                 .collect(Collectors.toList()));
+        
+        // 仅缓存第一页
+        if (page == 1) {
+            redisCacheUtil.set(cacheKey, voPage, 10); // 列表缓存10分钟
+        }
         
         return voPage;
     }
     
     @Override
     public Map<String, Object> getUserAnalysisStats(String userId) {
+        // 先从缓存获取
+        String cacheKey = RedisCacheUtil.CacheKey.RESULT_STATS + userId;
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cachedStats = redisCacheUtil.get(cacheKey, Map.class);
+        if (cachedStats != null) {
+            logger.debug("从缓存获取分析统计: userId={}", userId);
+            return cachedStats;
+        }
+        
         Map<String, Object> stats = new HashMap<>();
         
         // 获取用户的所有视频ID
@@ -207,6 +311,8 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             stats.put("negativeSentimentCount", 0);
             stats.put("neutralSentimentCount", 0);
             stats.put("universityRelatedCount", 0);
+            // 空结果也存入缓存，避免重复查询
+            redisCacheUtil.setStatsCache(cacheKey, stats);
             return stats;
         }
         
@@ -262,11 +368,23 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                 .count();
         stats.put("universityRelatedCount", universityRelatedCount);
         
+        // 存入缓存
+        redisCacheUtil.setStatsCache(cacheKey, stats);
+        
         return stats;
     }
     
     @Override
     public Map<String, Long> getRiskDistribution(String userId) {
+        // 先从缓存获取
+        String cacheKey = RedisCacheUtil.CacheKey.RISK_DISTRIBUTION + userId;
+        @SuppressWarnings("unchecked")
+        Map<String, Long> cachedDistribution = redisCacheUtil.get(cacheKey, Map.class);
+        if (cachedDistribution != null) {
+            logger.debug("从缓存获取风险分布: userId={}", userId);
+            return cachedDistribution;
+        }
+        
         Map<String, Long> distribution = new HashMap<>();
         distribution.put("HIGH", 0L);
         distribution.put("MEDIUM", 0L);
@@ -279,6 +397,7 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         List<Video> videos = videoMapper.selectList(videoWrapper);
         
         if (videos.isEmpty()) {
+            redisCacheUtil.setStatsCache(cacheKey, distribution);
             return distribution;
         }
         
@@ -299,6 +418,9 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             }
         }
         
+        // 存入缓存
+        redisCacheUtil.setStatsCache(cacheKey, distribution);
+        
         return distribution;
     }
     
@@ -310,13 +432,29 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             throw new BusinessException("分析结果不存在");
         }
         
-        // 验证权限
+        // 验证权限（检查必要字段）
+        if (result.getTaskId() == null) {
+            throw new BusinessException("分析结果数据异常：任务ID为空");
+        }
         AnalysisTask task = analysisTaskMapper.selectById(result.getTaskId());
-        if (task == null || !task.getUserId().equals(userId)) {
+        if (task == null || task.getUserId() == null || !task.getUserId().equals(userId)) {
             throw new BusinessException("无权删除该分析结果");
         }
         
         analysisResultMapper.deleteById(resultId);
+        
+        // 清除相关缓存
+        redisCacheUtil.delete(RedisCacheUtil.CacheKey.RESULT_BY_ID + resultId + ":" + userId);
+        if (result.getTaskId() != null) {
+            redisCacheUtil.delete(RedisCacheUtil.CacheKey.RESULT_BY_TASK_ID + result.getTaskId() + ":" + userId);
+        }
+        if (result.getVideoId() != null) {
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RESULT_BY_VIDEO_ID + result.getVideoId() + ":*");
+        }
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RESULT_LIST + "*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RESULT_STATS + "*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.RISK_DISTRIBUTION + "*");
+        
         logger.info("删除分析结果: resultId={}", resultId);
     }
     

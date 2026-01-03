@@ -17,6 +17,7 @@ import com.ican.project.model.vo.AnalysisTaskVO;
 import com.ican.project.service.AnalysisTaskService;
 import com.ican.project.service.MinioService;
 import com.ican.project.service.VideoService;
+import com.ican.project.utils.RedisCacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     @Autowired
     private MinioService minioService;
     
+    @Autowired
+    private RedisCacheUtil redisCacheUtil;
+    
     @Override
     @Transactional
     public AnalysisTaskVO createTask(AnalysisTaskDTO dto, String userId) {
@@ -60,7 +64,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (video == null) {
             throw new BusinessException("视频不存在");
         }
-        if (!video.getUserId().equals(userId)) {
+        if (video.getUserId() == null || !video.getUserId().equals(userId)) {
             throw new BusinessException("无权操作该视频");
         }
         
@@ -116,6 +120,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         
         analysisTaskMapper.insert(task);
         
+        // 清除相关缓存
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + userId + ":*");
+        
         // 更新视频状态为分析中
         videoService.updateVideoStatus(dto.getVideoId(), Video.Status.ANALYZING.name());
         
@@ -130,18 +137,35 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Override
     public AnalysisTaskVO getTaskById(String taskId, String userId) {
+        // 先从缓存获取
+        String cacheKey = RedisCacheUtil.CacheKey.TASK_BY_ID + taskId + ":" + userId;
+        AnalysisTaskVO cachedTask = redisCacheUtil.get(cacheKey, AnalysisTaskVO.class);
+        if (cachedTask != null) {
+            logger.debug("从缓存获取任务: taskId={}", taskId);
+            return cachedTask;
+        }
+        
+        // 缓存未命中，查询数据库
         AnalysisTask task = analysisTaskMapper.selectById(taskId);
         if (task == null) {
             throw new BusinessException("任务不存在");
         }
-        if (!task.getUserId().equals(userId)) {
+        if (task.getUserId() == null || !task.getUserId().equals(userId)) {
             throw new BusinessException("无权访问该任务");
         }
         
-        Video video = videoMapper.selectById(task.getVideoId());
+        // 获取视频信息
+        Video video = null;
+        if (task.getVideoId() != null) {
+            video = videoMapper.selectById(task.getVideoId());
+        }
         AnalysisResult result = getResultByTaskId(taskId);
         
-        return convertToVO(task, video, result);
+        AnalysisTaskVO taskVO = convertToVO(task, video, result);
+        
+        // 存入缓存
+        redisCacheUtil.set(cacheKey, taskVO);
+        return taskVO;
     }
     
     @Override
@@ -151,7 +175,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (video == null) {
             throw new BusinessException("视频不存在");
         }
-        if (!video.getUserId().equals(userId)) {
+        if (video.getUserId() == null || !video.getUserId().equals(userId)) {
             throw new BusinessException("无权访问该视频");
         }
         
@@ -172,6 +196,22 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Override
     public Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder) {
+        // 构建缓存键（仅第一页缓存）
+        String cacheKey = RedisCacheUtil.CacheKey.TASK_LIST + userId + ":" + 
+                (status != null ? status : "") + ":" + (riskLevel != null ? riskLevel : "") + 
+                ":" + (sortBy != null ? sortBy : "") + ":" + (sortOrder != null ? sortOrder : "") + 
+                ":" + page + ":" + size;
+        
+        // 先从缓存获取（仅第一页）
+        if (page == 1) {
+            @SuppressWarnings("unchecked")
+            Page<AnalysisTaskVO> cachedPage = redisCacheUtil.get(cacheKey, Page.class);
+            if (cachedPage != null) {
+                logger.debug("从缓存获取任务列表: userId={}, page={}", userId, page);
+                return cachedPage;
+            }
+        }
+        
         Page<java.util.Map<String, Object>> taskPage = new Page<>(page, size);
         
         // 使用 JOIN 查询，在数据库层面进行全局排序和筛选
@@ -190,6 +230,11 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         
         Page<AnalysisTaskVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         voPage.setRecords(voList);
+        
+        // 仅缓存第一页
+        if (page == 1) {
+            redisCacheUtil.set(cacheKey, voPage, 10); // 列表缓存10分钟
+        }
         
         return voPage;
     }
@@ -254,7 +299,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (task == null) {
             throw new BusinessException("任务不存在");
         }
-        if (!task.getUserId().equals(userId)) {
+        if (task.getUserId() == null || !task.getUserId().equals(userId)) {
             throw new BusinessException("无权操作该任务");
         }
         
@@ -283,7 +328,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (oldTask == null) {
             throw new BusinessException("任务不存在");
         }
-        if (!oldTask.getUserId().equals(userId)) {
+        if (oldTask.getUserId() == null || !oldTask.getUserId().equals(userId)) {
             throw new BusinessException("无权操作该任务");
         }
         
@@ -319,6 +364,16 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         }
         
         analysisTaskMapper.update(null, wrapper);
+        
+        // 清除相关缓存
+        AnalysisTask task = analysisTaskMapper.selectById(taskId);
+        if (task != null) {
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_BY_ID + taskId + ":*");
+            if (task.getUserId() != null) {
+                redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + task.getUserId() + ":*");
+            }
+        }
+        
         logger.debug("更新任务状态: taskId={}, status={}, progress={}", taskId, status, progress);
     }
     
