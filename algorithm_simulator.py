@@ -29,7 +29,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # RabbitMQ 配置
-RABBITMQ_HOST = '192.168.6.130'
+RABBITMQ_HOST = 'rabbitmq-service'
 RABBITMQ_PORT = 5672
 RABBITMQ_USERNAME = 'guest'
 RABBITMQ_PASSWORD = 'guest'
