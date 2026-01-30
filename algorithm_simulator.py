@@ -55,26 +55,37 @@ TEMP_DIR = "/tmp"
 
 def convert_url_to_tunnel(original_url: str) -> str:
     """
-    将Minio内网地址转换为cpolar隧道地址
+    将Minio内网地址转换为cpolar隧道地址（去除签名查询参数）
     
     Args:
-        original_url: http://192.168.6.130:9000/...
+        original_url: http://192.168.6.130:9000/bucket/path/file.mp4?X-Amz-Signature=...
         
     Returns:
-        http://5aedd2d8.r12.cpolar.top/...
+        http://5aedd2d8.r12.cpolar.top/bucket/path/file.mp4
     """
     if not original_url:
         return original_url
     
     try:
-        # URL decode
-        decoded_url = urllib.parse.unquote(original_url)
+        # 解析URL
+        parsed = urllib.parse.urlparse(original_url)
         
-        # 替换host
-        tunnel_url = decoded_url.replace(
-            f"http://{INTERNAL_HOST}",
-            f"http://{TUNNEL_HOST}"
-        )
+        # 重新构建URL（不含查询参数）
+        # 替换netloc（host:port）
+        new_netloc = TUNNEL_HOST
+        
+        # URL decode path
+        decoded_path = urllib.parse.unquote(parsed.path)
+        
+        # 构建新URL（只保留scheme, netloc, path，去掉query参数）
+        tunnel_url = urllib.parse.urlunparse((
+            "http",          # scheme
+            new_netloc,      # netloc (host)
+            decoded_path,    # path
+            "",              # params
+            "",              # query (去掉签名参数)
+            ""               # fragment
+        ))
         
         logger.info(f"URL转换: {original_url} -> {tunnel_url}")
         return tunnel_url
@@ -323,11 +334,13 @@ class AlgorithmSimulator:
         
         try:
             # Step 0: URL转换（将内网地址转为隧道地址）
-            # 注意：如果Python和Minio在同一内网，注释掉此段使用原始URL
             original_url = task_message.get("videoUrl")
-            # if original_url:
-            #     tunnel_url = convert_url_to_tunnel(original_url)
-            #     task_message["videoUrl"] = tunnel_url
+            if original_url:
+                # 保存内网URL（用于ffmpeg快速处理）
+                task_message["videoUrlInternal"] = original_url
+                # 转换为隧道URL（用于打印和外部API）
+                tunnel_url = convert_url_to_tunnel(original_url)
+                task_message["videoUrl"] = tunnel_url
             
             # Step 1: 模拟媒体分割
             split_result = self.simulate_media_splitting(task_id, task_message)

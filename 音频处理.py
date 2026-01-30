@@ -141,13 +141,13 @@ def process_audio(task_id: str, video_info: Dict[str, Any]) -> Tuple[Dict[str, A
     
     audio_path = None
     try:
-        # 获取视频URL
-        video_url = video_info.get("videoUrl")
-        if not video_url:
+        # 获取内网URL用于ffmpeg快速处理（如果不存在则使用公网URL）
+        video_url_internal = video_info.get("videoUrlInternal") or video_info.get("videoUrl")
+        if not video_url_internal:
             raise ValueError("视频URL不存在")
         
-        # Step 1: 从视频中提取音频
-        audio_path = extract_audio_from_video(video_url, task_id)
+        # Step 1: 从视频中提取音频（使用内网URL，速度更快）
+        audio_path = extract_audio_from_video(video_url_internal, task_id)
         
         # Step 2: 音频特征提取
         audio_result = extract_audio_features(task_id, video_info)
