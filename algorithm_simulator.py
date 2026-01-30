@@ -15,6 +15,7 @@ import random
 import pika
 import logging
 import threading
+import urllib.parse
 from typing import Dict, Any
 
 # 导入子模块
@@ -38,6 +39,48 @@ RABBITMQ_VIRTUAL_HOST = '/'
 # 队列名称
 TASK_DISPATCH_QUEUE = 'algorithm.task.queue'  # 从 Java 接收任务
 RESULT_CALLBACK_QUEUE = 'algorithm.result.queue'  # 向 Java 发送结果
+
+# URL转换配置
+TUNNEL_HOST = "5aedd2d8.r12.cpolar.top"
+INTERNAL_HOST = "192.168.6.130:9000"
+
+# Whisper模型配置
+WHISPER_MODEL_SIZE = "base"  # tiny/base/small/medium/large
+WHISPER_DEVICE = "cpu"  # cpu/cuda
+WHISPER_COMPUTE_TYPE = "int8"  # int8/float16/float32
+
+# 临时文件目录
+TEMP_DIR = "/tmp"
+
+
+def convert_url_to_tunnel(original_url: str) -> str:
+    """
+    将Minio内网地址转换为cpolar隧道地址
+    
+    Args:
+        original_url: http://192.168.6.130:9000/...
+        
+    Returns:
+        http://5aedd2d8.r12.cpolar.top/...
+    """
+    if not original_url:
+        return original_url
+    
+    try:
+        # URL decode
+        decoded_url = urllib.parse.unquote(original_url)
+        
+        # 替换host
+        tunnel_url = decoded_url.replace(
+            f"http://{INTERNAL_HOST}",
+            f"http://{TUNNEL_HOST}"
+        )
+        
+        logger.info(f"URL转换: {original_url} -> {tunnel_url}")
+        return tunnel_url
+    except Exception as e:
+        logger.error(f"URL转换失败: {e}, 使用原URL")
+        return original_url
 
 
 class AlgorithmSimulator:
@@ -279,6 +322,13 @@ class AlgorithmSimulator:
         logger.info(f"[任务 {task_id}] ========== 开始处理分析任务 ==========")
         
         try:
+            # Step 0: URL转换（将内网地址转为隧道地址）
+            # 注意：如果Python和Minio在同一内网，注释掉此段使用原始URL
+            original_url = task_message.get("videoUrl")
+            # if original_url:
+            #     tunnel_url = convert_url_to_tunnel(original_url)
+            #     task_message["videoUrl"] = tunnel_url
+            
             # Step 1: 模拟媒体分割
             split_result = self.simulate_media_splitting(task_id, task_message)
             logger.info(f"[任务 {task_id}] 媒体分割完成: {split_result}")
