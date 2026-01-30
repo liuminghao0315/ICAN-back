@@ -1,5 +1,2 @@
-# RabbitMQ消息队列
 pika==1.3.2
 
-# 注意：阿里云API使用原生HTTP请求，无需额外SDK
-# 已实现签名机制，直接调用REST API
