@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:developer.qiniu.com)",
+      "WebSearch",
+      "Bash(pdftotext:*)",
+      "Bash(dir:*)"
+    ]
+  }
+}
