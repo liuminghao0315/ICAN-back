@@ -511,11 +511,21 @@ public class VideoServiceImpl implements VideoService {
     
     @Override
     public void updateVideoStatus(String videoId, String status) {
+        // 获取视频信息以清除缓存
+        Video existingVideo = videoMapper.selectById(videoId);
+        
         Video video = new Video();
         video.setId(videoId);
         video.setStatus(status);
         video.setGmtModified(LocalDateTime.now());
         videoMapper.updateById(video);
+        
+        // 清除相关缓存
+        if (existingVideo != null && existingVideo.getUserId() != null) {
+            redisCacheUtil.delete(RedisCacheUtil.CacheKey.VIDEO_BY_ID + videoId + ":" + existingVideo.getUserId());
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + existingVideo.getUserId() + ":*");
+            logger.debug("已清除视频状态更新相关缓存: videoId={}, status={}", videoId, status);
+        }
     }
     
     /**

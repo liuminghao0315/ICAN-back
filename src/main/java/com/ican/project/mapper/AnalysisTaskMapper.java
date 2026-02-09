@@ -16,11 +16,10 @@ import java.util.Map;
 public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
     
     /**
-     * 分页查询任务列表，支持按关联表字段排序
+     * 分页查询任务列表（简化版，不再JOIN分析结果的摘要字段）
      * @param page 分页对象
      * @param userId 用户ID
      * @param status 状态筛选（可选）
-     * @param riskLevel 风险等级筛选（可选）
      * @param sortBy 排序字段
      * @param sortOrder 排序方向 (ASC/DESC)
      * @return 任务列表（包含关联字段）
@@ -28,7 +27,7 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
     @Select("<script>" +
             "SELECT t.*, " +
             "       v.title AS video_title, v.duration AS video_duration, v.file_path AS video_file_path, " +
-            "       r.id AS result_id, r.risk_score, r.risk_level, r.sentiment_label " +
+            "       r.id AS result_id " +
             "FROM analysis_task t " +
             "LEFT JOIN video v ON t.video_id = v.id " +
             "LEFT JOIN analysis_result r ON t.id = r.task_id " +
@@ -36,15 +35,8 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
             "<if test='status != null and status != \"\"'>" +
             "  AND t.status = #{status} " +
             "</if>" +
-            "<if test='riskLevel != null and riskLevel != \"\"'>" +
-            "  AND r.risk_level = #{riskLevel} " +
-            "</if>" +
             "ORDER BY " +
             "<choose>" +
-            "  <when test='sortBy == \"riskScore\"'>" +
-            "    <if test='sortOrder == \"asc\"'>COALESCE(r.risk_score, 999) ASC</if>" +
-            "    <if test='sortOrder == \"desc\"'>COALESCE(r.risk_score, -1) DESC</if>" +
-            "  </when>" +
             "  <when test='sortBy == \"videoDuration\"'>" +
             "    <if test='sortOrder == \"asc\"'>COALESCE(v.duration, 999999) ASC</if>" +
             "    <if test='sortOrder == \"desc\"'>COALESCE(v.duration, -1) DESC</if>" +

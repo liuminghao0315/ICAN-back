@@ -237,14 +237,15 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                 .map(Video::getId)
                 .collect(Collectors.toList());
         
-        // 查询分析结果
+        // 查询分析结果（新数据结构不再有riskLevel字段，暂时忽略筛选）
         Page<AnalysisResult> resultPage = new Page<>(page, size);
         LambdaQueryWrapper<AnalysisResult> wrapper = new LambdaQueryWrapper<>();
         wrapper.in(AnalysisResult::getVideoId, videoIds);
         
-        if (riskLevel != null && !riskLevel.isEmpty()) {
-            wrapper.eq(AnalysisResult::getRiskLevel, riskLevel.toUpperCase());
-        }
+        // TODO: 新数据结构需要重新设计风险等级筛选逻辑
+        // if (riskLevel != null && !riskLevel.isEmpty()) {
+        //     wrapper.eq(AnalysisResult::getRiskLevel, riskLevel.toUpperCase());
+        // }
         
         wrapper.orderByDesc(AnalysisResult::getGmtCreated);
         
@@ -334,37 +335,19 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                 .count();
         stats.put("analyzedVideos", analyzedCount);
         
-        // 计算平均风险评分
-        double avgRiskScore = results.stream()
-                .filter(r -> r.getRiskScore() != null)
-                .mapToDouble(r -> r.getRiskScore().doubleValue())
-                .average()
-                .orElse(0.0);
-        stats.put("avgRiskScore", Math.round(avgRiskScore * 1000) / 1000.0);
+        // TODO: 新数据结构需要重新设计统计逻辑
+        // 暂时返回基础统计数据
+        stats.put("avgRiskScore", 0.0);
+        stats.put("highRiskCount", 0L);
+        stats.put("mediumRiskCount", 0L);
+        stats.put("lowRiskCount", 0L);
+        stats.put("positiveSentimentCount", 0L);
+        stats.put("negativeSentimentCount", 0L);
+        stats.put("neutralSentimentCount", 0L);
         
-        // 风险等级分布
-        Map<String, Long> riskDistribution = getRiskDistribution(userId);
-        stats.put("highRiskCount", riskDistribution.getOrDefault("HIGH", 0L));
-        stats.put("mediumRiskCount", riskDistribution.getOrDefault("MEDIUM", 0L));
-        stats.put("lowRiskCount", riskDistribution.getOrDefault("LOW", 0L));
-        
-        // 情感统计
-        long positiveSentimentCount = results.stream()
-                .filter(r -> "POSITIVE".equalsIgnoreCase(r.getSentimentLabel()))
-                .count();
-        long negativeSentimentCount = results.stream()
-                .filter(r -> "NEGATIVE".equalsIgnoreCase(r.getSentimentLabel()))
-                .count();
-        long neutralSentimentCount = results.stream()
-                .filter(r -> "NEUTRAL".equalsIgnoreCase(r.getSentimentLabel()))
-                .count();
-        stats.put("positiveSentimentCount", positiveSentimentCount);
-        stats.put("negativeSentimentCount", negativeSentimentCount);
-        stats.put("neutralSentimentCount", neutralSentimentCount);
-        
-        // 高校相关内容统计
+        // 高校相关内容统计（基于universityName是否为空）
         long universityRelatedCount = results.stream()
-                .filter(r -> Boolean.TRUE.equals(r.getIsUniversityRelated()))
+                .filter(r -> r.getUniversityName() != null && !r.getUniversityName().isEmpty())
                 .count();
         stats.put("universityRelatedCount", universityRelatedCount);
         
@@ -405,18 +388,17 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                 .map(Video::getId)
                 .collect(Collectors.toList());
         
-        // 查询分析结果并统计
+        // TODO: 新数据结构需要重新设计风险分布统计逻辑
+        // 暂时返回空统计
         LambdaQueryWrapper<AnalysisResult> resultWrapper = new LambdaQueryWrapper<>();
-        resultWrapper.in(AnalysisResult::getVideoId, videoIds)
-                .isNotNull(AnalysisResult::getRiskLevel);
+        resultWrapper.in(AnalysisResult::getVideoId, videoIds);
         List<AnalysisResult> results = analysisResultMapper.selectList(resultWrapper);
         
-        for (AnalysisResult result : results) {
-            String riskLevel = result.getRiskLevel();
-            if (riskLevel != null) {
-                distribution.merge(riskLevel.toUpperCase(), 1L, Long::sum);
-            }
-        }
+        // 新数据结构不再有riskLevel字段，需要基于opinionRiskFusion的finalScore计算
+        // 暂时返回默认值
+        distribution.put("LOW", (long) results.size());
+        distribution.put("MEDIUM", 0L);
+        distribution.put("HIGH", 0L);
         
         // 存入缓存
         redisCacheUtil.setStatsCache(cacheKey, distribution);
@@ -459,86 +441,178 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     }
     
     /**
-     * 转换为VO
+     * 转换为VO（全新实现，适配新前端数据结构）
      */
     private AnalysisResultVO convertToVO(AnalysisResult result, Video video) {
-        AnalysisResultVO.AnalysisResultVOBuilder builder = AnalysisResultVO.builder()
-                .id(result.getId())
-                .taskId(result.getTaskId())
-                .videoId(result.getVideoId())
-                .riskScore(result.getRiskScore())
-                .riskLevel(result.getRiskLevel())
-                .riskLevelDesc(AnalysisResultVO.getRiskLevelDescription(result.getRiskLevel()))
-                .isUniversityRelated(result.getIsUniversityRelated())
-                .universityName(result.getUniversityName())
-                .universityConfidence(result.getUniversityConfidence())
-                .topicCategory(result.getTopicCategory())
-                .sentimentScore(result.getSentimentScore())
-                .sentimentLabel(result.getSentimentLabel())
-                .sentimentLabelDesc(AnalysisResultVO.getSentimentLabelDescription(result.getSentimentLabel()))
-                .transcription(result.getTranscription())
-                .spreadPotential(result.getSpreadPotential())
-                .gmtCreated(result.getGmtCreated());
-        
-        // 解析JSON字段
-        if (result.getTopicKeywords() != null) {
-            try {
-                List<String> keywords = JSON.parseObject(result.getTopicKeywords(), 
-                        new TypeReference<List<String>>() {});
-                builder.topicKeywords(keywords);
-            } catch (Exception e) {
-                logger.warn("解析主题关键词失败: {}", e.getMessage());
+        try {
+            logger.info("开始转换AnalysisResult到VO: resultId={}", result.getId());
+            
+            // ========== 1. 构建视频基本信息 ==========
+            logger.debug("构建VideoInfo...");
+            AnalysisResultVO.VideoInfo videoInfo = AnalysisResultVO.VideoInfo.builder()
+                    .videoId(result.getVideoId())
+                    .videoUrl(result.getVideoUrl() != null ? result.getVideoUrl() : 
+                            (video != null ? minioService.getFileUrl(video.getFilePath()) : ""))
+                    .fileName(video != null ? video.getFileName() : "")
+                    .duration(video != null && video.getDuration() != null ? video.getDuration() : 0.0)
+                    .uploadSource(video != null ? "本地上传" : "")
+                    .description(result.getAiDescription())
+                    .detectedKeywords(parseJsonList(result.getDetectedKeywords()))
+                    .mainCharacter(parseJsonMap(result.getMainCharacter()))
+                    .build();
+            
+            // ========== 2. 核心分析维度 ==========
+            logger.debug("构建Identity...");
+            AnalysisResultVO.IdentityAnalysis identity = AnalysisResultVO.IdentityAnalysis.builder()
+                    .identityLabel(result.getIdentityLabel())
+                    .evidences(parseJsonList(result.getIdentityEvidences()))
+                    .modalityFusion(parseJsonMap(result.getIdentityFusion()))
+                    .build();
+            
+            logger.debug("构建University...");
+            AnalysisResultVO.UniversityAnalysis university = AnalysisResultVO.UniversityAnalysis.builder()
+                    .universityName(result.getUniversityName())
+                    .evidences(parseJsonList(result.getUniversityEvidences()))
+                    .modalityFusion(parseJsonMap(result.getUniversityFusion()))
+                    .build();
+            
+            logger.debug("构建Topic...");
+            AnalysisResultVO.TopicAnalysis topic = AnalysisResultVO.TopicAnalysis.builder()
+                    .topicCategory(result.getTopicCategory())
+                    .topicSubCategory(result.getTopicSubCategory())
+                    .evidences(parseJsonList(result.getTopicEvidences()))
+                    .modalityFusion(parseJsonMap(result.getTopicFusion()))
+                    .build();
+            
+            logger.debug("构建Attitude...");
+            AnalysisResultVO.AttitudeAnalysis attitude = AnalysisResultVO.AttitudeAnalysis.builder()
+                    .evidences(parseJsonList(result.getAttitudeEvidences()))
+                    .build();
+            
+            logger.debug("构建OpinionRisk...");
+            AnalysisResultVO.OpinionRiskAnalysis opinionRisk = AnalysisResultVO.OpinionRiskAnalysis.builder()
+                    .riskReason(result.getOpinionRiskReason())
+                    .evidences(parseJsonList(result.getOpinionRiskEvidences()))
+                    .modalityFusion(parseJsonMap(result.getOpinionRiskFusion()))
+                    .build();
+            
+            logger.debug("构建Action...");
+            AnalysisResultVO.ActionSuggestion action = AnalysisResultVO.ActionSuggestion.builder()
+                    .actionSuggestion(result.getActionSuggestion())
+                    .actionDetail(result.getActionDetail())
+                    .evidences(parseJsonList(result.getActionEvidences()))
+                    .modalityFusion(parseJsonMap(result.getActionFusion()))
+                    .build();
+            
+            // ========== 3. 时间轴数据 ==========
+            logger.debug("构建TimelineData...");
+            AnalysisResultVO.TimelineData timelineData = AnalysisResultVO.TimelineData.builder()
+                    .timeGranularity(result.getTimeGranularity())
+                    .videoRisks(parseJsonList(result.getVideoRisks()))
+                    .audioEmotions(parseJsonList(result.getAudioEmotions()))
+                    .textRisks(parseJsonList(result.getTextRisks()))
+                    .comprehensiveRisks(parseJsonList(result.getComprehensiveRisks()))
+                    .radarByTime(parseJsonList(result.getRadarByTime()))
+                    .averageRadarData(parseJsonIntList(result.getAverageRadarData()))
+                    .build();
+            
+            // ========== 4. 全模态智能事件流 ==========
+            logger.debug("解析TimelineEvents...");
+            List<Object> timelineEvents = parseJsonList(result.getTimelineEvents());
+            
+            // ========== 5. 场景识别 ==========
+            logger.debug("解析SceneRecognition...");
+            List<Object> sceneRecognition = parseJsonList(result.getSceneRecognition());
+            
+            // ========== 6. 构建完整VO ==========
+            logger.debug("构建最终VO...");
+            
+            // 计算isUniversityRelated（根据detectedKeywords判断）
+            Boolean isUniversityRelated = false;
+            List<Object> detectedKeywords = parseJsonList(result.getDetectedKeywords());
+            if (detectedKeywords != null && !detectedKeywords.isEmpty()) {
+                for (Object kwObj : detectedKeywords) {
+                    if (kwObj instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> kwMap = (Map<String, Object>) kwObj;
+                        Object isUnivRelated = kwMap.get("isUniversityRelated");
+                        if (isUnivRelated != null && Boolean.TRUE.equals(isUnivRelated)) {
+                            isUniversityRelated = true;
+                            break;
+                        }
+                    }
+                }
             }
+            
+            AnalysisResultVO vo = AnalysisResultVO.builder()
+                    .id(result.getId())
+                    .taskId(result.getTaskId())
+                    .isUniversityRelated(isUniversityRelated)
+                    .videoInfo(videoInfo)
+                    .identity(identity)
+                    .university(university)
+                    .topic(topic)
+                    .attitude(attitude)
+                    .opinionRisk(opinionRisk)
+                    .action(action)
+                    .timelineData(timelineData)
+                    .timelineEvents(timelineEvents)
+                    .sceneRecognition(sceneRecognition)
+                    .gmtCreated(result.getGmtCreated())
+                    .build();
+            
+            logger.info("AnalysisResult转换VO成功: resultId={}", result.getId());
+            return vo;
+            
+        } catch (Exception e) {
+            logger.error("转换AnalysisResult到VO失败: resultId={}, error={}", result.getId(), e.getMessage(), e);
+            throw new BusinessException("数据转换失败: " + e.getMessage());
         }
-        
-        if (result.getVideoFeatures() != null) {
-            try {
-                Map<String, Object> features = JSON.parseObject(result.getVideoFeatures(), 
-                        new TypeReference<Map<String, Object>>() {});
-                builder.videoFeatures(features);
-            } catch (Exception e) {
-                logger.warn("解析视频特征失败: {}", e.getMessage());
-            }
+    }
+    
+    /**
+     * 解析JSON字符串为List
+     */
+    private List<Object> parseJsonList(String jsonStr) {
+        if (jsonStr == null || jsonStr.isEmpty()) {
+            return new java.util.ArrayList<>();
         }
-        
-        if (result.getAudioFeatures() != null) {
-            try {
-                Map<String, Object> features = JSON.parseObject(result.getAudioFeatures(), 
-                        new TypeReference<Map<String, Object>>() {});
-                builder.audioFeatures(features);
-            } catch (Exception e) {
-                logger.warn("解析音频特征失败: {}", e.getMessage());
-            }
+        try {
+            return JSON.parseObject(jsonStr, new TypeReference<List<Object>>() {});
+        } catch (Exception e) {
+            logger.warn("解析JSON List失败: {}", e.getMessage());
+            return new java.util.ArrayList<>();
         }
-        
-        if (result.getTextFeatures() != null) {
-            try {
-                Map<String, Object> features = JSON.parseObject(result.getTextFeatures(), 
-                        new TypeReference<Map<String, Object>>() {});
-                builder.textFeatures(features);
-            } catch (Exception e) {
-                logger.warn("解析文本特征失败: {}", e.getMessage());
-            }
+    }
+    
+    /**
+     * 解析JSON字符串为整数List
+     */
+    private List<Integer> parseJsonIntList(String jsonStr) {
+        if (jsonStr == null || jsonStr.isEmpty()) {
+            return new java.util.ArrayList<>();
         }
-        
-        if (result.getAudienceAnalysis() != null) {
-            try {
-                Map<String, Object> analysis = JSON.parseObject(result.getAudienceAnalysis(), 
-                        new TypeReference<Map<String, Object>>() {});
-                builder.audienceAnalysis(analysis);
-            } catch (Exception e) {
-                logger.warn("解析受众分析失败: {}", e.getMessage());
-            }
+        try {
+            return JSON.parseObject(jsonStr, new TypeReference<List<Integer>>() {});
+        } catch (Exception e) {
+            logger.warn("解析JSON Int List失败: {}", e.getMessage());
+            return new java.util.ArrayList<>();
         }
-        
-        // 设置视频信息
-        if (video != null) {
-            builder.videoTitle(video.getTitle())
-                    .videoDescription(video.getDescription())
-                    .videoUrl(minioService.getFileUrl(video.getFilePath()));
+    }
+    
+    /**
+     * 解析JSON字符串为Map
+     */
+    private Map<String, Object> parseJsonMap(String jsonStr) {
+        if (jsonStr == null || jsonStr.isEmpty()) {
+            return new java.util.HashMap<>();
         }
-        
-        return builder.build();
+        try {
+            return JSON.parseObject(jsonStr, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            logger.warn("解析JSON Map失败: {}", e.getMessage());
+            return new java.util.HashMap<>();
+        }
     }
 }
 

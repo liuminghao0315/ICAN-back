@@ -6,13 +6,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 分析结果VO
+ * 分析结果VO（完全适配新前端数据结构）
  */
 @Data
 @Builder
@@ -27,108 +26,141 @@ public class AnalysisResultVO {
     @Schema(description = "任务ID")
     private String taskId;
     
-    @Schema(description = "视频ID")
-    private String videoId;
-    
-    @Schema(description = "视频标题")
-    private String videoTitle;
-    
-    @Schema(description = "视频描述")
-    private String videoDescription;
-    
-    @Schema(description = "视频URL")
-    private String videoUrl;
-    
-    // ========== 综合风险评估 ==========
-    
-    @Schema(description = "综合风险评分(0-1)")
-    private BigDecimal riskScore;
-    
-    @Schema(description = "风险等级: LOW/MEDIUM/HIGH")
-    private String riskLevel;
-    
-    @Schema(description = "风险等级描述")
-    private String riskLevelDesc;
-    
-    // ========== 高校身份识别 ==========
-    
-    @Schema(description = "是否高校相关")
+    @Schema(description = "是否高校相关（根据detectedKeywords自动判断）")
     private Boolean isUniversityRelated;
     
-    @Schema(description = "识别到的高校名称")
-    private String universityName;
+    // ========== 视频基本信息 ==========
     
-    @Schema(description = "高校识别置信度")
-    private BigDecimal universityConfidence;
+    @Schema(description = "视频基本信息")
+    private VideoInfo videoInfo;
     
-    // ========== 内容主题 ==========
+    // ========== 核心分析维度 ==========
     
-    @Schema(description = "主题分类")
-    private String topicCategory;
+    @Schema(description = "身份判定分析")
+    private IdentityAnalysis identity;
     
-    @Schema(description = "主题关键词列表")
-    private List<String> topicKeywords;
+    @Schema(description = "高校关联分析")
+    private UniversityAnalysis university;
     
-    // ========== 情感分析 ==========
+    @Schema(description = "内容主题分析")
+    private TopicAnalysis topic;
     
-    @Schema(description = "情感评分(-1到1)")
-    private BigDecimal sentimentScore;
+    @Schema(description = "对学校态度分析")
+    private AttitudeAnalysis attitude;
     
-    @Schema(description = "情感标签: POSITIVE/NEUTRAL/NEGATIVE")
-    private String sentimentLabel;
+    @Schema(description = "潜在舆论风险分析")
+    private OpinionRiskAnalysis opinionRisk;
     
-    @Schema(description = "情感标签描述")
-    private String sentimentLabelDesc;
+    @Schema(description = "处置建议")
+    private ActionSuggestion action;
     
-    // ========== 多模态特征 ==========
+    // ========== 时间轴数据 ==========
     
-    @Schema(description = "视频特征")
-    private Map<String, Object> videoFeatures;
+    @Schema(description = "时间轴数据")
+    private TimelineData timelineData;
     
-    @Schema(description = "音频特征")
-    private Map<String, Object> audioFeatures;
+    // ========== 全模态智能事件流 ==========
     
-    @Schema(description = "语音转文字结果")
-    private String transcription;
+    @Schema(description = "全模态智能事件流（唯一证据数据库）")
+    private List<Object> timelineEvents;
     
-    @Schema(description = "文本特征")
-    private Map<String, Object> textFeatures;
+    // ========== 场景识别 ==========
     
-    // ========== 受众与传播 ==========
-    
-    @Schema(description = "受众分析结果")
-    private Map<String, Object> audienceAnalysis;
-    
-    @Schema(description = "传播潜力评分(0-1)")
-    private BigDecimal spreadPotential;
+    @Schema(description = "场景识别结果")
+    private List<Object> sceneRecognition;
     
     @Schema(description = "创建时间")
     private LocalDateTime gmtCreated;
     
-    /**
-     * 获取风险等级描述
-     */
-    public static String getRiskLevelDescription(String riskLevel) {
-        if (riskLevel == null) return "未知";
-        return switch (riskLevel.toUpperCase()) {
-            case "LOW" -> "低风险";
-            case "MEDIUM" -> "中风险";
-            case "HIGH" -> "高风险";
-            default -> "未知";
-        };
+    // ========== 内部类定义 ==========
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VideoInfo {
+        private String videoId;
+        private String videoUrl;
+        private String fileName;
+        private Double duration;
+        private String uploadSource;
+        private String description;
+        private List<Object> detectedKeywords;
+        private Map<String, Object> mainCharacter;
     }
     
-    /**
-     * 获取情感标签描述
-     */
-    public static String getSentimentLabelDescription(String sentimentLabel) {
-        if (sentimentLabel == null) return "未知";
-        return switch (sentimentLabel.toUpperCase()) {
-            case "POSITIVE" -> "正面";
-            case "NEUTRAL" -> "中性";
-            case "NEGATIVE" -> "负面";
-            default -> "未知";
-        };
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class IdentityAnalysis {
+        private String identityLabel;
+        private List<Object> evidences;
+        private Map<String, Object> modalityFusion;
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UniversityAnalysis {
+        private String universityName;
+        private List<Object> evidences;
+        private Map<String, Object> modalityFusion;
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TopicAnalysis {
+        private String topicCategory;
+        private String topicSubCategory;
+        private List<Object> evidences;
+        private Map<String, Object> modalityFusion;
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AttitudeAnalysis {
+        private List<Object> evidences;
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OpinionRiskAnalysis {
+        private String riskReason;
+        private List<Object> evidences;
+        private Map<String, Object> modalityFusion;
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ActionSuggestion {
+        private String actionSuggestion;
+        private String actionDetail;
+        private List<Object> evidences;
+        private Map<String, Object> modalityFusion;
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TimelineData {
+        private Integer timeGranularity;
+        private List<Object> videoRisks;
+        private List<Object> audioEmotions;
+        private List<Object> textRisks;
+        private List<Object> comprehensiveRisks;
+        private List<Object> radarByTime;
+        private List<Integer> averageRadarData;
     }
 }
 

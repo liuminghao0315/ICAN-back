@@ -8,11 +8,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 分析结果实体类
+ * 分析结果实体类（全新数据结构，适配前端）
  */
 @Data
 @Builder
@@ -34,101 +33,125 @@ public class AnalysisResult {
      */
     private String videoId;
     
-    /**
-     * 综合风险评分(0-1)
-     */
-    private BigDecimal riskScore;
+    // ========== 视频基本信息 ==========
     
     /**
-     * 风险等级: LOW/MEDIUM/HIGH
+     * 视频播放地址
      */
-    private String riskLevel;
+    private String videoUrl;
     
     /**
-     * 是否高校相关
+     * AI自动生成的视频内容摘要
      */
-    private Boolean isUniversityRelated;
+    private String aiDescription;
     
     /**
-     * 识别到的高校名称
+     * 检测到的关键词列表 (JSON)
+     * 格式: [{word: "北大", isUniversityRelated: true}, ...]
      */
+    private String detectedKeywords;
+    
+    /**
+     * 视频主要人物特征 (JSON)
+     * 格式: {gender: "男性", ageRange: "20-24岁", voiceProfile: "年轻男性", clothing: "休闲装"}
+     */
+    private String mainCharacter;
+    
+    // ========== 核心分析维度 ==========
+    
+    // 1. 身份判定
+    private String identityLabel;
+    private String identityEvidences;  // JSON
+    private String identityFusion;     // JSON
+    
+    // 2. 高校关联
     private String universityName;
+    private String universityEvidences;  // JSON
+    private String universityFusion;     // JSON
     
-    /**
-     * 高校识别置信度
-     */
-    private BigDecimal universityConfidence;
-    
-    /**
-     * 主题分类
-     */
+    // 3. 内容主题
     private String topicCategory;
+    private String topicSubCategory;
+    private String topicEvidences;  // JSON
+    private String topicFusion;     // JSON
+    
+    // 4. 对学校态度（统计分类）
+    private String attitudeEvidences;  // JSON
+    
+    // 5. 潜在舆论风险
+    private String opinionRiskReason;
+    private String opinionRiskEvidences;  // JSON
+    private String opinionRiskFusion;     // JSON
+    
+    // 6. 处置建议
+    private String actionSuggestion;
+    private String actionDetail;
+    private String actionEvidences;  // JSON
+    private String actionFusion;     // JSON
+    
+    // ========== 时间轴数据 ==========
     
     /**
-     * 主题关键词列表 (JSON)
+     * 时间粒度（秒）
      */
-    private String topicKeywords;
+    private Integer timeGranularity;
     
     /**
-     * 情感评分(-1到1)
+     * 视频风险点时间序列 (JSON)
+     * 格式: [{reason: "...", intensity: 0.8}, ...]
      */
-    private BigDecimal sentimentScore;
+    private String videoRisks;
     
     /**
-     * 情感标签
+     * 音频情绪时间序列 (JSON)
+     * 格式: [{intensity: 0.9, reason: "..."}, ...]
      */
-    private String sentimentLabel;
+    private String audioEmotions;
     
     /**
-     * 视频特征 (JSON)
+     * 文本风险点时间序列 (JSON)
+     * 格式: [{reason: "...", intensity: 0.7}, ...]
      */
-    private String videoFeatures;
+    private String textRisks;
     
     /**
-     * 音频特征 (JSON)
+     * 综合风险点时间序列 (JSON)
+     * 格式: [{intensity: 0.95}, ...]
      */
-    private String audioFeatures;
+    private String comprehensiveRisks;
     
     /**
-     * 语音转文字结果
+     * 雷达图时间段数据 (JSON)
+     * 格式: [{data: [82, 88, 65, ...]}, ...]
      */
-    private String transcription;
+    private String radarByTime;
     
     /**
-     * 文本特征 (JSON)
+     * 全片平均雷达数据 (JSON)
+     * 格式: [86, 82, 48, 44, 54, 41]
      */
-    private String textFeatures;
+    private String averageRadarData;
+    
+    // ========== 全模态智能事件流 ==========
     
     /**
-     * 受众分析结果 (JSON)
+     * 全模态智能事件流（唯一证据数据库）(JSON)
+     * 格式: [{id, modality, startTime, endTime, riskScore, ...}, ...]
      */
-    private String audienceAnalysis;
+    private String timelineEvents;
+    
+    // ========== 场景识别 ==========
     
     /**
-     * 传播潜力评分(0-1)
+     * 场景识别结果 (JSON)
+     * 格式: [{id, name, icon, confidence, timeStart, timeEnd}, ...]
      */
-    private BigDecimal spreadPotential;
+    private String sceneRecognition;
+    
+    // ========== 元数据 ==========
     
     private LocalDateTime gmtCreated;
     
     private LocalDateTime gmtModified;
-    
-    /**
-     * 风险等级枚举
-     */
-    public enum RiskLevel {
-        LOW,     // 低风险 (0-0.3)
-        MEDIUM,  // 中风险 (0.3-0.7)
-        HIGH     // 高风险 (0.7-1.0)
-    }
-    
-    /**
-     * 情感标签枚举
-     */
-    public enum SentimentLabel {
-        POSITIVE,  // 正面
-        NEUTRAL,   // 中性
-        NEGATIVE   // 负面
-    }
 }
 

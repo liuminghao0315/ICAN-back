@@ -57,9 +57,11 @@ public class AnalysisTaskVO {
     @Schema(description = "分析结果ID（如果已完成）")
     private String resultId;
     
-    // ======== 分析结果摘要信息（已完成任务显示） ========
+    @Schema(description = "视频时长（秒）")
+    private Double videoDuration;
     
-    @Schema(description = "风险评分(0-1)")
+    // ======== 分析结果摘要字段 ========
+    @Schema(description = "风险分数（0.0-1.0）")
     private Double riskScore;
     
     @Schema(description = "风险等级: LOW/MEDIUM/HIGH")
@@ -67,8 +69,5 @@ public class AnalysisTaskVO {
     
     @Schema(description = "情感标签: POSITIVE/NEUTRAL/NEGATIVE")
     private String sentimentLabel;
-    
-    @Schema(description = "视频时长（秒）")
-    private Double videoDuration;
 }
 

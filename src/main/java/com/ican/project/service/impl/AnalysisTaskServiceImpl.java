@@ -260,11 +260,67 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (resultId != null) {
             builder.hasResult(true)
                     .resultId(resultId);
-            if (map.get("risk_score") != null) {
-                builder.riskScore(((Number) map.get("risk_score")).doubleValue());
+            
+            // 从数据库查询完整的AnalysisResult以获取摘要信息
+            try {
+                AnalysisResult result = analysisResultMapper.selectById(resultId);
+                if (result != null) {
+                    // 提取风险信息（从 opinionRiskFusion）
+                    String opinionRiskFusion = result.getOpinionRiskFusion();
+                    if (opinionRiskFusion != null && !opinionRiskFusion.isEmpty()) {
+                        com.alibaba.fastjson2.JSONObject fusion = com.alibaba.fastjson2.JSON.parseObject(opinionRiskFusion);
+                        Integer finalScore = fusion.getInteger("finalScore");
+                        if (finalScore != null) {
+                            Double riskScore = finalScore / 100.0;
+                            builder.riskScore(riskScore);
+                            
+                            // 根据分数计算风险等级
+                            if (finalScore >= 67) {
+                                builder.riskLevel("HIGH");
+                            } else if (finalScore >= 34) {
+                                builder.riskLevel("MEDIUM");
+                            } else {
+                                builder.riskLevel("LOW");
+                            }
+                        }
+                    }
+                    
+                    // 提取情感信息（从 attitudeEvidences 统计）
+                    String attitudeEvidences = result.getAttitudeEvidences();
+                    if (attitudeEvidences != null && !attitudeEvidences.isEmpty()) {
+                        com.alibaba.fastjson2.JSONArray evidences = com.alibaba.fastjson2.JSON.parseArray(attitudeEvidences);
+                        if (evidences != null && !evidences.isEmpty()) {
+                            int positive = 0, neutral = 0, negative = 0;
+                            for (Object obj : evidences) {
+                                if (obj instanceof com.alibaba.fastjson2.JSONObject) {
+                                    com.alibaba.fastjson2.JSONObject ev = (com.alibaba.fastjson2.JSONObject) obj;
+                                    Integer sentimentScore = ev.getInteger("sentimentScore");
+                                    if (sentimentScore != null) {
+                                        if (sentimentScore < 33) {
+                                            positive++;
+                                        } else if (sentimentScore > 67) {
+                                            negative++;
+                                        } else {
+                                            neutral++;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 根据占比最大的类别设置情感标签
+                            if (negative >= positive && negative >= neutral) {
+                                builder.sentimentLabel("NEGATIVE");
+                            } else if (positive >= neutral) {
+                                builder.sentimentLabel("POSITIVE");
+                            } else {
+                                builder.sentimentLabel("NEUTRAL");
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("提取分析结果摘要失败: resultId={}, error={}", resultId, e.getMessage());
             }
-            builder.riskLevel((String) map.get("risk_level"))
-                    .sentimentLabel((String) map.get("sentiment_label"));
         } else {
             builder.hasResult(false);
         }
@@ -466,10 +522,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         
         if (result != null) {
             builder.hasResult(true)
-                    .resultId(result.getId())
-                    .riskScore(result.getRiskScore() != null ? result.getRiskScore().doubleValue() : null)
-                    .riskLevel(result.getRiskLevel())
-                    .sentimentLabel(result.getSentimentLabel());
+                    .resultId(result.getId());
+            // TODO: 新数据结构需要基于opinionRiskFusion等计算摘要信息
+            // 暂时不设置riskScore、riskLevel、sentimentLabel等摘要字段
         } else {
             builder.hasResult(false);
         }

@@ -101,6 +101,10 @@ class AlgorithmSimulator:
         """初始化 RabbitMQ 连接"""
         self.connection = None
         self.channel = None
+        # 用于存储各模块结果（供综合分析使用）
+        self.video_result = None
+        self.audio_result = None
+        self.text_result = None
         self.connect()
     
     def connect(self, retry_count: int = 0, max_retries: int = 5):
@@ -240,6 +244,9 @@ class AlgorithmSimulator:
             # 调用视频处理模块的函数
             result = 视频处理.process_video(task_id, task_message)
             
+            # 保存结果供后续综合分析使用
+            self.video_result = result
+            
             # 发送Video类型消息
             self.send_result_message(task_id, "video", result)
             
@@ -283,6 +290,10 @@ class AlgorithmSimulator:
             # 调用音频处理模块的函数（返回两个结果：audio_result, text_result）
             audio_result, text_result = 音频处理.process_audio(task_id, task_message)
             
+            # 保存结果供后续综合分析使用
+            self.audio_result = audio_result
+            self.text_result = text_result
+            
             # Step 1: 发送Audio类型消息
             self.send_result_message(task_id, "audio", audio_result)
             logger.info(f"[任务 {task_id}] [Thread B] Step 1完成，已发送Audio消息")
@@ -314,13 +325,270 @@ class AlgorithmSimulator:
             except:
                 pass
     
+    def calculate_modality_fusion(self, dimension: str, video_score: int, audio_score: int, text_score: int) -> Dict[str, Any]:
+        """
+        计算单个维度的多模态融合结果
+        
+        Args:
+            dimension: 维度名称
+            video_score: 视频模态分数（0-100）
+            audio_score: 音频模态分数（0-100）
+            text_score: 文本模态分数（0-100）
+            
+        Returns:
+            融合结果（包含各模态贡献度和最终分数）
+        """
+        # 计算贡献度（基于分数的归一化权重）
+        total = video_score + audio_score + text_score
+        if total == 0:
+            total = 1  # 防止除0
+        
+        video_contribution = round((video_score / total) * 100, 1)
+        audio_contribution = round((audio_score / total) * 100, 1)
+        text_contribution = round((text_score / total) * 100, 1)
+        
+        # 加权融合计算最终分数
+        final_score = int(
+            (video_score * video_contribution + 
+             audio_score * audio_contribution + 
+             text_score * text_contribution) / 100
+        )
+        
+        return {
+            "videoScore": video_score,
+            "audioScore": audio_score,
+            "textScore": text_score,
+            "videoContribution": video_contribution,
+            "audioContribution": audio_contribution,
+            "textContribution": text_contribution,
+            "finalScore": min(100, max(0, final_score))
+        }
+    
+    def perform_integration_analysis(self, task_id: str) -> Dict[str, Any]:
+        """
+        执行综合分析（Step 4: Integration → 90%）
+        基于video、audio、text三个模块的结果进行融合计算
+        
+        Args:
+            task_id: 任务ID
+            
+        Returns:
+            综合分析结果
+        """
+        logger.info(f"[任务 {task_id}] ========== 开始执行综合分析（Python） ==========")
+        start_time = time.time()
+        
+        try:
+            # 获取三个模块的结果
+            video_result = self.video_result
+            audio_result = self.audio_result
+            text_result = self.text_result
+            
+            if not video_result or not audio_result or not text_result:
+                raise ValueError("模块结果不完整，无法进行综合分析")
+            
+            # 提取特征数据
+            video_features = video_result.get("features", {})
+            audio_features = audio_result.get("features", {})
+            text_features = text_result.get("features", {})
+            
+            video_risk_scores = video_features.get("visualRiskScores", {})
+            audio_risk_scores = audio_features.get("audioRiskScores", {})
+            text_risk_scores = text_features.get("textRiskScores", {})
+            
+            duration = video_features.get("duration", 60.0)
+            time_granularity = 5
+            num_segments = int(duration / time_granularity) + 1
+            
+            # ========== 1. 计算6个维度的多模态融合 ==========
+            dimensions = ["identity", "university", "topic", "attitude", "opinionRisk", "action"]
+            fusion_results = {}
+            
+            for dim in dimensions:
+                v_score = video_risk_scores.get(dim, 50)
+                a_score = audio_risk_scores.get(dim, 50)
+                t_score = text_risk_scores.get(dim, 50)
+                fusion_results[dim] = self.calculate_modality_fusion(dim, v_score, a_score, t_score)
+            
+            logger.info(f"[任务 {task_id}] 多模态融合计算完成")
+            
+            # ========== 2. 计算综合风险时间序列（取三个模态的最大值） ==========
+            video_risks = video_result.get("videoRisks", [])
+            audio_emotions = audio_result.get("audioEmotions", [])
+            text_risks = text_result.get("textRisks", [])
+            
+            comprehensive_risks = []
+            for i in range(num_segments):
+                v_intensity = video_risks[i]["intensity"] if i < len(video_risks) else 0.3
+                a_intensity = audio_emotions[i]["intensity"] if i < len(audio_emotions) else 0.3
+                t_intensity = text_risks[i]["intensity"] if i < len(text_risks) else 0.3
+                
+                max_intensity = max(v_intensity, a_intensity, t_intensity)
+                comprehensive_risks.append({"intensity": round(max_intensity, 2)})
+            
+            logger.info(f"[任务 {task_id}] 综合风险时间序列计算完成: {len(comprehensive_risks)}个时间段")
+            
+            # ========== 3. 计算雷达图时间序列（6个维度） ==========
+            # 维度说明：[身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
+            radar_by_time = []
+            for i in range(num_segments):
+                # 每个时间段的6个维度分数（简化计算，基于融合结果和时间段风险）
+                segment_risk = comprehensive_risks[i]["intensity"]
+                
+                # 基础分数（来自融合结果）
+                identity_base = fusion_results["identity"]["finalScore"]
+                university_base = fusion_results["university"]["finalScore"]
+                topic_base = fusion_results["topic"]["finalScore"]
+                attitude_base = fusion_results["attitude"]["finalScore"]
+                opinion_base = fusion_results["opinionRisk"]["finalScore"]
+                action_base = fusion_results["action"]["finalScore"]
+                
+                # 根据时间段风险调整分数
+                radar_data = [
+                    int(identity_base * (0.8 + segment_risk * 0.4)),  # 身份置信度
+                    int(university_base * (0.8 + segment_risk * 0.4)),  # 学校关联度
+                    int(attitude_base * (0.7 + segment_risk * 0.6)),  # 负面情感度（受风险影响大）
+                    int(topic_base * (0.75 + segment_risk * 0.5)),  # 传播风险
+                    int(opinion_base * (0.7 + segment_risk * 0.6)),  # 影响范围
+                    int(action_base * (0.75 + segment_risk * 0.5))  # 处置紧迫度
+                ]
+                
+                # 限制在0-100范围
+                radar_data = [min(100, max(0, v)) for v in radar_data]
+                
+                radar_by_time.append({"data": radar_data})
+            
+            logger.info(f"[任务 {task_id}] 雷达图时间序列计算完成: {len(radar_by_time)}个时间段")
+            
+            # ========== 4. 计算全片平均雷达数据 ==========
+            average_radar_data = [0] * 6
+            for radar in radar_by_time:
+                for j, value in enumerate(radar["data"]):
+                    average_radar_data[j] += value
+            average_radar_data = [int(v / len(radar_by_time)) for v in average_radar_data]
+            
+            logger.info(f"[任务 {task_id}] 平均雷达数据: {average_radar_data}")
+            
+            # ========== 5. 构建综合分析结果 ==========
+            integration_result = {
+                # 6个核心维度的多模态融合结果
+                "identity": {
+                    "identityLabel": self._get_identity_label(fusion_results["identity"]["finalScore"]),
+                    "modalityFusion": fusion_results["identity"]
+                },
+                "university": {
+                    "universityName": self._get_university_name(fusion_results["university"]["finalScore"]),
+                    "modalityFusion": fusion_results["university"]
+                },
+                "topic": {
+                    "topicCategory": text_features.get("topicCategory", "校园生活"),
+                    "topicSubCategory": self._get_topic_sub_category(text_features.get("topicCategory", "")),
+                    "modalityFusion": fusion_results["topic"]
+                },
+                "opinionRisk": {
+                    "riskReason": self._get_risk_reason(fusion_results["opinionRisk"]["finalScore"]),
+                    "modalityFusion": fusion_results["opinionRisk"]
+                },
+                "action": {
+                    "actionSuggestion": self._get_action_suggestion(fusion_results["action"]["finalScore"]),
+                    "actionDetail": self._get_action_detail(fusion_results["action"]["finalScore"]),
+                    "modalityFusion": fusion_results["action"]
+                },
+                
+                # 时间轴综合数据
+                "timelineData": {
+                    "comprehensiveRisks": comprehensive_risks,
+                    "radarByTime": radar_by_time,
+                    "averageRadarData": average_radar_data
+                },
+                
+                "processingTime": round(time.time() - start_time, 2)
+            }
+            
+            logger.info(f"[任务 {task_id}] 综合分析完成，处理时间: {integration_result['processingTime']:.2f}秒")
+            return integration_result
+            
+        except Exception as e:
+            logger.error(f"[任务 {task_id}] 综合分析失败: {e}", exc_info=True)
+            raise
+    
+    def _get_identity_label(self, score: int) -> str:
+        """根据分数返回身份标签"""
+        if score >= 80:
+            return "疑似在校学生"
+        elif score >= 60:
+            return "可能为学生"
+        else:
+            return "身份不明"
+    
+    def _get_university_name(self, score: int) -> str:
+        """根据分数返回高校名称"""
+        universities = ["北京大学", "清华大学", "复旦大学", "上海交通大学", "浙江大学"]
+        if score >= 85:
+            return random.choice(universities)
+        elif score >= 65:
+            return random.choice(universities + ["未明确提及"])
+        else:
+            return "未识别到明确高校"
+    
+    def _get_topic_sub_category(self, topic_category: str) -> str:
+        """根据主题大类返回细分类"""
+        sub_categories = {
+            "校园生活": ["日常生活", "宿舍趣事", "校园风景"],
+            "学术讨论": ["课程学习", "考试经验", "学术研究"],
+            "校园政策": ["选课制度吐槽", "宿舍管理", "食堂服务"],
+            "社团活动": ["社团招新", "文艺演出", "社团日常"],
+            "就业指导": ["实习分享", "求职经验", "职业规划"],
+            "科技创新": ["项目展示", "技术分享", "创新创业"],
+            "体育运动": ["运动比赛", "健身日常", "体育活动"],
+            "艺术表演": ["音乐表演", "舞蹈展示", "艺术创作"],
+            "心理健康": ["心理调适", "情绪管理", "压力释放"],
+            "社会实践": ["志愿服务", "社会调研", "公益活动"]
+        }
+        subs = sub_categories.get(topic_category, ["其他"])
+        return random.choice(subs)
+    
+    def _get_risk_reason(self, score: int) -> str:
+        """根据分数返回风险原因"""
+        if score >= 70:
+            return "可能引发跟风吐槽"
+        elif score >= 50:
+            return "存在一定传播风险"
+        else:
+            return "风险较低"
+    
+    def _get_action_suggestion(self, score: int) -> str:
+        """根据分数返回处置建议"""
+        if score >= 75:
+            return "禁止发布"
+        elif score >= 60:
+            return "谨慎发布"
+        elif score >= 40:
+            return "可以发布"
+        else:
+            return "推荐发布"
+    
+    def _get_action_detail(self, score: int) -> str:
+        """根据分数返回处置详情"""
+        if score >= 75:
+            return "检测到高风险内容，建议禁止上传到公开平台"
+        elif score >= 60:
+            return "建议人工复核后决定是否上传"
+        elif score >= 40:
+            return "内容相对安全，可以发布但建议关注后续反馈"
+        else:
+            return "内容健康，可以放心发布"
+    
     def process_task(self, task_message: Dict[str, Any]):
         """
-        处理单个分析任务
+        处理单个分析任务（5步处理流程）
         1. 模拟媒体分割
         2. 启动两个并行线程：
            - Thread A: 处理视觉流（完成后发送Video消息）
            - Thread B: 处理音频流（顺序执行两个步骤，分别发送Audio和Text消息）
+        3. 等待两个线程完成
+        4. 执行综合分析（融合计算+雷达图）
+        5. 发送Integration消息
         
         Args:
             task_message: 任务消息，包含 taskId, videoId 等信息
@@ -333,12 +601,15 @@ class AlgorithmSimulator:
         logger.info(f"[任务 {task_id}] ========== 开始处理分析任务 ==========")
         
         try:
-            # Step 0: URL转换（将内网地址转为隧道地址）
+            # 重置模块结果
+            self.video_result = None
+            self.audio_result = None
+            self.text_result = None
+            
+            # Step 0: URL转换
             original_url = task_message.get("videoUrl")
             if original_url:
-                # 保存内网URL（用于ffmpeg快速处理）
                 task_message["videoUrlInternal"] = original_url
-                # 转换为隧道URL（用于打印和外部API）
                 tunnel_url = convert_url_to_tunnel(original_url)
                 task_message["videoUrl"] = tunnel_url
             
@@ -346,33 +617,40 @@ class AlgorithmSimulator:
             split_result = self.simulate_media_splitting(task_id, task_message)
             logger.info(f"[任务 {task_id}] 媒体分割完成: {split_result}")
             
-            # Step 2: 启动两个并行线程处理流
+            # Step 2: 启动两个并行线程
             logger.info(f"[任务 {task_id}] 启动两个并行线程处理视觉流和音频流...")
             
-            # Thread A: 视觉流处理线程
             visual_thread = threading.Thread(
                 target=self.process_visual_stream,
                 args=(task_id, task_message),
                 name=f"VisualStream-{task_id}"
             )
             
-            # Thread B: 音频流处理线程
             audio_thread = threading.Thread(
                 target=self.process_audio_stream,
                 args=(task_id, task_message),
                 name=f"AudioStream-{task_id}"
             )
             
-            # 同时启动两个线程
+            # 同时启动
             visual_thread.start()
             audio_thread.start()
-            logger.info(f"[任务 {task_id}] 两个线程已启动: VisualStream, AudioStream")
+            logger.info(f"[任务 {task_id}] 两个线程已启动")
             
-            # 等待两个线程完成
+            # 等待完成
             visual_thread.join()
             audio_thread.join()
+            logger.info(f"[任务 {task_id}] 两个线程已完成，已发送3条消息（Video, Audio, Text）")
             
-            logger.info(f"[任务 {task_id}] ========== Python端处理完成，已发送3条消息（Video, Audio, Text） ==========")
+            # Step 3: 执行综合分析
+            logger.info(f"[任务 {task_id}] 开始执行综合分析...")
+            integration_result = self.perform_integration_analysis(task_id)
+            
+            # Step 4: 发送Integration消息
+            self.send_result_message(task_id, "integration", integration_result)
+            logger.info(f"[任务 {task_id}] 已发送Integration消息")
+            
+            logger.info(f"[任务 {task_id}] ========== Python端处理完成，已发送4条消息（Video, Audio, Text, Integration） ==========")
             
         except Exception as e:
             logger.error(f"[任务 {task_id}] 处理任务失败: {e}", exc_info=True)

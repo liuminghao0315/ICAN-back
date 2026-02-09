@@ -40,6 +40,9 @@ logs/
 要求/
 *.html
 *.ts
+
+.cursorignore
+
 前端开发指南.md
 后端接口文档.md
 数据库接口文档.md

@@ -169,7 +169,7 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.ican.project.Springboot3Application</mainClass>
-                    <skip>true</skip>
+<!--                    <skip>true</skip>-->
                 </configuration>
                 <executions>
                     <execution>
