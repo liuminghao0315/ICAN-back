@@ -523,8 +523,58 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (result != null) {
             builder.hasResult(true)
                     .resultId(result.getId());
-            // TODO: 新数据结构需要基于opinionRiskFusion等计算摘要信息
-            // 暂时不设置riskScore、riskLevel、sentimentLabel等摘要字段
+            
+            // 提取风险信息（从 opinionRiskFusion）
+            String opinionRiskFusion = result.getOpinionRiskFusion();
+            if (opinionRiskFusion != null && !opinionRiskFusion.isEmpty()) {
+                try {
+                    com.alibaba.fastjson2.JSONObject fusion = com.alibaba.fastjson2.JSON.parseObject(opinionRiskFusion);
+                    Integer finalScore = fusion.getInteger("finalScore");
+                    if (finalScore != null) {
+                        builder.riskScore(finalScore / 100.0);
+                        if (finalScore >= 67) {
+                            builder.riskLevel("HIGH");
+                        } else if (finalScore >= 34) {
+                            builder.riskLevel("MEDIUM");
+                        } else {
+                            builder.riskLevel("LOW");
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("提取风险信息失败: resultId={}, error={}", result.getId(), e.getMessage());
+                }
+            }
+            
+            // 提取情感信息（从 attitudeEvidences 统计）
+            String attitudeEvidences = result.getAttitudeEvidences();
+            if (attitudeEvidences != null && !attitudeEvidences.isEmpty()) {
+                try {
+                    com.alibaba.fastjson2.JSONArray evidences = com.alibaba.fastjson2.JSON.parseArray(attitudeEvidences);
+                    if (evidences != null && !evidences.isEmpty()) {
+                        int positive = 0, neutral = 0, negative = 0;
+                        for (Object obj : evidences) {
+                            if (obj instanceof com.alibaba.fastjson2.JSONObject) {
+                                com.alibaba.fastjson2.JSONObject ev = (com.alibaba.fastjson2.JSONObject) obj;
+                                Integer sentimentScore = ev.getInteger("sentimentScore");
+                                if (sentimentScore != null) {
+                                    if (sentimentScore < 33) positive++;
+                                    else if (sentimentScore > 67) negative++;
+                                    else neutral++;
+                                }
+                            }
+                        }
+                        if (negative >= positive && negative >= neutral) {
+                            builder.sentimentLabel("NEGATIVE");
+                        } else if (positive >= neutral) {
+                            builder.sentimentLabel("POSITIVE");
+                        } else {
+                            builder.sentimentLabel("NEUTRAL");
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("提取情感信息失败: resultId={}, error={}", result.getId(), e.getMessage());
+                }
+            }
         } else {
             builder.hasResult(false);
         }

@@ -16,18 +16,20 @@ import java.util.Map;
 public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
     
     /**
-     * 分页查询任务列表（简化版，不再JOIN分析结果的摘要字段）
+     * 分页查询任务列表（JOIN分析结果表，支持风险等级筛选和风险分数排序）
      * @param page 分页对象
      * @param userId 用户ID
      * @param status 状态筛选（可选）
-     * @param sortBy 排序字段
-     * @param sortOrder 排序方向 (ASC/DESC)
+     * @param riskLevel 风险等级筛选 HIGH/MEDIUM/LOW（可选）
+     * @param sortBy 排序字段：gmtCreated / riskScore / videoDuration
+     * @param sortOrder 排序方向 asc/desc
      * @return 任务列表（包含关联字段）
      */
     @Select("<script>" +
             "SELECT t.*, " +
             "       v.title AS video_title, v.duration AS video_duration, v.file_path AS video_file_path, " +
-            "       r.id AS result_id " +
+            "       r.id AS result_id, " +
+            "       CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) AS risk_score_val " +
             "FROM analysis_task t " +
             "LEFT JOIN video v ON t.video_id = v.id " +
             "LEFT JOIN analysis_result r ON t.id = r.task_id " +
@@ -35,8 +37,28 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
             "<if test='status != null and status != \"\"'>" +
             "  AND t.status = #{status} " +
             "</if>" +
+            "<if test='riskLevel != null and riskLevel != \"\"'>" +
+            "  AND t.status = 'COMPLETED' " +
+            "  AND r.id IS NOT NULL " +
+            "  <choose>" +
+            "    <when test='riskLevel == \"HIGH\"'>" +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) >= 67 " +
+            "    </when>" +
+            "    <when test='riskLevel == \"MEDIUM\"'>" +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) >= 34 " +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) &lt; 67 " +
+            "    </when>" +
+            "    <when test='riskLevel == \"LOW\"'>" +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) &lt; 34 " +
+            "    </when>" +
+            "  </choose>" +
+            "</if>" +
             "ORDER BY " +
             "<choose>" +
+            "  <when test='sortBy == \"riskScore\"'>" +
+            "    <if test='sortOrder == \"asc\"'>COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)), -1) ASC</if>" +
+            "    <if test='sortOrder == \"desc\"'>COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)), -1) DESC</if>" +
+            "  </when>" +
             "  <when test='sortBy == \"videoDuration\"'>" +
             "    <if test='sortOrder == \"asc\"'>COALESCE(v.duration, 999999) ASC</if>" +
             "    <if test='sortOrder == \"desc\"'>COALESCE(v.duration, -1) DESC</if>" +

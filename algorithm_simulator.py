@@ -30,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # RabbitMQ 配置
-RABBITMQ_HOST = '192.168.6.130'
+RABBITMQ_HOST = '192.168.178.128'
 RABBITMQ_PORT = 5672
 RABBITMQ_USERNAME = 'guest'
 RABBITMQ_PASSWORD = 'guest'
@@ -42,7 +42,7 @@ RESULT_CALLBACK_QUEUE = 'algorithm.result.queue'  # 向 Java 发送结果
 
 # URL转换配置
 TUNNEL_HOST = "5aedd2d8.r12.cpolar.top"
-INTERNAL_HOST = "192.168.6.130:9000"
+INTERNAL_HOST = "192.168.178.128:9000"
 
 # Whisper模型配置
 WHISPER_MODEL_SIZE = "base"  # tiny/base/small/medium/large
@@ -58,7 +58,7 @@ def convert_url_to_tunnel(original_url: str) -> str:
     将Minio内网地址转换为cpolar隧道地址（去除签名查询参数）
     
     Args:
-        original_url: http://192.168.6.130:9000/bucket/path/file.mp4?X-Amz-Signature=...
+        original_url: http://192.168.178.128:9000/bucket/path/file.mp4?X-Amz-Signature=...
         
     Returns:
         http://5aedd2d8.r12.cpolar.top/bucket/path/file.mp4

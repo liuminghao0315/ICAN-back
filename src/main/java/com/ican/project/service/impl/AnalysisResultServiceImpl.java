@@ -336,14 +336,67 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         stats.put("analyzedVideos", analyzedCount);
         
         // TODO: 新数据结构需要重新设计统计逻辑
-        // 暂时返回基础统计数据
-        stats.put("avgRiskScore", 0.0);
-        stats.put("highRiskCount", 0L);
-        stats.put("mediumRiskCount", 0L);
-        stats.put("lowRiskCount", 0L);
-        stats.put("positiveSentimentCount", 0L);
-        stats.put("negativeSentimentCount", 0L);
-        stats.put("neutralSentimentCount", 0L);
+        // 基于 opinionRiskFusion.finalScore 计算风险统计
+        long highRiskCount = 0L, mediumRiskCount = 0L, lowRiskCount = 0L;
+        long positiveSentimentCount = 0L, negativeSentimentCount = 0L, neutralSentimentCount = 0L;
+        double totalRiskScore = 0.0;
+        int validScoreCount = 0;
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (AnalysisResult r : results) {
+            // 风险统计
+            String fusion = r.getOpinionRiskFusion();
+            if (fusion != null && !fusion.isBlank()) {
+                try {
+                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(fusion);
+                    com.fasterxml.jackson.databind.JsonNode scoreNode = node.get("finalScore");
+                    if (scoreNode != null && !scoreNode.isNull()) {
+                        double score = scoreNode.asDouble();
+                        totalRiskScore += score;
+                        validScoreCount++;
+                        if (score >= 67) highRiskCount++;
+                        else if (score >= 34) mediumRiskCount++;
+                        else lowRiskCount++;
+                    } else {
+                        lowRiskCount++;
+                    }
+                } catch (Exception e) {
+                    lowRiskCount++;
+                }
+            } else {
+                lowRiskCount++;
+            }
+            // 情感统计（从 attitudeEvidences 统计）
+            String attitudeEvidences = r.getAttitudeEvidences();
+            if (attitudeEvidences != null && !attitudeEvidences.isBlank()) {
+                try {
+                    com.fasterxml.jackson.databind.JsonNode evArr = objectMapper.readTree(attitudeEvidences);
+                    int pos = 0, neu = 0, neg = 0;
+                    for (com.fasterxml.jackson.databind.JsonNode ev : evArr) {
+                        com.fasterxml.jackson.databind.JsonNode ss = ev.get("sentimentScore");
+                        if (ss != null && !ss.isNull()) {
+                            int s = ss.asInt();
+                            if (s < 33) pos++;
+                            else if (s > 67) neg++;
+                            else neu++;
+                        }
+                    }
+                    if (neg >= pos && neg >= neu) negativeSentimentCount++;
+                    else if (pos >= neu) positiveSentimentCount++;
+                    else neutralSentimentCount++;
+                } catch (Exception e) {
+                    neutralSentimentCount++;
+                }
+            } else {
+                neutralSentimentCount++;
+            }
+        }
+        stats.put("avgRiskScore", validScoreCount > 0 ? totalRiskScore / validScoreCount : 0.0);
+        stats.put("highRiskCount", highRiskCount);
+        stats.put("mediumRiskCount", mediumRiskCount);
+        stats.put("lowRiskCount", lowRiskCount);
+        stats.put("positiveSentimentCount", positiveSentimentCount);
+        stats.put("negativeSentimentCount", negativeSentimentCount);
+        stats.put("neutralSentimentCount", neutralSentimentCount);
         
         // 高校相关内容统计（基于universityName是否为空）
         long universityRelatedCount = results.stream()
@@ -388,17 +441,42 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                 .map(Video::getId)
                 .collect(Collectors.toList());
         
-        // TODO: 新数据结构需要重新设计风险分布统计逻辑
-        // 暂时返回空统计
         LambdaQueryWrapper<AnalysisResult> resultWrapper = new LambdaQueryWrapper<>();
         resultWrapper.in(AnalysisResult::getVideoId, videoIds);
         List<AnalysisResult> results = analysisResultMapper.selectList(resultWrapper);
         
-        // 新数据结构不再有riskLevel字段，需要基于opinionRiskFusion的finalScore计算
-        // 暂时返回默认值
-        distribution.put("LOW", (long) results.size());
-        distribution.put("MEDIUM", 0L);
-        distribution.put("HIGH", 0L);
+        // 基于 opinionRiskFusion.finalScore 计算风险等级分布
+        // HIGH: finalScore >= 67, MEDIUM: 34-66, LOW: < 34
+        long highCount = 0L, mediumCount = 0L, lowCount = 0L;
+        for (AnalysisResult r : results) {
+            String fusion = r.getOpinionRiskFusion();
+            if (fusion == null || fusion.isBlank()) {
+                lowCount++;
+                continue;
+            }
+            try {
+                com.fasterxml.jackson.databind.JsonNode node =
+                        new com.fasterxml.jackson.databind.ObjectMapper().readTree(fusion);
+                com.fasterxml.jackson.databind.JsonNode scoreNode = node.get("finalScore");
+                if (scoreNode == null || scoreNode.isNull()) {
+                    lowCount++;
+                    continue;
+                }
+                double score = scoreNode.asDouble();
+                if (score >= 67) {
+                    highCount++;
+                } else if (score >= 34) {
+                    mediumCount++;
+                } else {
+                    lowCount++;
+                }
+            } catch (Exception e) {
+                lowCount++;
+            }
+        }
+        distribution.put("HIGH", highCount);
+        distribution.put("MEDIUM", mediumCount);
+        distribution.put("LOW", lowCount);
         
         // 存入缓存
         redisCacheUtil.setStatsCache(cacheKey, distribution);
