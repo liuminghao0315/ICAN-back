@@ -109,11 +109,17 @@ public class VideoController {
             @Parameter(description = "视频文件") @RequestParam("file") MultipartFile file,
             @Parameter(description = "视频标题") @RequestParam(required = false) String title,
             @Parameter(description = "视频描述") @RequestParam(required = false) String description,
+            @Parameter(description = "已有的视频ID（initUpload创建的）") @RequestParam(required = false) String videoId,
             @AuthenticationPrincipal MyUserDetails userDetails) {
         
-        logger.info("简单上传视频: fileName={}, size={}", file.getOriginalFilename(), file.getSize());
+        logger.info("简单上传视频: fileName={}, size={}, videoId={}", file.getOriginalFilename(), file.getSize(), videoId);
         
-        VideoVO result = videoService.uploadSimple(file, title, description, userDetails.getUserId());
+        VideoVO result = videoService.uploadSimple(file, title, description, userDetails.getUserId(), videoId);
+        
+        // result 为 null 表示上传期间任务已被取消
+        if (result == null) {
+            return Result.success("上传已取消", null);
+        }
         
         return Result.success("上传成功", result);
     }

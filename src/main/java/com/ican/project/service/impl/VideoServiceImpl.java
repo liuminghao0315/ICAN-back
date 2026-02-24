@@ -171,6 +171,26 @@ public class VideoServiceImpl implements VideoService {
             throw new BusinessException("分片大小超过限制");
         }
         
+        // ★ 前置检查：如果该上传任务已被取消，直接返回，不再处理分片
+        //   防止 abort 后仍有分片请求到达后端继续执行
+        if (dto.getVideoId() != null && !dto.getVideoId().isEmpty()) {
+            try {
+                Boolean cancelled = redisTemplate.hasKey("upload:cancelled:" + dto.getVideoId());
+                if (Boolean.TRUE.equals(cancelled)) {
+                    logger.info("uploadChunk: 上传已取消，跳过分片处理: videoId={}, chunk={}", 
+                            dto.getVideoId(), dto.getChunkNumber());
+                    return ChunkUploadVO.builder()
+                            .needUpload(false)
+                            .finished(false)
+                            .message("上传已取消")
+                            .build();
+                }
+            } catch (Exception e) {
+                // Redis 不可用时降级，继续处理
+                logger.warn("uploadChunk: 检查 Redis 取消标记失败，继续处理: {}", e.getMessage());
+            }
+        }
+        
         String fileIdentifier = dto.getFileIdentifier();
         int chunkNumber = dto.getChunkNumber();
         
@@ -302,6 +322,16 @@ public class VideoServiceImpl implements VideoService {
             throw new BusinessException("无权操作该视频");
         }
         
+        // ★ 在 Redis 中标记该 videoId 已取消（TTL 10 分钟，足够覆盖合并耗时）
+        //   mergeChunks / uploadSimple 完成后会检查此标记，发现已取消则自动清理 MinIO
+        //   这样即使 REPEATABLE READ 快照读不到 DB 删除，Redis 标记也能兜底
+        try {
+            redisTemplate.opsForValue().set("upload:cancelled:" + videoId, "1",
+                    java.time.Duration.ofMinutes(10));
+        } catch (Exception e) {
+            logger.warn("cancelUpload: 设置 Redis 取消标记失败: videoId={}, error={}", videoId, e.getMessage());
+        }
+        
         // 清理临时分片文件
         if (fileIdentifier != null && !fileIdentifier.isEmpty()) {
             try {
@@ -315,10 +345,53 @@ public class VideoServiceImpl implements VideoService {
             }
         }
         
+        // 如果合并已完成（filePath 非空），同步清理 MinIO 文件，防止孤儿文件
+        if (video.getFilePath() != null && !video.getFilePath().isEmpty()) {
+            try {
+                minioService.deleteFile(video.getFilePath());
+                logger.info("cancelUpload: 已清理 MinIO 文件: {}", video.getFilePath());
+            } catch (Exception e) {
+                logger.warn("cancelUpload: 清理 MinIO 文件失败（不影响取消）: path={}, error={}", video.getFilePath(), e.getMessage());
+            }
+        }
+        if (video.getThumbnailPath() != null && !video.getThumbnailPath().isEmpty()) {
+            try {
+                minioService.deleteFile(video.getThumbnailPath());
+            } catch (Exception ignored) {}
+        }
+        
+        // 清理该视频关联的分析任务的 Redis 中间状态 + 发送 Python 取消信号
+        LambdaQueryWrapper<AnalysisTask> taskWrapper = new LambdaQueryWrapper<>();
+        taskWrapper.eq(AnalysisTask::getVideoId, videoId);
+        AnalysisTask task = analysisTaskMapper.selectOne(taskWrapper);
+        if (task != null) {
+            try {
+                java.util.Map<String, String> cancelMsg = new java.util.HashMap<>();
+                cancelMsg.put("taskId", task.getId());
+                cancelMsg.put("action", "CANCEL");
+                rabbitTemplate.convertAndSend(RabbitMQConfig.ALGORITHM_CANCEL_QUEUE,
+                        com.alibaba.fastjson2.JSON.toJSONString(cancelMsg));
+                logger.info("cancelUpload: 已向 Python 发送取消信号: taskId={}", task.getId());
+            } catch (Exception e) {
+                logger.warn("cancelUpload: 发送取消信号失败: taskId={}, error={}", task.getId(), e.getMessage());
+            }
+            try {
+                redisTemplate.delete("analysis:modules:" + task.getId());
+                redisTemplate.delete("analysis:results:" + task.getId() + ":audio");
+                redisTemplate.delete("analysis:results:" + task.getId() + ":video");
+                redisTemplate.delete("analysis:results:" + task.getId() + ":text");
+                redisTemplate.delete("analysis:results:" + task.getId() + ":integration");
+            } catch (Exception ignored) {}
+        }
+        
         // 删除视频记录（级联删除 analysis_task / analysis_result）
         videoMapper.deleteById(videoId);
         redisCacheUtil.delete(RedisCacheUtil.CacheKey.VIDEO_BY_ID + videoId + ":" + userId);
         redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+        if (task != null) {
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + userId + ":*");
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_BY_ID + task.getId() + ":*");
+        }
         logger.info("取消上传并清理记录: videoId={}", videoId);
     }
     
@@ -371,12 +444,30 @@ public class VideoServiceImpl implements VideoService {
                 minioService.uploadFile(objectName, is, contentType, totalSize);
             }
             
-            // 写保护：合并完成后检查 video 记录是否已被取消删除
-            // 防止"临界点中止"场景：abort 信号发出时最后一片已触发合并
+            // 写保护：合并完成后检查任务是否已被取消
+            // 双重检查：1) Redis 取消标记（不受事务隔离级别影响）  2) DB 记录是否存在
+            // 防止 REPEATABLE READ 快照读导致的幻读问题
             if (videoId != null && !videoId.isEmpty()) {
-                Video checkVideo = videoMapper.selectById(videoId);
-                if (checkVideo == null) {
-                    logger.warn("mergeChunks: video 记录已被取消删除，放弃写库: videoId={}", videoId);
+                boolean cancelled = false;
+                // 优先检查 Redis 取消标记（跨事务可见，不受 REPEATABLE READ 影响）
+                try {
+                    Boolean exists = redisTemplate.hasKey("upload:cancelled:" + videoId);
+                    if (Boolean.TRUE.equals(exists)) {
+                        cancelled = true;
+                        logger.warn("mergeChunks: Redis 取消标记存在，任务已被中止: videoId={}", videoId);
+                    }
+                } catch (Exception e) {
+                    logger.warn("mergeChunks: 检查 Redis 取消标记失败，降级为 DB 检查: videoId={}", videoId);
+                }
+                // 兜底：DB 检查（可能因 REPEATABLE READ 读到旧快照，但仍作为兜底）
+                if (!cancelled) {
+                    Video checkVideo = videoMapper.selectById(videoId);
+                    if (checkVideo == null) {
+                        cancelled = true;
+                        logger.warn("mergeChunks: video 记录已被取消删除: videoId={}", videoId);
+                    }
+                }
+                if (cancelled) {
                     // 清理已上传到 MinIO 的文件（避免孤儿文件）
                     try { minioService.deleteFile(objectName); } catch (Exception ignored) {}
                     cleanupTempFiles(chunkDirPath);
@@ -463,6 +554,12 @@ public class VideoServiceImpl implements VideoService {
     @Override
     @Transactional
     public VideoVO uploadSimple(MultipartFile file, String title, String description, String userId) {
+        return uploadSimple(file, title, description, userId, null);
+    }
+    
+    @Override
+    @Transactional
+    public VideoVO uploadSimple(MultipartFile file, String title, String description, String userId, String videoId) {
         String fileName = file.getOriginalFilename();
         
         // 验证文件扩展名
@@ -477,12 +574,10 @@ public class VideoServiceImpl implements VideoService {
         String contentType = file.getContentType();
         if (contentType != null && !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
             logger.warn("文件MIME类型不匹配: fileName={}, contentType={}", fileName, contentType);
-            // 不抛出异常，因为有些浏览器可能不提供正确的MIME类型，仅记录警告
         }
         
         try {
             String fileExt = FileUtil.extName(fileName);
-            // contentType已在上面定义，这里直接使用
             
             // 生成存储路径
             String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
@@ -491,22 +586,57 @@ public class VideoServiceImpl implements VideoService {
             // 上传到MinIO
             minioService.uploadFile(objectName, file);
             
-            // 创建视频记录
-            Video video = Video.builder()
-                    .id(IdUtil.fastSimpleUUID())
-                    .userId(userId)
-                    .title(title != null ? title : fileName)
-                    .description(description)
-                    .fileName(fileName)
-                    .filePath(objectName)
-                    .fileSize(file.getSize())
-                    .fileType(contentType)
-                    .status(Video.Status.UPLOADED.name())
-                    .sourceType(Video.SourceType.LOCAL_UPLOAD.name())
-                    .gmtCreated(LocalDateTime.now())
-                    .gmtModified(LocalDateTime.now())
-                    .build();
-            videoMapper.insert(video);
+            // 写保护：上传完成后检查任务是否已被取消
+            // 双重检查：Redis 取消标记 + DB 记录
+            if (videoId != null && !videoId.isEmpty()) {
+                boolean cancelled = false;
+                try {
+                    Boolean exists = redisTemplate.hasKey("upload:cancelled:" + videoId);
+                    if (Boolean.TRUE.equals(exists)) {
+                        cancelled = true;
+                        logger.warn("uploadSimple: Redis 取消标记存在，任务已被中止: videoId={}", videoId);
+                    }
+                } catch (Exception e) {
+                    logger.warn("uploadSimple: 检查 Redis 取消标记失败，降级为 DB 检查: videoId={}", videoId);
+                }
+                if (!cancelled) {
+                    Video checkVideo = videoMapper.selectById(videoId);
+                    if (checkVideo == null) {
+                        cancelled = true;
+                        logger.warn("uploadSimple: video 记录已被取消删除: videoId={}", videoId);
+                    }
+                }
+                if (cancelled) {
+                    try { minioService.deleteFile(objectName); } catch (Exception ignored) {}
+                    return null;
+                }
+            }
+            
+            // 更新或创建视频记录
+            Video video;
+            if (videoId != null && !videoId.isEmpty()) {
+                // 有 videoId：UPDATE 已有的 UPLOADING 记录（持久化先行方案）
+                video = videoMapper.selectById(videoId);
+                if (video != null && userId.equals(video.getUserId())) {
+                    video.setFilePath(objectName);
+                    video.setFileSize(file.getSize());
+                    video.setFileType(contentType);
+                    video.setFileName(fileName);
+                    if (title != null && !title.isEmpty()) video.setTitle(title);
+                    video.setDescription(description);
+                    video.setStatus(Video.Status.UPLOADED.name());
+                    video.setGmtModified(LocalDateTime.now());
+                    videoMapper.updateById(video);
+                } else {
+                    // 记录不存在或不属于该用户，降级为 INSERT
+                    video = buildNewVideoRecord(userId, title, description, fileName, objectName, file.getSize(), contentType);
+                    videoMapper.insert(video);
+                }
+            } else {
+                // 无 videoId（旧版兼容）：INSERT 新记录
+                video = buildNewVideoRecord(userId, title, description, fileName, objectName, file.getSize(), contentType);
+                videoMapper.insert(video);
+            }
             
             // 清除用户视频列表缓存
             redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");

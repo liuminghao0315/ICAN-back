@@ -75,6 +75,17 @@ public interface VideoService {
     VideoVO uploadSimple(MultipartFile file, String title, String description, String userId);
     
     /**
+     * 简单文件上传（小文件），复用已有的 videoId
+     * @param file 文件
+     * @param title 标题
+     * @param description 描述
+     * @param userId 用户ID
+     * @param videoId 已有的视频ID（initUpload 创建的），可为 null
+     * @return 视频信息，若上传期间任务已被取消则返回 null
+     */
+    VideoVO uploadSimple(MultipartFile file, String title, String description, String userId, String videoId);
+    
+    /**
      * 获取视频详情
      * @param videoId 视频ID
      * @param userId 用户ID
