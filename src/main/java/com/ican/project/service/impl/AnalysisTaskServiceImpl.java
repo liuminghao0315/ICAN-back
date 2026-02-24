@@ -517,6 +517,12 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     @Override
     @Transactional
     public void markTaskFailed(String taskId, String errorMessage) {
+        markTaskFailed(taskId, errorMessage, "ANALYSIS_FAILED");
+    }
+
+    @Override
+    @Transactional
+    public void markTaskFailed(String taskId, String errorMessage, String failureType) {
         AnalysisTask task = analysisTaskMapper.selectById(taskId);
         if (task == null) {
             logger.warn("任务不存在: taskId={}", taskId);
@@ -527,6 +533,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         wrapper.eq(AnalysisTask::getId, taskId)
                 .set(AnalysisTask::getStatus, AnalysisTask.Status.FAILED.name())
                 .set(AnalysisTask::getErrorMessage, errorMessage)
+                .set(AnalysisTask::getFailureType, failureType)
                 .set(AnalysisTask::getCompletedAt, LocalDateTime.now())
                 .set(AnalysisTask::getGmtModified, LocalDateTime.now());
         
@@ -535,7 +542,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 更新视频状态
         videoService.updateVideoStatus(task.getVideoId(), Video.Status.FAILED.name());
         
-        logger.error("任务失败: taskId={}, error={}", taskId, errorMessage);
+        logger.error("任务失败: taskId={}, failureType={}, error={}", taskId, failureType, errorMessage);
     }
     
     @Override
@@ -574,6 +581,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .status(task.getStatus())
                 .progress(task.getProgress())
                 .errorMessage(task.getErrorMessage())
+                .failureType(task.getFailureType())
                 .startedAt(task.getStartedAt())
                 .completedAt(task.getCompletedAt())
                 .gmtCreated(task.getGmtCreated());

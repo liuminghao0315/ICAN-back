@@ -87,5 +87,8 @@ public class AnalysisTaskVO {
     
     @Schema(description = "内容主题分类")
     private String topicCategory;
+
+    @Schema(description = "失败类型（仅 status=FAILED 时有值）: DOWNLOAD_FAILED / ANALYSIS_FAILED")
+    private String failureType;
 }
 

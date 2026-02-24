@@ -88,6 +88,14 @@ public interface AnalysisTaskService {
      * @param errorMessage 错误信息
      */
     void markTaskFailed(String taskId, String errorMessage);
+
+    /**
+     * 标记任务失败（含失败类型）
+     * @param taskId 任务ID
+     * @param errorMessage 错误信息
+     * @param failureType 失败类型：DOWNLOAD_FAILED / ANALYSIS_FAILED
+     */
+    void markTaskFailed(String taskId, String errorMessage, String failureType);
     
     /**
      * 获取待处理的任务（供Mock算法服务调用）

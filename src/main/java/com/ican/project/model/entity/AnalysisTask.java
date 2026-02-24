@@ -52,6 +52,12 @@ public class AnalysisTask {
      * 错误信息
      */
     private String errorMessage;
+
+    /**
+     * 失败类型：DOWNLOAD_FAILED（下载失败，无文件）/ ANALYSIS_FAILED（分析失败，有文件）
+     * 仅 status=FAILED 时有意义
+     */
+    private String failureType;
     
     /**
      * 开始处理时间

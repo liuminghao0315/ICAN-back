@@ -161,10 +161,23 @@ public class TaskProgressWebSocket {
      * @param errorMessage 错误信息
      */
     public static void sendTaskFailed(String userId, String taskId, String videoId, String errorMessage) {
+        sendTaskFailed(userId, taskId, videoId, errorMessage, "ANALYSIS_FAILED");
+    }
+
+    /**
+     * 向指定用户发送任务失败通知（含失败类型）
+     * @param userId 用户ID
+     * @param taskId 任务ID
+     * @param videoId 视频ID
+     * @param errorMessage 错误信息
+     * @param failureType 失败类型：DOWNLOAD_FAILED（下载失败，无文件）/ ANALYSIS_FAILED（分析失败，有文件）
+     */
+    public static void sendTaskFailed(String userId, String taskId, String videoId, String errorMessage, String failureType) {
         Map<String, Object> data = new java.util.HashMap<>();
         data.put("taskId", taskId);
         data.put("videoId", videoId != null ? videoId : "");
         data.put("errorMessage", errorMessage != null ? errorMessage : "未知错误");
+        data.put("failureType", failureType != null ? failureType : "ANALYSIS_FAILED");
         sendMessage(userId, createMessage("task_failed", "任务失败", data));
     }
     
