@@ -127,10 +127,12 @@ public class AnalysisTaskController {
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "排序字段: gmtCreated, riskScore, videoDuration") @RequestParam(defaultValue = "gmtCreated") String sortBy,
             @Parameter(description = "排序方向: asc, desc") @RequestParam(defaultValue = "desc") String sortOrder,
+            @Parameter(description = "文件夹ID: __ALL__=全部, __UNCATEGORIZED__=未分类, 其他=具体文件夹") 
+            @RequestParam(required = false) String folderId,
             @AuthenticationPrincipal MyUserDetails userDetails) {
         
         Page<AnalysisTaskVO> result = analysisTaskService.getUserTasks(
-                userDetails.getUserId(), status, riskLevel, page, size, sortBy, sortOrder);
+                userDetails.getUserId(), status, riskLevel, page, size, sortBy, sortOrder, folderId);
         
         return Result.success(result);
     }
@@ -247,7 +249,7 @@ public class AnalysisTaskController {
         }
 
         AnalysisTaskVO result = analysisTaskService.createUrlImportTask(
-                url, trimmed.getTitle(), trimmed.getTaskType(), userId);
+                url, trimmed.getTitle(), trimmed.getTaskType(), userId, trimmed.getFolderId());
 
         // 异步启动视频下载（标题已由前端校验阶段获取并传入，跳过重复 fetchVideoTitle）
         videoDownloadService.downloadVideoAsync(url, result.getVideoId(), result.getId(), userId);

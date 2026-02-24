@@ -23,20 +23,31 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
      * @param riskLevel 风险等级筛选 HIGH/MEDIUM/LOW（可选）
      * @param sortBy 排序字段：gmtCreated / riskScore / videoDuration
      * @param sortOrder 排序方向 asc/desc
+     * @param folderIds 文件夹ID列表（可选，用于按文件夹过滤）
+     * @param uncategorizedOnly 是否仅查未分类视频
      * @return 任务列表（包含关联字段）
      */
     @Select("<script>" +
             "SELECT t.*, " +
             "       v.title AS video_title, v.duration AS video_duration, v.file_path AS video_file_path, " +
             "       v.source_type AS video_source_type, v.source_url AS video_source_url, " +
+            "       v.folder_id AS video_folder_id, " +
+            "       f.name AS video_folder_name, " +
             "       r.id AS result_id, " +
             "       CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) AS risk_score_val " +
             "FROM analysis_task t " +
             "LEFT JOIN video v ON t.video_id = v.id " +
+            "LEFT JOIN folder f ON v.folder_id = f.id " +
             "LEFT JOIN analysis_result r ON t.id = r.task_id " +
             "WHERE t.user_id = #{userId} " +
             "<if test='status != null and status != \"\"'>" +
             "  AND t.status = #{status} " +
+            "</if>" +
+            "<if test='folderIds != null and folderIds.size() > 0'>" +
+            "  AND v.folder_id IN <foreach item='fid' collection='folderIds' open='(' separator=',' close=')'>#{fid}</foreach> " +
+            "</if>" +
+            "<if test='uncategorizedOnly == true'>" +
+            "  AND (v.folder_id IS NULL) " +
             "</if>" +
             "<if test='riskLevel != null and riskLevel != \"\"'>" +
             "  AND t.status = 'COMPLETED' " +
@@ -75,7 +86,9 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
             @Param("status") String status,
             @Param("riskLevel") String riskLevel,
             @Param("sortBy") String sortBy,
-            @Param("sortOrder") String sortOrder
+            @Param("sortOrder") String sortOrder,
+            @Param("folderIds") java.util.List<String> folderIds,
+            @Param("uncategorizedOnly") boolean uncategorizedOnly
     );
 }
 

@@ -16,6 +16,7 @@ import com.ican.project.model.entity.AnalysisTask;
 import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.AnalysisTaskVO;
 import com.ican.project.service.AnalysisTaskService;
+import com.ican.project.service.FolderService;
 import com.ican.project.service.MinioService;
 import com.ican.project.service.VideoService;
 import com.ican.project.utils.RedisCacheUtil;
@@ -53,6 +54,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Autowired
     private VideoService videoService;
+    
+    @Autowired
+    private FolderService folderService;
     
     @Autowired
     private MinioService minioService;
@@ -205,17 +209,37 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Override
     public Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder) {
+        return getUserTasks(userId, status, riskLevel, page, size, sortBy, sortOrder, null);
+    }
+
+    @Override
+    public Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder, String folderId) {
         // 使用 JOIN 查询，在数据库层面进行全局排序和筛选
         String effectiveStatus = (status != null && !status.isEmpty()) ? status.toUpperCase() : null;
         String effectiveRiskLevel = (riskLevel != null && !riskLevel.isEmpty()) ? riskLevel.toUpperCase() : null;
         String effectiveSortBy = sortBy != null ? sortBy : "gmtCreated";
         String effectiveSortOrder = "asc".equalsIgnoreCase(sortOrder) ? "asc" : "desc";
         
+        // 处理文件夹过滤
+        java.util.List<String> folderIds = null;
+        boolean uncategorizedOnly = false;
+        if (folderId != null && !folderId.isEmpty()) {
+            if ("__UNCATEGORIZED__".equals(folderId)) {
+                uncategorizedOnly = true;
+            } else if (!"__ALL__".equals(folderId)) {
+                // 具体文件夹：获取该文件夹及所有子文件夹ID
+                folderIds = new java.util.ArrayList<>();
+                folderIds.add(folderId);
+                folderIds.addAll(folderService.getAllDescendantFolderIds(userId, folderId));
+            }
+            // __ALL__ 不加任何过滤
+        }
+        
         // 直接查询数据库，不使用缓存，确保数据准确性（特别是 total 总数）
         Page<java.util.Map<String, Object>> taskPage = new Page<>(page, size);
         
         Page<java.util.Map<String, Object>> result = analysisTaskMapper.selectTasksWithJoin(
-                taskPage, userId, effectiveStatus, effectiveRiskLevel, effectiveSortBy, effectiveSortOrder);
+                taskPage, userId, effectiveStatus, effectiveRiskLevel, effectiveSortBy, effectiveSortOrder, folderIds, uncategorizedOnly);
         
         // 转换为VO
         java.util.List<AnalysisTaskVO> voList = result.getRecords().stream()
@@ -272,6 +296,16 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         String videoSourceUrl = (String) map.get("video_source_url");
         if (videoSourceUrl != null) {
             builder.sourceUrl(videoSourceUrl);
+        }
+
+        // 文件夹归属信息
+        String videoFolderId = (String) map.get("video_folder_id");
+        if (videoFolderId != null) {
+            builder.folderId(videoFolderId);
+        }
+        String videoFolderName = (String) map.get("video_folder_name");
+        if (videoFolderName != null) {
+            builder.folderName(videoFolderName);
         }
         
         // 分析结果信息
@@ -698,7 +732,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Override
     @Transactional
-    public AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId) {
+    public AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId, String folderId) {
         // 确定任务类型
         if (taskType == null || taskType.isEmpty()) {
             taskType = AnalysisTask.TaskType.FULL_ANALYSIS.name();
@@ -727,6 +761,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .status(Video.Status.DOWNLOADING.name())
                 .sourceType(Video.SourceType.URL_IMPORT.name())
                 .sourceUrl(url)
+                .folderId(folderId != null && !folderId.isEmpty() ? folderId : null)
                 .gmtCreated(LocalDateTime.now())
                 .gmtModified(LocalDateTime.now())
                 .build();

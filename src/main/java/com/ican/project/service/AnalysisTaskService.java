@@ -45,6 +45,20 @@ public interface AnalysisTaskService {
      * @return 任务列表
      */
     Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder);
+
+    /**
+     * 获取用户任务列表（支持文件夹过滤）
+     * @param userId 用户ID
+     * @param status 状态筛选（可选）
+     * @param riskLevel 风险等级筛选（可选）
+     * @param page 页码
+     * @param size 每页数量
+     * @param sortBy 排序字段
+     * @param sortOrder 排序方向
+     * @param folderId 文件夹ID（__ALL__=全部, __UNCATEGORIZED__=未分类, 其他=具体文件夹及子文件夹）
+     * @return 任务列表
+     */
+    Page<AnalysisTaskVO> getUserTasks(String userId, String status, String riskLevel, int page, int size, String sortBy, String sortOrder, String folderId);
     
     /**
      * 取消任务
@@ -111,7 +125,7 @@ public interface AnalysisTaskService {
      * @param userId 用户ID
      * @return 任务VO
      */
-    AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId);
+    AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId, String folderId);
     
     /**
      * 标记任务为等待中（下载完成后调用，自动衔接分析）

@@ -27,6 +27,11 @@ public class Video {
      * 上传用户ID
      */
     private String userId;
+
+    /**
+     * 所属文件夹ID（NULL表示未分类）
+     */
+    private String folderId;
     
     /**
      * 视频标题

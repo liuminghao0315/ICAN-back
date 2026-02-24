@@ -281,7 +281,7 @@ public class VideoServiceImpl implements VideoService {
     
     @Override
     @Transactional
-    public VideoVO initUpload(String fileName, String title, long fileSize, String userId) {
+    public VideoVO initUpload(String fileName, String title, long fileSize, String userId, String folderId) {
         validateFileExtension(fileName);
         validateFileSize(fileSize);
         
@@ -299,6 +299,7 @@ public class VideoServiceImpl implements VideoService {
                 .fileType(contentType)
                 .status(Video.Status.UPLOADING.name())
                 .sourceType(Video.SourceType.LOCAL_UPLOAD.name())
+                .folderId(folderId != null && !folderId.isEmpty() ? folderId : null)
                 .gmtCreated(LocalDateTime.now())
                 .gmtModified(LocalDateTime.now())
                 .build();

@@ -26,6 +26,9 @@ public class UrlImportTaskDTO {
     
     @Schema(description = "任务类型: FULL_ANALYSIS/VIDEO_ONLY/AUDIO_ONLY/TEXT_ONLY，默认FULL_ANALYSIS")
     private String taskType;
+
+    @Schema(description = "目标文件夹ID（可选，不填则归入未分类）")
+    private String folderId;
     
     /**
      * 去除空格

@@ -22,7 +22,7 @@ public interface VideoService {
      * @param userId 用户ID
      * @return 视频信息（含 videoId）
      */
-    VideoVO initUpload(String fileName, String title, long fileSize, String userId);
+    VideoVO initUpload(String fileName, String title, long fileSize, String userId, String folderId);
     
     /**
      * 取消上传：物理中断后清理数据库记录和临时分片文件

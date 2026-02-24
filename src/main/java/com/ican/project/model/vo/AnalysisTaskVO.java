@@ -90,5 +90,11 @@ public class AnalysisTaskVO {
 
     @Schema(description = "失败类型（仅 status=FAILED 时有值）: DOWNLOAD_FAILED / ANALYSIS_FAILED")
     private String failureType;
+
+    @Schema(description = "视频所在文件夹ID（直接归属，非递归）")
+    private String folderId;
+
+    @Schema(description = "视频所在文件夹名称（直接归属，非递归）")
+    private String folderName;
 }
 

@@ -60,10 +60,11 @@ public class VideoController {
             @Parameter(description = "文件名") @RequestParam String fileName,
             @Parameter(description = "视频标题") @RequestParam(required = false) String title,
             @Parameter(description = "文件大小（字节）") @RequestParam long fileSize,
+            @Parameter(description = "目标文件夹ID（可选）") @RequestParam(required = false) String folderId,
             @AuthenticationPrincipal MyUserDetails userDetails) {
         
         logger.info("初始化上传: fileName={}, fileSize={}", fileName, fileSize);
-        VideoVO result = videoService.initUpload(fileName, title, fileSize, userDetails.getUserId());
+        VideoVO result = videoService.initUpload(fileName, title, fileSize, userDetails.getUserId(), folderId);
         return Result.success("初始化成功", result);
     }
     
