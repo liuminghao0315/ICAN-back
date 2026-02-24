@@ -16,6 +16,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,6 +25,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
+import java.util.Set;
 
 /**
  * URL视频下载服务实现
@@ -51,7 +54,28 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
     
     @Value("${download.ytdlp-path:yt-dlp}")
     private String ytdlpPath;
-    
+
+    /** 直接视频 URL 的扩展名集合（无需 yt-dlp，直接 HTTP 下载） */
+    private static final Set<String> DIRECT_VIDEO_EXTENSIONS = Set.of(
+        "mp4", "m4v", "flv", "mov", "avi", "mkv", "webm", "wmv", "ts", "m3u8"
+    );
+
+    /**
+     * 判断 URL 是否为直接视频文件地址（以视频扩展名结尾，忽略查询参数）
+     */
+    private boolean isDirectVideoUrl(String url) {
+        if (url == null) return false;
+        try {
+            String path = new URL(url).getPath().toLowerCase();
+            int dot = path.lastIndexOf('.');
+            if (dot < 0) return false;
+            String ext = path.substring(dot + 1);
+            return DIRECT_VIDEO_EXTENSIONS.contains(ext);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Override
     @Async("taskExecutor")
     public void downloadVideoAsync(String url, String videoId, String taskId, String userId) {
@@ -61,205 +85,13 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
             tempDir = Paths.get(downloadTempDir, videoId);
             Files.createDirectories(tempDir);
 
-            // ── Step 1: 获取视频真实标题 ──────────────────────────────
-            String fetchedTitle = fetchVideoTitle(url);
-            if (fetchedTitle == null) {
-                logger.warn("获取视频标题失败");
+            // ── 路由判断：直接视频 URL vs 平台链接 ──────────────────────
+            if (isDirectVideoUrl(url)) {
+                downloadDirectVideo(url, videoId, taskId, userId, tempDir);
             } else {
-                logger.info("获取到视频标题: {}", fetchedTitle);
+                downloadViaYtDlp(url, videoId, taskId, userId, tempDir);
             }
 
-            // 读取当前 Video 记录，判断用户是否填写了自定义标题
-            Video video = videoMapper.selectById(videoId);
-            // 判断是否为用户自定义标题：非空且不是系统自动生成的占位标题（以"链接导入 - "开头）
-            boolean hasUserCustomTitle = video != null
-                    && video.getTitle() != null
-                    && !video.getTitle().isBlank()
-                    && !video.getTitle().startsWith("链接导入 - ");
-
-            String videoTitle;
-            if (hasUserCustomTitle) {
-                // 用户填了自定义标题，保留不覆盖
-                videoTitle = video.getTitle();
-                logger.info("用户已设置自定义标题「{}」，保留不覆盖", videoTitle);
-            } else {
-                // 无自定义标题，使用真实标题（或保底标题）
-                if (fetchedTitle != null) {
-                    videoTitle = fetchedTitle;
-                } else {
-                    videoTitle = "链接导入 - " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-                    logger.warn("使用保底标题: {}", videoTitle);
-                }
-                // 将真实标题写入 Video 记录
-                if (video != null) {
-                    video.setTitle(videoTitle);
-                    video.setGmtModified(LocalDateTime.now());
-                    videoMapper.updateById(video);
-                }
-            }
-
-            // 推送「元数据已获取」消息；若是用户自定义标题则不推送标题更新（避免覆盖前端已显示的标题）
-            TaskProgressWebSocket.sendTaskProgress(
-                userId, taskId, videoId,
-                "DOWNLOADING", 0, "元数据已获取，准备下载",
-                "FETCHING_TITLE", hasUserCustomTitle ? null : videoTitle
-            );
-
-            // ── Step 2: 构造安全文件名（去除 Windows 不允许的字符）────
-            String safeTitle = sanitizeFileName(videoTitle);
-            // 文件名过长时截断（Windows MAX_PATH 限制）
-            if (safeTitle.length() > 80) {
-                safeTitle = safeTitle.substring(0, 80).trim();
-            }
-            String outputTemplate = tempDir.resolve(safeTitle + ".%(ext)s").toString();
-
-            // ── Step 3: 执行下载 ──────────────────────────────────────
-            ProcessBuilder pb = new ProcessBuilder(
-                ytdlpPath,
-                "--no-playlist",
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-                "--merge-output-format", "mp4",
-                "-o", outputTemplate,
-                "--no-overwrites",
-                "--socket-timeout", "30",
-                "--encoding", "utf-8",
-                url
-            );
-            pb.redirectErrorStream(true);
-            pb.directory(tempDir.toFile());
-
-            logger.info("开始下载视频: url={}, videoId={}, ytdlpPath={}, tempDir={}", url, videoId, ytdlpPath, tempDir);
-
-            Process process = pb.start();
-            
-            // 读取输出日志，同时收集错误信息（指定 UTF-8 编码，避免 Windows 下乱码）
-            // yt-dlp 分两段下载：视频流(0→100%) + 音频流(0→100%)，需要分段映射到总进度
-            // 映射规则：视频流 → 0~60%，音频流 → 60~90%，合并/上传 → 90~95%
-            StringBuilder outputLog = new StringBuilder();
-            int downloadPhase = 0; // 0=视频流, 1=音频流
-            int lastSentProgress = -1; // 防止重复推送相同进度
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    logger.info("[yt-dlp] {}", line);
-                    outputLog.append(line).append("\n");
-
-                    // 检测是否进入第二段（音频流）下载
-                    // yt-dlp 输出 "[download] Destination: xxx.m4a" 或进度从高位归零时切换
-                    if (line.contains("[download] Destination:")) {
-                        String dest = line.toLowerCase();
-                        if (dest.endsWith(".m4a") || dest.endsWith(".opus") || dest.endsWith(".aac") || dest.endsWith(".webm.audio")) {
-                            downloadPhase = 1;
-                        }
-                    }
-
-                    if (line.contains("[download]") && line.contains("%")) {
-                        try {
-                            String progressStr = line.replaceAll(".*?(\\d+\\.?\\d*)%.*", "$1");
-                            double rawProgress = Double.parseDouble(progressStr);
-
-                            // 映射到总进度
-                            int taskProgress;
-                            String msg;
-                            if (downloadPhase == 0) {
-                                taskProgress = (int) (rawProgress * 0.6);   // 0→60
-                                msg = "下载视频流: " + (int) rawProgress + "%";
-                            } else {
-                                taskProgress = 60 + (int) (rawProgress * 0.3); // 60→90
-                                msg = "下载音频流: " + (int) rawProgress + "%";
-                            }
-
-                            // 只在进度前进时推送，避免同值重复推送
-                            if (taskProgress > lastSentProgress) {
-                                lastSentProgress = taskProgress;
-                                TaskProgressWebSocket.sendTaskProgress(
-                                    userId, taskId, videoId,
-                                    "DOWNLOADING", taskProgress, msg,
-                                    "DOWNLOADING", null
-                                );
-                            }
-                        } catch (Exception ignored) {}
-                    }
-
-                    // 检测合并阶段
-                    if (line.contains("[Merger]") || line.contains("[ffmpeg]") || line.contains("Merging")) {
-                        if (lastSentProgress < 90) {
-                            lastSentProgress = 90;
-                            TaskProgressWebSocket.sendTaskProgress(
-                                userId, taskId, videoId,
-                                "DOWNLOADING", 90, "合并音视频流...",
-                                "DOWNLOADING", null
-                            );
-                        }
-                    }
-                }
-            }
-            
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                // 提取最后几行错误信息给用户看
-                String[] lines = outputLog.toString().split("\n");
-                String lastError = "";
-                for (int i = lines.length - 1; i >= 0 && i >= lines.length - 5; i--) {
-                    if (!lines[i].trim().isEmpty()) {
-                        lastError = lines[i].trim();
-                        break;
-                    }
-                }
-                throw new RuntimeException("yt-dlp 下载失败 (退出码 " + exitCode + "): " + lastError);
-            }
-            
-            // 查找下载的文件
-            File downloadedFile = findDownloadedFile(tempDir.toFile());
-            if (downloadedFile == null) {
-                throw new RuntimeException("下载完成但未找到视频文件");
-            }
-            
-            logger.info("视频下载完成: file={}, size={}", downloadedFile.getName(), downloadedFile.length());
-            
-            // 上传到 MinIO
-            String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-            String extension = getFileExtension(downloadedFile.getName());
-            String objectName = "videos/" + datePath + "/" + IdUtil.fastSimpleUUID() + "." + extension;
-            
-            try (InputStream is = new FileInputStream(downloadedFile)) {
-                minioService.uploadFile(objectName, is, getContentType(extension), downloadedFile.length());
-            }
-            
-            // 更新视频记录（title 已在下载前写入，此处只更新文件相关字段）
-            video = videoMapper.selectById(videoId);
-            if (video != null) {
-                video.setFileName(downloadedFile.getName());
-                video.setFilePath(objectName);
-                video.setFileSize(downloadedFile.length());
-                video.setFileType(getContentType(extension));
-                video.setStatus(Video.Status.UPLOADED.name());
-                video.setGmtModified(LocalDateTime.now());
-                videoMapper.updateById(video);
-            }
-            
-            // 自动触发分析流水线：将任务状态从 DOWNLOADING 转为 PENDING
-            // 先检查任务是否已被用户取消，避免覆盖取消状态
-            String currentTaskStatus = analysisTaskService.getTaskStatus(taskId);
-            if ("CANCELLED".equals(currentTaskStatus)) {
-                logger.info("任务已被取消，跳过触发分析: taskId={}", taskId);
-                return;
-            }
-
-            // 推送「下载完成，进入分析队列」，同时携带 videoUrl 供前端截帧生成缩略图
-            String videoUrl = null;
-            try {
-                videoUrl = minioService.getFileUrl(objectName);
-            } catch (Exception ignored) {}
-            TaskProgressWebSocket.sendTaskProgress(
-                userId, taskId, videoId,
-                "PENDING", 95, "视频下载完成，等待 AI 分析",
-                "PENDING", null, videoUrl
-            );
-            analysisTaskService.markTaskPending(taskId);
-            
-            logger.info("视频下载并上传完成，已自动触发分析: videoId={}, taskId={}", videoId, taskId);
-            
         } catch (Exception e) {
             logger.error("视频下载失败: url={}, videoId={}, error={}", url, videoId, e.getMessage(), e);
 
@@ -288,6 +120,283 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
         }
     }
     
+    /**
+     * 通过 yt-dlp 下载平台视频（B站、抖音等）
+     */
+    private void downloadViaYtDlp(String url, String videoId, String taskId, String userId, Path tempDir) throws Exception {
+        // ── Step 1: 获取视频真实标题 ──────────────────────────────
+        String fetchedTitle = fetchVideoTitle(url);
+        if (fetchedTitle == null) {
+            logger.warn("获取视频标题失败");
+        } else {
+            logger.info("获取到视频标题: {}", fetchedTitle);
+        }
+
+        // 读取当前 Video 记录，判断用户是否填写了自定义标题
+        Video video = videoMapper.selectById(videoId);
+        boolean hasUserCustomTitle = video != null
+                && video.getTitle() != null
+                && !video.getTitle().isBlank()
+                && !video.getTitle().startsWith("链接导入 - ");
+
+        String videoTitle;
+        if (hasUserCustomTitle) {
+            videoTitle = video.getTitle();
+            logger.info("用户已设置自定义标题「{}」，保留不覆盖", videoTitle);
+        } else {
+            if (fetchedTitle != null) {
+                videoTitle = fetchedTitle;
+            } else {
+                videoTitle = "链接导入 - " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                logger.warn("使用保底标题: {}", videoTitle);
+            }
+            if (video != null) {
+                video.setTitle(videoTitle);
+                video.setGmtModified(LocalDateTime.now());
+                videoMapper.updateById(video);
+            }
+        }
+
+        TaskProgressWebSocket.sendTaskProgress(
+            userId, taskId, videoId,
+            "DOWNLOADING", 0, "元数据已获取，准备下载",
+            "FETCHING_TITLE", hasUserCustomTitle ? null : videoTitle
+        );
+
+        // ── Step 2: 构造安全文件名 ────────────────────────────────
+        String safeTitle = sanitizeFileName(videoTitle);
+        if (safeTitle.length() > 80) safeTitle = safeTitle.substring(0, 80).trim();
+        String outputTemplate = tempDir.resolve(safeTitle + ".%(ext)s").toString();
+
+        // ── Step 3: 执行 yt-dlp 下载 ─────────────────────────────
+        ProcessBuilder pb = new ProcessBuilder(
+            ytdlpPath,
+            "--no-playlist",
+            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "--merge-output-format", "mp4",
+            "-o", outputTemplate,
+            "--no-overwrites",
+            "--socket-timeout", "30",
+            "--encoding", "utf-8",
+            url
+        );
+        pb.redirectErrorStream(true);
+        pb.directory(tempDir.toFile());
+
+        logger.info("开始 yt-dlp 下载: url={}, videoId={}", url, videoId);
+
+        Process process = pb.start();
+
+        StringBuilder outputLog = new StringBuilder();
+        int downloadPhase = 0;
+        int lastSentProgress = -1;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                logger.info("[yt-dlp] {}", line);
+                outputLog.append(line).append("\n");
+
+                if (line.contains("[download] Destination:")) {
+                    String dest = line.toLowerCase();
+                    if (dest.endsWith(".m4a") || dest.endsWith(".opus") || dest.endsWith(".aac") || dest.endsWith(".webm.audio")) {
+                        downloadPhase = 1;
+                    }
+                }
+
+                if (line.contains("[download]") && line.contains("%")) {
+                    try {
+                        String progressStr = line.replaceAll(".*?(\\d+\\.?\\d*)%.*", "$1");
+                        double rawProgress = Double.parseDouble(progressStr);
+                        int taskProgress;
+                        String msg;
+                        if (downloadPhase == 0) {
+                            taskProgress = (int) (rawProgress * 0.6);
+                            msg = "下载视频流: " + (int) rawProgress + "%";
+                        } else {
+                            taskProgress = 60 + (int) (rawProgress * 0.3);
+                            msg = "下载音频流: " + (int) rawProgress + "%";
+                        }
+                        if (taskProgress > lastSentProgress) {
+                            lastSentProgress = taskProgress;
+                            TaskProgressWebSocket.sendTaskProgress(
+                                userId, taskId, videoId,
+                                "DOWNLOADING", taskProgress, msg,
+                                "DOWNLOADING", null
+                            );
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (line.contains("[Merger]") || line.contains("[ffmpeg]") || line.contains("Merging")) {
+                    if (lastSentProgress < 90) {
+                        lastSentProgress = 90;
+                        TaskProgressWebSocket.sendTaskProgress(
+                            userId, taskId, videoId,
+                            "DOWNLOADING", 90, "合并音视频流...",
+                            "DOWNLOADING", null
+                        );
+                    }
+                }
+            }
+        }
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            String[] lines = outputLog.toString().split("\n");
+            String lastError = "";
+            for (int i = lines.length - 1; i >= 0 && i >= lines.length - 5; i--) {
+                if (!lines[i].trim().isEmpty()) { lastError = lines[i].trim(); break; }
+            }
+            throw new RuntimeException("yt-dlp 下载失败 (退出码 " + exitCode + "): " + lastError);
+        }
+
+        File downloadedFile = findDownloadedFile(tempDir.toFile());
+        if (downloadedFile == null) throw new RuntimeException("下载完成但未找到视频文件");
+
+        finishDownload(downloadedFile, videoId, taskId, userId);
+    }
+
+    /**
+     * 直接 HTTP/HTTPS 流式下载视频文件（适用于以 .mp4/.flv 等结尾的直接 URL）
+     */
+    private void downloadDirectVideo(String url, String videoId, String taskId, String userId, Path tempDir) throws Exception {
+        // 从 URL 路径中提取文件名
+        String urlPath = new URL(url).getPath();
+        String rawFileName = urlPath.substring(urlPath.lastIndexOf('/') + 1);
+        if (rawFileName.isBlank()) rawFileName = "video.mp4";
+
+        // 处理标题
+        Video video = videoMapper.selectById(videoId);
+        boolean hasUserCustomTitle = video != null
+                && video.getTitle() != null
+                && !video.getTitle().isBlank()
+                && !video.getTitle().startsWith("链接导入 - ");
+
+        String videoTitle;
+        if (hasUserCustomTitle) {
+            videoTitle = video.getTitle();
+        } else {
+            // 用文件名（去掉扩展名）作为标题
+            int dot = rawFileName.lastIndexOf('.');
+            videoTitle = dot > 0 ? rawFileName.substring(0, dot) : rawFileName;
+            videoTitle = sanitizeFileName(videoTitle);
+            if (videoTitle.isBlank()) {
+                videoTitle = "链接导入 - " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            }
+            if (video != null) {
+                video.setTitle(videoTitle);
+                video.setGmtModified(LocalDateTime.now());
+                videoMapper.updateById(video);
+            }
+        }
+
+        TaskProgressWebSocket.sendTaskProgress(
+            userId, taskId, videoId,
+            "DOWNLOADING", 0, "准备直接下载视频文件",
+            "FETCHING_TITLE", hasUserCustomTitle ? null : videoTitle
+        );
+
+        // 确定本地保存路径
+        String safeFileName = sanitizeFileName(rawFileName);
+        if (safeFileName.isBlank()) safeFileName = "video.mp4";
+        Path localFile = tempDir.resolve(safeFileName);
+
+        logger.info("开始直接 HTTP 下载: url={}, localFile={}", url, localFile);
+
+        // 建立连接
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(15_000);
+        conn.setReadTimeout(60_000);
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+        conn.connect();
+
+        int responseCode = conn.getResponseCode();
+        if (responseCode / 100 != 2) {
+            throw new RuntimeException("HTTP 下载失败，状态码: " + responseCode);
+        }
+
+        long totalBytes = conn.getContentLengthLong();
+        long downloadedBytes = 0;
+        int lastSentProgress = -1;
+
+        try (InputStream in = conn.getInputStream();
+             OutputStream out = Files.newOutputStream(localFile)) {
+            byte[] buf = new byte[64 * 1024]; // 64KB 缓冲
+            int read;
+            while ((read = in.read(buf)) != -1) {
+                out.write(buf, 0, read);
+                downloadedBytes += read;
+
+                if (totalBytes > 0) {
+                    int progress = (int) (downloadedBytes * 90.0 / totalBytes);
+                    if (progress > lastSentProgress) {
+                        lastSentProgress = progress;
+                        TaskProgressWebSocket.sendTaskProgress(
+                            userId, taskId, videoId,
+                            "DOWNLOADING", progress,
+                            "下载中: " + String.format("%.1f", downloadedBytes / 1024.0 / 1024.0) + " MB",
+                            "DOWNLOADING", null
+                        );
+                    }
+                }
+            }
+        } finally {
+            conn.disconnect();
+        }
+
+        logger.info("直接下载完成: file={}, size={}", localFile.getFileName(), downloadedBytes);
+
+        File downloadedFile = localFile.toFile();
+        if (!downloadedFile.exists() || downloadedFile.length() == 0) {
+            throw new RuntimeException("直接下载完成但文件为空或不存在");
+        }
+
+        finishDownload(downloadedFile, videoId, taskId, userId);
+    }
+
+    /**
+     * 公共收尾：上传 MinIO、更新数据库、触发分析流水线
+     */
+    private void finishDownload(File downloadedFile, String videoId, String taskId, String userId) throws Exception {
+        logger.info("视频下载完成: file={}, size={}", downloadedFile.getName(), downloadedFile.length());
+
+        String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        String extension = getFileExtension(downloadedFile.getName());
+        String objectName = "videos/" + datePath + "/" + IdUtil.fastSimpleUUID() + "." + extension;
+
+        try (InputStream is = new FileInputStream(downloadedFile)) {
+            minioService.uploadFile(objectName, is, getContentType(extension), downloadedFile.length());
+        }
+
+        Video video = videoMapper.selectById(videoId);
+        if (video != null) {
+            video.setFileName(downloadedFile.getName());
+            video.setFilePath(objectName);
+            video.setFileSize(downloadedFile.length());
+            video.setFileType(getContentType(extension));
+            video.setStatus(Video.Status.UPLOADED.name());
+            video.setGmtModified(LocalDateTime.now());
+            videoMapper.updateById(video);
+        }
+
+        String currentTaskStatus = analysisTaskService.getTaskStatus(taskId);
+        if ("CANCELLED".equals(currentTaskStatus)) {
+            logger.info("任务已被取消，跳过触发分析: taskId={}", taskId);
+            return;
+        }
+
+        String videoUrl = null;
+        try { videoUrl = minioService.getFileUrl(objectName); } catch (Exception ignored) {}
+        TaskProgressWebSocket.sendTaskProgress(
+            userId, taskId, videoId,
+            "PENDING", 95, "视频下载完成，等待 AI 分析",
+            "PENDING", null, videoUrl
+        );
+        analysisTaskService.markTaskPending(taskId);
+
+        logger.info("视频下载并上传完成，已自动触发分析: videoId={}, taskId={}", videoId, taskId);
+    }
+
     private File findDownloadedFile(File dir) {
         File[] allFiles = dir.listFiles();
         if (allFiles != null) {
@@ -339,11 +448,23 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
     }
 
     /**
-     * 预校验 URL 是否可被 yt-dlp 解析（同步，用于提交前拦截）
-     * 直接复用 fetchVideoTitle：能拿到标题 = 链接有效
+     * 预校验 URL 是否可被处理（同步，用于提交前拦截）
+     * - 直接视频 URL：直接返回文件名作为标题（无需调用 yt-dlp）
+     * - 平台链接：复用 fetchVideoTitle
      */
     @Override
     public String validateUrl(String url) {
+        if (isDirectVideoUrl(url)) {
+            try {
+                String path = new URL(url).getPath();
+                String fileName = path.substring(path.lastIndexOf('/') + 1);
+                int dot = fileName.lastIndexOf('.');
+                String title = dot > 0 ? fileName.substring(0, dot) : fileName;
+                return title.isBlank() ? "直接视频链接" : title;
+            } catch (Exception e) {
+                return "直接视频链接";
+            }
+        }
         return fetchVideoTitle(url);
     }
 
@@ -414,6 +535,10 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
      */
     private String extractUserFriendlyError(String rawMsg) {
         if (rawMsg == null) return "下载失败，原因未知";
+        if (rawMsg.contains("HTTP 下载失败，状态码: 403")) return "访问被拒绝（403），该资源可能有防盗链限制";
+        if (rawMsg.contains("HTTP 下载失败，状态码: 404")) return "视频文件不存在（404）";
+        if (rawMsg.contains("HTTP 下载失败")) return "直接下载失败，请检查链接是否有效";
+        if (rawMsg.contains("文件为空")) return "下载的文件为空，请检查链接是否有效";
         if (rawMsg.contains("Unsupported URL")) return "不支持该平台或链接格式";
         if (rawMsg.contains("Video unavailable")) return "视频不可用（已删除或设为私密）";
         if (rawMsg.contains("Private video")) return "该视频为私密视频，无法下载";
