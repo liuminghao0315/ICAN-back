@@ -79,9 +79,19 @@ public class Video {
     private String thumbnailPath;
     
     /**
-     * 状态: UPLOADED/ANALYZING/COMPLETED/FAILED
+     * 状态: UPLOADING/DOWNLOADING/UPLOADED/ANALYZING/COMPLETED/FAILED
      */
     private String status;
+    
+    /**
+     * 来源类型: LOCAL_UPLOAD/URL_IMPORT
+     */
+    private String sourceType;
+    
+    /**
+     * 来源URL（URL_IMPORT时有值）
+     */
+    private String sourceUrl;
     
     private LocalDateTime gmtCreated;
     
@@ -91,10 +101,20 @@ public class Video {
      * 视频状态枚举
      */
     public enum Status {
+        UPLOADING,   // 上传中（分片上传进行中）
+        DOWNLOADING, // 下载中（URL导入）
         UPLOADED,    // 已上传
         ANALYZING,   // 分析中
         COMPLETED,   // 已完成
         FAILED       // 失败
+    }
+    
+    /**
+     * 来源类型枚举
+     */
+    public enum SourceType {
+        LOCAL_UPLOAD,  // 本地上传
+        URL_IMPORT     // 链接导入
     }
 }
 

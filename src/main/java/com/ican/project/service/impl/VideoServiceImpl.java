@@ -1,13 +1,16 @@
 package com.ican.project.service.impl;
 
+import com.ican.project.config.RabbitMQConfig;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.exception.BusinessException;
+import com.ican.project.mapper.AnalysisTaskMapper;
 import com.ican.project.mapper.UploadChunkMapper;
 import com.ican.project.mapper.VideoMapper;
 import com.ican.project.model.dto.ChunkUploadDTO;
+import com.ican.project.model.entity.AnalysisTask;
 import com.ican.project.model.entity.UploadChunk;
 import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.ChunkUploadVO;
@@ -21,6 +24,8 @@ import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -66,6 +71,15 @@ public class VideoServiceImpl implements VideoService {
     
     @Autowired
     private RedisCacheUtil redisCacheUtil;
+    
+    @Autowired
+    private AnalysisTaskMapper analysisTaskMapper;
+    
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+    
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
     
     @Value("${upload.temp-dir:${java.io.tmpdir}/ican-upload-chunks}")
     private String tempDir;
@@ -210,9 +224,18 @@ public class VideoServiceImpl implements VideoService {
             boolean allUploaded = uploadedCount == dto.getTotalChunks();
             
             if (allUploaded) {
-                // 自动合并分片
+                // 自动合并分片，传入 videoId 以复用 UPLOADING 记录
                 VideoVO videoVO = mergeChunks(fileIdentifier, dto.getFileName(), 
-                        dto.getTitle(), dto.getDescription(), userId);
+                        dto.getTitle(), dto.getDescription(), userId, dto.getVideoId());
+                
+                // videoVO 为 null 表示合并期间任务已被取消，直接返回取消状态
+                if (videoVO == null) {
+                    return ChunkUploadVO.builder()
+                            .needUpload(false)
+                            .finished(false)
+                            .message("上传已取消")
+                            .build();
+                }
                 
                 return ChunkUploadVO.builder()
                         .needUpload(false)
@@ -238,8 +261,71 @@ public class VideoServiceImpl implements VideoService {
     
     @Override
     @Transactional
+    public VideoVO initUpload(String fileName, String title, long fileSize, String userId) {
+        validateFileExtension(fileName);
+        validateFileSize(fileSize);
+        
+        String fileExt = FileUtil.extName(fileName);
+        String contentType = getContentType(fileExt);
+        
+        // 在分片传输开始前，先写入 UPLOADING 状态记录，防止刷新丢失
+        Video video = Video.builder()
+                .id(IdUtil.fastSimpleUUID())
+                .userId(userId)
+                .title(title != null && !title.isEmpty() ? title : fileName)
+                .fileName(fileName)
+                .filePath("")          // 占位，合并完成后 UPDATE
+                .fileSize(fileSize)
+                .fileType(contentType)
+                .status(Video.Status.UPLOADING.name())
+                .sourceType(Video.SourceType.LOCAL_UPLOAD.name())
+                .gmtCreated(LocalDateTime.now())
+                .gmtModified(LocalDateTime.now())
+                .build();
+        videoMapper.insert(video);
+        
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+        logger.info("初始化上传记录: videoId={}, fileName={}", video.getId(), fileName);
+        return convertToVO(video);
+    }
+    
+    @Override
+    @Transactional
+    public void cancelUpload(String videoId, String fileIdentifier, String userId) {
+        Video video = videoMapper.selectById(videoId);
+        if (video == null) {
+            // 记录已不存在，幂等处理
+            logger.warn("cancelUpload: 视频记录不存在，忽略: videoId={}", videoId);
+            return;
+        }
+        if (!userId.equals(video.getUserId())) {
+            throw new BusinessException("无权操作该视频");
+        }
+        
+        // 清理临时分片文件
+        if (fileIdentifier != null && !fileIdentifier.isEmpty()) {
+            try {
+                Path chunkDirPath = Paths.get(tempDir, fileIdentifier);
+                cleanupTempFiles(chunkDirPath);
+                LambdaQueryWrapper<UploadChunk> chunkWrapper = new LambdaQueryWrapper<>();
+                chunkWrapper.eq(UploadChunk::getFileIdentifier, fileIdentifier);
+                uploadChunkMapper.delete(chunkWrapper);
+            } catch (Exception e) {
+                logger.warn("清理临时分片失败（不影响取消）: fileIdentifier={}, error={}", fileIdentifier, e.getMessage());
+            }
+        }
+        
+        // 删除视频记录（级联删除 analysis_task / analysis_result）
+        videoMapper.deleteById(videoId);
+        redisCacheUtil.delete(RedisCacheUtil.CacheKey.VIDEO_BY_ID + videoId + ":" + userId);
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+        logger.info("取消上传并清理记录: videoId={}", videoId);
+    }
+    
+    @Override
+    @Transactional
     public VideoVO mergeChunks(String fileIdentifier, String fileName, 
-                               String title, String description, String userId) {
+                               String title, String description, String userId, String videoId) {
         // 使用Path处理跨平台路径
         Path chunkDirPath = Paths.get(tempDir, fileIdentifier);
         
@@ -285,21 +371,47 @@ public class VideoServiceImpl implements VideoService {
                 minioService.uploadFile(objectName, is, contentType, totalSize);
             }
             
-            // 创建视频记录
-            Video video = Video.builder()
-                    .id(IdUtil.fastSimpleUUID())
-                    .userId(userId)
-                    .title(title != null ? title : fileName)
-                    .description(description)
-                    .fileName(fileName)
-                    .filePath(objectName)
-                    .fileSize(totalSize)
-                    .fileType(contentType)
-                    .status(Video.Status.UPLOADED.name())
-                    .gmtCreated(LocalDateTime.now())
-                    .gmtModified(LocalDateTime.now())
-                    .build();
-            videoMapper.insert(video);
+            // 写保护：合并完成后检查 video 记录是否已被取消删除
+            // 防止"临界点中止"场景：abort 信号发出时最后一片已触发合并
+            if (videoId != null && !videoId.isEmpty()) {
+                Video checkVideo = videoMapper.selectById(videoId);
+                if (checkVideo == null) {
+                    logger.warn("mergeChunks: video 记录已被取消删除，放弃写库: videoId={}", videoId);
+                    // 清理已上传到 MinIO 的文件（避免孤儿文件）
+                    try { minioService.deleteFile(objectName); } catch (Exception ignored) {}
+                    cleanupTempFiles(chunkDirPath);
+                    LambdaQueryWrapper<UploadChunk> dw = new LambdaQueryWrapper<>();
+                    dw.eq(UploadChunk::getFileIdentifier, fileIdentifier);
+                    uploadChunkMapper.delete(dw);
+                    return null; // 返回 null，调用方需判断
+                }
+            }
+            
+            // 更新或创建视频记录
+            Video video;
+            if (videoId != null && !videoId.isEmpty()) {
+                // 有 videoId：UPDATE 已有的 UPLOADING 记录（持久化先行方案）
+                video = videoMapper.selectById(videoId);
+                if (video != null && userId.equals(video.getUserId())) {
+                    video.setFilePath(objectName);
+                    video.setFileSize(totalSize);
+                    video.setFileType(contentType);
+                    video.setFileName(fileName);
+                    if (title != null && !title.isEmpty()) video.setTitle(title);
+                    video.setDescription(description);
+                    video.setStatus(Video.Status.UPLOADED.name());
+                    video.setGmtModified(LocalDateTime.now());
+                    videoMapper.updateById(video);
+                } else {
+                    // 记录不存在或不属于该用户，降级为 INSERT
+                    video = buildNewVideoRecord(userId, title, description, fileName, objectName, totalSize, contentType);
+                    videoMapper.insert(video);
+                }
+            } else {
+                // 无 videoId（旧版兼容）：INSERT 新记录
+                video = buildNewVideoRecord(userId, title, description, fileName, objectName, totalSize, contentType);
+                videoMapper.insert(video);
+            }
             
             // 清除用户视频列表缓存
             redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
@@ -327,6 +439,25 @@ public class VideoServiceImpl implements VideoService {
             logger.error("合并分片失败: {}", e.getMessage(), e);
             throw new BusinessException("合并分片失败: " + e.getMessage());
         }
+    }
+    
+    /** 构建新视频记录（INSERT 路径） */
+    private Video buildNewVideoRecord(String userId, String title, String description,
+                                      String fileName, String filePath, long fileSize, String contentType) {
+        return Video.builder()
+                .id(IdUtil.fastSimpleUUID())
+                .userId(userId)
+                .title(title != null && !title.isEmpty() ? title : fileName)
+                .description(description)
+                .fileName(fileName)
+                .filePath(filePath)
+                .fileSize(fileSize)
+                .fileType(contentType)
+                .status(Video.Status.UPLOADED.name())
+                .sourceType(Video.SourceType.LOCAL_UPLOAD.name())
+                .gmtCreated(LocalDateTime.now())
+                .gmtModified(LocalDateTime.now())
+                .build();
     }
     
     @Override
@@ -371,6 +502,7 @@ public class VideoServiceImpl implements VideoService {
                     .fileSize(file.getSize())
                     .fileType(contentType)
                     .status(Video.Status.UPLOADED.name())
+                    .sourceType(Video.SourceType.LOCAL_UPLOAD.name())
                     .gmtCreated(LocalDateTime.now())
                     .gmtModified(LocalDateTime.now())
                     .build();
@@ -489,6 +621,37 @@ public class VideoServiceImpl implements VideoService {
             throw new BusinessException("无权删除该视频");
         }
         
+        // 先清理该视频对应任务的 Redis 中间状态
+        // 防止 Python 回调消息在删除后重试时重新写库（"复活"问题）
+        LambdaQueryWrapper<AnalysisTask> taskWrapper = new LambdaQueryWrapper<>();
+        taskWrapper.eq(AnalysisTask::getVideoId, videoId).last("LIMIT 1");
+        AnalysisTask task = analysisTaskMapper.selectOne(taskWrapper);
+        if (task != null) {
+            String taskId = task.getId();
+            // 向 Python 发送取消信号，物理停止正在运行的分析进程
+            try {
+                java.util.Map<String, String> cancelMsg = new java.util.HashMap<>();
+                cancelMsg.put("taskId", taskId);
+                cancelMsg.put("action", "CANCEL");
+                rabbitTemplate.convertAndSend(RabbitMQConfig.ALGORITHM_CANCEL_QUEUE,
+                        com.alibaba.fastjson2.JSON.toJSONString(cancelMsg));
+                logger.info("删除视频前已向 Python 发送取消信号 [Process destroyed]: videoId={}, taskId={}", videoId, taskId);
+            } catch (Exception e) {
+                logger.warn("发送取消信号失败（不影响删除）: taskId={}, error={}", taskId, e.getMessage());
+            }
+            // 清理 Redis 中间状态
+            try {
+                redisTemplate.delete("analysis:modules:" + taskId);
+                redisTemplate.delete("analysis:results:" + taskId + ":audio");
+                redisTemplate.delete("analysis:results:" + taskId + ":video");
+                redisTemplate.delete("analysis:results:" + taskId + ":text");
+                redisTemplate.delete("analysis:results:" + taskId + ":integration");
+                logger.info("删除视频前已清理Redis中间状态: videoId={}, taskId={}", videoId, taskId);
+            } catch (Exception e) {
+                logger.warn("清理Redis中间状态失败（不影响删除）: taskId={}, error={}", taskId, e.getMessage());
+            }
+        }
+        
         // 删除MinIO文件
         try {
             minioService.deleteFile(video.getFilePath());
@@ -499,12 +662,16 @@ public class VideoServiceImpl implements VideoService {
             logger.warn("删除MinIO文件失败: {}", e.getMessage());
         }
         
-        // 删除数据库记录
+        // 删除数据库记录（级联删除 analysis_task 和 analysis_result）
         videoMapper.deleteById(videoId);
         
         // 清除相关缓存
         redisCacheUtil.delete(RedisCacheUtil.CacheKey.VIDEO_BY_ID + videoId + ":" + userId);
         redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+        if (task != null) {
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + userId + ":*");
+            redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_BY_ID + task.getId() + ":*");
+        }
         
         logger.info("视频删除成功: videoId={}", videoId);
     }
@@ -546,6 +713,8 @@ public class VideoServiceImpl implements VideoService {
                         minioService.getFileUrl(video.getThumbnailPath()) : null)
                 .videoUrl(minioService.getFileUrl(video.getFilePath()))
                 .status(video.getStatus())
+                .sourceType(video.getSourceType())
+                .sourceUrl(video.getSourceUrl())
                 .gmtCreated(video.getGmtCreated())
                 .build();
     }
@@ -620,6 +789,25 @@ public class VideoServiceImpl implements VideoService {
         } catch (IOException e) {
             logger.warn("清理临时目录失败: {}", dirPath);
         }
+    }
+    
+    @Override
+    @Transactional
+    public void renameVideo(String videoId, String title, String userId) {
+        Video video = videoMapper.selectById(videoId);
+        if (video == null) {
+            throw new BusinessException("视频不存在");
+        }
+        if (!video.getUserId().equals(userId)) {
+            throw new BusinessException("无权操作该视频");
+        }
+        video.setTitle(title);
+        video.setGmtModified(LocalDateTime.now());
+        videoMapper.updateById(video);
+        
+        // 清除缓存
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_BY_ID + videoId + ":*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
     }
 }
 

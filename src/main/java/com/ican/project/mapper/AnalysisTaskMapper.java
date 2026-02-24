@@ -28,6 +28,7 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
     @Select("<script>" +
             "SELECT t.*, " +
             "       v.title AS video_title, v.duration AS video_duration, v.file_path AS video_file_path, " +
+            "       v.source_type AS video_source_type, v.source_url AS video_source_url, " +
             "       r.id AS result_id, " +
             "       CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) AS risk_score_val " +
             "FROM analysis_task t " +

@@ -44,5 +44,8 @@ public class ChunkUploadDTO {
     
     @Schema(description = "视频描述")
     private String description;
+    
+    @Schema(description = "预创建的视频ID（initUpload 返回，用于持久化先行方案）")
+    private String videoId;
 }
 

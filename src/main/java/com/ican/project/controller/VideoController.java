@@ -3,6 +3,7 @@ package com.ican.project.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.dto.ChunkUploadDTO;
+import com.ican.project.model.dto.VideoRenameDTO;
 import com.ican.project.model.vo.ChunkUploadVO;
 import com.ican.project.model.vo.VideoVO;
 import com.ican.project.security.MyUserDetails;
@@ -48,6 +49,37 @@ public class VideoController {
                 fileIdentifier, fileName, totalChunks, userDetails.getUserId());
         
         return Result.success(result);
+    }
+    
+    /**
+     * 初始化上传（持久化先行）
+     */
+    @PostMapping("/init-upload")
+    @Operation(summary = "初始化上传", description = "在分片传输前先在数据库创建 UPLOADING 状态记录")
+    public Result<VideoVO> initUpload(
+            @Parameter(description = "文件名") @RequestParam String fileName,
+            @Parameter(description = "视频标题") @RequestParam(required = false) String title,
+            @Parameter(description = "文件大小（字节）") @RequestParam long fileSize,
+            @AuthenticationPrincipal MyUserDetails userDetails) {
+        
+        logger.info("初始化上传: fileName={}, fileSize={}", fileName, fileSize);
+        VideoVO result = videoService.initUpload(fileName, title, fileSize, userDetails.getUserId());
+        return Result.success("初始化成功", result);
+    }
+    
+    /**
+     * 取消上传（清理 DB 记录和临时分片）
+     */
+    @DeleteMapping("/{videoId}/cancel-upload")
+    @Operation(summary = "取消上传", description = "物理中断后清理数据库记录和临时分片文件")
+    public Result<Void> cancelUpload(
+            @Parameter(description = "视频ID") @PathVariable String videoId,
+            @Parameter(description = "文件标识（用于清理临时文件）") @RequestParam(required = false) String fileIdentifier,
+            @AuthenticationPrincipal MyUserDetails userDetails) {
+        
+        logger.info("取消上传: videoId={}, fileIdentifier={}", videoId, fileIdentifier);
+        videoService.cancelUpload(videoId, fileIdentifier, userDetails.getUserId());
+        return Result.success("已取消", null);
     }
     
     /**
@@ -132,6 +164,23 @@ public class VideoController {
         videoService.deleteVideo(videoId, userDetails.getUserId());
         
         return Result.success("删除成功", null);
+    }
+    
+    /**
+     * 重命名视频
+     */
+    @PutMapping("/{videoId}/rename")
+    @Operation(summary = "重命名视频", description = "修改视频标题")
+    public Result<Void> renameVideo(
+            @Parameter(description = "视频ID") @PathVariable String videoId,
+            @Valid @RequestBody VideoRenameDTO dto,
+            @AuthenticationPrincipal MyUserDetails userDetails) {
+        
+        logger.info("重命名视频: videoId={}, newTitle={}", videoId, dto.getTitle());
+        
+        videoService.renameVideo(videoId, dto.getTitle(), userDetails.getUserId());
+        
+        return Result.success("重命名成功", null);
     }
 }
 

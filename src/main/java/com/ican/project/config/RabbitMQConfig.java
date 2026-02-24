@@ -23,6 +23,12 @@ public class RabbitMQConfig {
     public static final String ALGORITHM_RESULT_QUEUE = "algorithm.result.queue";
     
     /**
+     * 任务取消队列名称（Java -> Python）
+     * Python 消费后立即停止对应 taskId 的分析进程
+     */
+    public static final String ALGORITHM_CANCEL_QUEUE = "algorithm.cancel.queue";
+    
+    /**
      * 定义算法分析任务队列（Java 发送任务给 Python）
      */
     @Bean
@@ -36,6 +42,14 @@ public class RabbitMQConfig {
     @Bean
     public Queue algorithmResultQueue() {
         return new Queue(ALGORITHM_RESULT_QUEUE, true);
+    }
+    
+    /**
+     * 定义任务取消队列（Java 通知 Python 停止指定任务）
+     */
+    @Bean
+    public Queue algorithmCancelQueue() {
+        return new Queue(ALGORITHM_CANCEL_QUEUE, true);
     }
     
     /**

@@ -3,9 +3,11 @@ package com.ican.project.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.dto.AnalysisTaskDTO;
+import com.ican.project.model.dto.UrlImportTaskDTO;
 import com.ican.project.model.vo.AnalysisTaskVO;
 import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.AnalysisTaskService;
+import com.ican.project.service.VideoDownloadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +30,9 @@ public class AnalysisTaskController {
     
     @Autowired
     private AnalysisTaskService analysisTaskService;
+    
+    @Autowired
+    private VideoDownloadService videoDownloadService;
     
     /**
      * 创建分析任务
@@ -129,6 +134,28 @@ public class AnalysisTaskController {
         AnalysisTaskVO result = analysisTaskService.retryTask(taskId, userDetails.getUserId());
         
         return Result.success("新任务创建成功", result);
+    }
+    
+    /**
+     * URL导入创建分析任务
+     */
+    @PostMapping("/url-import")
+    @Operation(summary = "URL导入创建分析任务", description = "通过外部URL导入视频并自动创建分析任务")
+    public Result<AnalysisTaskVO> createUrlImportTask(
+            @Valid @RequestBody UrlImportTaskDTO dto,
+            @AuthenticationPrincipal MyUserDetails userDetails) {
+        
+        logger.info("URL导入创建任务: url={}", dto.getUrl());
+        
+        UrlImportTaskDTO trimmed = dto.trimMe();
+        AnalysisTaskVO result = analysisTaskService.createUrlImportTask(
+                trimmed.getUrl(), trimmed.getTitle(), trimmed.getTaskType(), userDetails.getUserId());
+        
+        // 异步启动视频下载
+        videoDownloadService.downloadVideoAsync(
+                trimmed.getUrl(), result.getVideoId(), result.getId(), userDetails.getUserId());
+        
+        return Result.success("任务创建成功，视频正在下载中", result);
     }
 }
 

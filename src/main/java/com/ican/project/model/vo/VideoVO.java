@@ -54,6 +54,12 @@ public class VideoVO {
     @Schema(description = "状态")
     private String status;
     
+    @Schema(description = "来源类型: LOCAL_UPLOAD/URL_IMPORT")
+    private String sourceType;
+    
+    @Schema(description = "来源URL")
+    private String sourceUrl;
+    
     @Schema(description = "创建时间")
     private LocalDateTime gmtCreated;
 }

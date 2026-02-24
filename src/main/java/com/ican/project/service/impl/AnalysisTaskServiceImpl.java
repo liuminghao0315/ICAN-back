@@ -4,6 +4,7 @@ import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ican.project.config.RabbitMQConfig;
 import com.ican.project.exception.BusinessException;
 import com.ican.project.mapper.AnalysisResultMapper;
 import com.ican.project.mapper.AnalysisTaskMapper;
@@ -18,13 +19,16 @@ import com.ican.project.service.AnalysisTaskService;
 import com.ican.project.service.MinioService;
 import com.ican.project.service.VideoService;
 import com.ican.project.utils.RedisCacheUtil;
+import com.ican.project.websocket.TaskProgressWebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -56,6 +60,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     @Autowired
     private RedisCacheUtil redisCacheUtil;
     
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+    
     @Override
     @Transactional
     public AnalysisTaskVO createTask(AnalysisTaskDTO dto, String userId) {
@@ -68,37 +75,11 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             throw new BusinessException("无权操作该视频");
         }
         
-        // 检查是否有正在处理的任务
-        LambdaQueryWrapper<AnalysisTask> existingWrapper = new LambdaQueryWrapper<>();
-        existingWrapper.eq(AnalysisTask::getVideoId, dto.getVideoId())
-                .in(AnalysisTask::getStatus, 
-                    AnalysisTask.Status.PENDING.name(), 
-                    AnalysisTask.Status.PROCESSING.name());
-        Long existingCount = analysisTaskMapper.selectCount(existingWrapper);
-        if (existingCount > 0) {
-            // 如果是强制重新分析，取消已有任务
-            if (Boolean.TRUE.equals(dto.getForceRestart())) {
-                LambdaUpdateWrapper<AnalysisTask> cancelWrapper = new LambdaUpdateWrapper<>();
-                cancelWrapper.eq(AnalysisTask::getVideoId, dto.getVideoId())
-                        .in(AnalysisTask::getStatus, 
-                            AnalysisTask.Status.PENDING.name(), 
-                            AnalysisTask.Status.PROCESSING.name())
-                        .set(AnalysisTask::getStatus, AnalysisTask.Status.CANCELLED.name())
-                        .set(AnalysisTask::getErrorMessage, "用户手动取消，重新分析")
-                        .set(AnalysisTask::getGmtModified, LocalDateTime.now());
-                analysisTaskMapper.update(null, cancelWrapper);
-                logger.info("强制重新分析，已取消视频 {} 的现有任务", dto.getVideoId());
-            } else {
-                throw new BusinessException("该视频已有正在处理的分析任务");
-            }
-        }
-        
         // 确定任务类型
         String taskType = dto.getTaskType();
         if (taskType == null || taskType.isEmpty()) {
             taskType = AnalysisTask.TaskType.FULL_ANALYSIS.name();
         } else {
-            // 验证任务类型有效
             try {
                 AnalysisTask.TaskType.valueOf(taskType);
             } catch (IllegalArgumentException e) {
@@ -106,31 +87,59 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             }
         }
         
-        // 创建任务
-        AnalysisTask task = AnalysisTask.builder()
-                .id(IdUtil.fastSimpleUUID())
-                .videoId(dto.getVideoId())
-                .userId(userId)
-                .taskType(taskType)
-                .status(AnalysisTask.Status.PENDING.name())
-                .progress(0)
-                .gmtCreated(LocalDateTime.now())
-                .gmtModified(LocalDateTime.now())
-                .build();
+        // ── 幂等处理：1:1 约束 ──────────────────────────────────────────────
+        // 查找该 videoId 下已有的任意 Task（无论状态）
+        LambdaQueryWrapper<AnalysisTask> existingWrapper = new LambdaQueryWrapper<>();
+        existingWrapper.eq(AnalysisTask::getVideoId, dto.getVideoId())
+                .orderByDesc(AnalysisTask::getGmtCreated)
+                .last("LIMIT 1");
+        AnalysisTask existingTask = analysisTaskMapper.selectOne(existingWrapper);
         
-        analysisTaskMapper.insert(task);
+        AnalysisTask task;
+        if (existingTask != null) {
+            // 如果已有任务正在处理中，且不是强制重启，则拒绝
+            String existingStatus = existingTask.getStatus();
+            boolean isActive = AnalysisTask.Status.PENDING.name().equals(existingStatus)
+                    || AnalysisTask.Status.PROCESSING.name().equals(existingStatus);
+            if (isActive && !Boolean.TRUE.equals(dto.getForceRestart())) {
+                throw new BusinessException("该视频已有正在处理的分析任务");
+            }
+            
+            // 就地重置：复用同一条记录，不 INSERT 新行
+            existingTask.setStatus(AnalysisTask.Status.PENDING.name());
+            existingTask.setProgress(0);
+            existingTask.setErrorMessage(null);
+            existingTask.setStartedAt(null);
+            existingTask.setCompletedAt(null);
+            existingTask.setTaskType(taskType);
+            existingTask.setGmtModified(LocalDateTime.now());
+            analysisTaskMapper.updateById(existingTask);
+            task = existingTask;
+            logger.info("幂等重置分析任务: taskId={}, videoId={}, 原状态={}", task.getId(), dto.getVideoId(), existingStatus);
+        } else {
+            // 首次创建
+            task = AnalysisTask.builder()
+                    .id(IdUtil.fastSimpleUUID())
+                    .videoId(dto.getVideoId())
+                    .userId(userId)
+                    .taskType(taskType)
+                    .status(AnalysisTask.Status.PENDING.name())
+                    .progress(0)
+                    .gmtCreated(LocalDateTime.now())
+                    .gmtModified(LocalDateTime.now())
+                    .build();
+            analysisTaskMapper.insert(task);
+            // 首次创建才增加累计分析次数
+            userMapper.incrementAnalysisCount(userId);
+            logger.info("创建分析任务成功: taskId={}, videoId={}, taskType={}", task.getId(), dto.getVideoId(), taskType);
+        }
+        // ────────────────────────────────────────────────────────────────────
         
         // 清除相关缓存
         redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + userId + ":*");
         
         // 更新视频状态为分析中
         videoService.updateVideoStatus(dto.getVideoId(), Video.Status.ANALYZING.name());
-        
-        // 增加用户累计分析次数（只增不减）
-        userMapper.incrementAnalysisCount(userId);
-        
-        logger.info("创建分析任务成功: taskId={}, videoId={}, taskType={}", 
-                task.getId(), dto.getVideoId(), taskType);
         
         return convertToVO(task, video, null);
     }
@@ -255,6 +264,16 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             builder.videoUrl(minioService.getFileUrl(videoFilePath));
         }
         
+        // 来源信息
+        String videoSourceType = (String) map.get("video_source_type");
+        if (videoSourceType != null) {
+            builder.sourceType(videoSourceType);
+        }
+        String videoSourceUrl = (String) map.get("video_source_url");
+        if (videoSourceUrl != null) {
+            builder.sourceUrl(videoSourceUrl);
+        }
+        
         // 分析结果信息
         String resultId = (String) map.get("result_id");
         if (resultId != null) {
@@ -317,6 +336,27 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                             }
                         }
                     }
+                    
+                    // 提取关键词、高校、主题
+                    String detectedKeywords = result.getDetectedKeywords();
+                    if (detectedKeywords != null && !detectedKeywords.isEmpty()) {
+                        com.alibaba.fastjson2.JSONArray kwArr = com.alibaba.fastjson2.JSON.parseArray(detectedKeywords);
+                        java.util.List<String> kwList = new java.util.ArrayList<>();
+                        for (Object obj : kwArr) {
+                            if (obj instanceof com.alibaba.fastjson2.JSONObject) {
+                                String word = ((com.alibaba.fastjson2.JSONObject) obj).getString("word");
+                                if (word != null && !word.isEmpty()) kwList.add(word);
+                            }
+                            if (kwList.size() >= 5) break;
+                        }
+                        if (!kwList.isEmpty()) builder.keywords(kwList);
+                    }
+                    if (result.getUniversityName() != null && !result.getUniversityName().isEmpty()) {
+                        builder.universityName(result.getUniversityName());
+                    }
+                    if (result.getTopicCategory() != null) {
+                        builder.topicCategory(result.getTopicCategory());
+                    }
                 }
             } catch (Exception e) {
                 logger.warn("提取分析结果摘要失败: resultId={}, error={}", resultId, e.getMessage());
@@ -354,34 +394,55 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 更新视频状态
         videoService.updateVideoStatus(task.getVideoId(), Video.Status.UPLOADED.name());
         
+        // 向 Python 发送取消信号，物理停止正在运行的分析进程
+        sendCancelSignal(taskId);
+        
         logger.info("取消分析任务: taskId={}", taskId);
     }
     
     @Override
     @Transactional
     public AnalysisTaskVO retryTask(String taskId, String userId) {
-        AnalysisTask oldTask = analysisTaskMapper.selectById(taskId);
-        if (oldTask == null) {
+        AnalysisTask task = analysisTaskMapper.selectById(taskId);
+        if (task == null) {
             throw new BusinessException("任务不存在");
         }
-        if (oldTask.getUserId() == null || !oldTask.getUserId().equals(userId)) {
+        if (task.getUserId() == null || !task.getUserId().equals(userId)) {
             throw new BusinessException("无权操作该任务");
         }
         
-        // 只能重试失败或已取消的任务
-        String currentStatus = oldTask.getStatus();
-        if (!AnalysisTask.Status.FAILED.name().equals(currentStatus) 
+        // 只允许重试失败或已取消的任务，已完成/排队中/分析中均不允许
+        String currentStatus = task.getStatus();
+        if (!AnalysisTask.Status.FAILED.name().equals(currentStatus)
                 && !AnalysisTask.Status.CANCELLED.name().equals(currentStatus)) {
-            throw new BusinessException("只能重试失败或已取消的任务");
+            throw new BusinessException("当前状态不允许重新分析");
         }
         
-        // 创建新任务
-        AnalysisTaskDTO dto = AnalysisTaskDTO.builder()
-                .videoId(oldTask.getVideoId())
-                .taskType(oldTask.getTaskType())
-                .build();
+        // 清理脏数据：删除该任务之前产生的所有残留分析结果
+        LambdaQueryWrapper<AnalysisResult> resultWrapper = new LambdaQueryWrapper<>();
+        resultWrapper.eq(AnalysisResult::getTaskId, taskId);
+        int deleted = analysisResultMapper.delete(resultWrapper);
+        logger.info("重新分析前清理旧分析结果: taskId={}, 删除记录数={}", taskId, deleted);
         
-        return createTask(dto, userId);
+        // 就地重置：复用同一条 Task 记录，不产生新行
+        task.setStatus(AnalysisTask.Status.PENDING.name());
+        task.setProgress(0);
+        task.setErrorMessage(null);
+        task.setStartedAt(null);
+        task.setCompletedAt(null);
+        task.setGmtModified(LocalDateTime.now());
+        analysisTaskMapper.updateById(task);
+        
+        // 清除相关缓存
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + userId + ":*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_BY_ID + taskId + ":*");
+        
+        // 重置视频状态为分析中（ANALYZING），等待处理器拾取
+        videoService.updateVideoStatus(task.getVideoId(), Video.Status.ANALYZING.name());
+        
+        Video video = videoMapper.selectById(task.getVideoId());
+        logger.info("就地重置分析任务: taskId={}, videoId={}", taskId, task.getVideoId());
+        return convertToVO(task, video, null);
     }
     
     @Override
@@ -579,7 +640,165 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             builder.hasResult(false);
         }
         
+        // 添加来源信息 + 缩略图 + 关键词 + 高校
+        if (video != null) {
+            builder.sourceType(video.getSourceType())
+                    .sourceUrl(video.getSourceUrl());
+            // 缩略图
+            if (video.getThumbnailPath() != null && !video.getThumbnailPath().isEmpty()) {
+                try {
+                    builder.thumbnailUrl(minioService.getFileUrl(video.getThumbnailPath()));
+                } catch (Exception ignored) {}
+            }
+        }
+        
+        // 从分析结果提取关键词、高校、主题
+        if (result != null) {
+            // 关键词
+            String detectedKeywords = result.getDetectedKeywords();
+            if (detectedKeywords != null && !detectedKeywords.isEmpty()) {
+                try {
+                    com.alibaba.fastjson2.JSONArray kwArr = com.alibaba.fastjson2.JSON.parseArray(detectedKeywords);
+                    java.util.List<String> kwList = new java.util.ArrayList<>();
+                    for (Object obj : kwArr) {
+                        if (obj instanceof com.alibaba.fastjson2.JSONObject) {
+                            String word = ((com.alibaba.fastjson2.JSONObject) obj).getString("word");
+                            if (word != null && !word.isEmpty()) kwList.add(word);
+                        }
+                        if (kwList.size() >= 5) break;
+                    }
+                    if (!kwList.isEmpty()) builder.keywords(kwList);
+                } catch (Exception e) {
+                    logger.warn("提取关键词失败: {}", e.getMessage());
+                }
+            }
+            // 高校名称
+            if (result.getUniversityName() != null && !result.getUniversityName().isEmpty()) {
+                builder.universityName(result.getUniversityName());
+            }
+            // 主题分类
+            if (result.getTopicCategory() != null) {
+                builder.topicCategory(result.getTopicCategory());
+            }
+        }
+        
         return builder.build();
+    }
+    
+    @Override
+    @Transactional
+    public AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId) {
+        // 确定任务类型
+        if (taskType == null || taskType.isEmpty()) {
+            taskType = AnalysisTask.TaskType.FULL_ANALYSIS.name();
+        } else {
+            try {
+                AnalysisTask.TaskType.valueOf(taskType);
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("无效的任务类型: " + taskType);
+            }
+        }
+        
+        // 自动生成标题
+        if (title == null || title.isEmpty()) {
+            title = "链接导入 - " + LocalDateTime.now().format(
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        }
+        
+        // 创建视频占位记录（DOWNLOADING 状态）
+        Video video = Video.builder()
+                .id(IdUtil.fastSimpleUUID())
+                .userId(userId)
+                .title(title)
+                .fileName("downloading...")
+                .filePath("")
+                .fileSize(0L)
+                .status(Video.Status.DOWNLOADING.name())
+                .sourceType(Video.SourceType.URL_IMPORT.name())
+                .sourceUrl(url)
+                .gmtCreated(LocalDateTime.now())
+                .gmtModified(LocalDateTime.now())
+                .build();
+        videoMapper.insert(video);
+        
+        // 创建分析任务（DOWNLOADING 状态）
+        AnalysisTask task = AnalysisTask.builder()
+                .id(IdUtil.fastSimpleUUID())
+                .videoId(video.getId())
+                .userId(userId)
+                .taskType(taskType)
+                .status(AnalysisTask.Status.DOWNLOADING.name())
+                .progress(0)
+                .gmtCreated(LocalDateTime.now())
+                .gmtModified(LocalDateTime.now())
+                .build();
+        analysisTaskMapper.insert(task);
+        
+        // 增加用户累计分析次数
+        userMapper.incrementAnalysisCount(userId);
+        
+        // 清除缓存
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + userId + ":*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.VIDEO_LIST + userId + ":*");
+        
+        logger.info("创建URL导入任务: taskId={}, videoId={}, url={}", task.getId(), video.getId(), url);
+        
+        return convertToVO(task, video, null);
+    }
+    
+    @Override
+    @Transactional
+    public void markTaskPending(String taskId) {
+        AnalysisTask task = analysisTaskMapper.selectById(taskId);
+        if (task == null) return;
+        
+        task.setStatus(AnalysisTask.Status.PENDING.name());
+        task.setGmtModified(LocalDateTime.now());
+        analysisTaskMapper.updateById(task);
+        
+        // 更新视频状态为 ANALYZING
+        videoService.updateVideoStatus(task.getVideoId(), Video.Status.ANALYZING.name());
+        
+        // 清除缓存
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_BY_ID + taskId + ":*");
+        redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + task.getUserId() + ":*");
+        
+        logger.info("任务已转为PENDING，等待分析: taskId={}", taskId);
+    }
+    
+    @Override
+    public void updateTaskProgress(String taskId, int progress, String message) {
+        try {
+            AnalysisTask task = analysisTaskMapper.selectById(taskId);
+            if (task != null) {
+                task.setProgress(progress);
+                task.setGmtModified(LocalDateTime.now());
+                analysisTaskMapper.updateById(task);
+                
+                // 通过 WebSocket 推送进度
+                TaskProgressWebSocket.sendTaskProgress(task.getUserId(), taskId, task.getVideoId(),
+                        task.getStatus(), progress, message);
+            }
+        } catch (Exception e) {
+            logger.warn("更新任务进度失败: taskId={}, error={}", taskId, e.getMessage());
+        }
+    }
+    
+    /**
+     * 向 Python 发送取消信号，物理停止正在运行的分析进程
+     * Python 消费 algorithm.cancel.queue 后立即中断当前 taskId 的处理
+     */
+    private void sendCancelSignal(String taskId) {
+        try {
+            Map<String, String> cancelMsg = new java.util.HashMap<>();
+            cancelMsg.put("taskId", taskId);
+            cancelMsg.put("action", "CANCEL");
+            rabbitTemplate.convertAndSend(RabbitMQConfig.ALGORITHM_CANCEL_QUEUE,
+                    com.alibaba.fastjson2.JSON.toJSONString(cancelMsg));
+            logger.info("已向 Python 发送取消信号 [Process destroyed]: taskId={}", taskId);
+        } catch (Exception e) {
+            logger.warn("发送取消信号失败（不影响数据库状态）: taskId={}, error={}", taskId, e.getMessage());
+        }
     }
 }
 

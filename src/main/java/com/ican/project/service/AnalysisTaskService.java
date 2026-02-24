@@ -94,5 +94,29 @@ public interface AnalysisTaskService {
      * @return 任务VO
      */
     AnalysisTaskVO getPendingTask();
+    
+    /**
+     * 创建URL导入任务（数据获取+分析一体化）
+     * @param url 视频URL
+     * @param title 标题（可选）
+     * @param taskType 任务类型
+     * @param userId 用户ID
+     * @return 任务VO
+     */
+    AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId);
+    
+    /**
+     * 标记任务为等待中（下载完成后调用，自动衔接分析）
+     * @param taskId 任务ID
+     */
+    void markTaskPending(String taskId);
+    
+    /**
+     * 更新任务进度（内部调用，用于下载进度推送）
+     * @param taskId 任务ID
+     * @param progress 进度
+     * @param message 进度消息
+     */
+    void updateTaskProgress(String taskId, int progress, String message);
 }
 

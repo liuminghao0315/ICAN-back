@@ -33,7 +33,7 @@ public class AnalysisTaskVO {
     @Schema(description = "任务类型: FULL_ANALYSIS/VIDEO_ONLY/AUDIO_ONLY/TEXT_ONLY")
     private String taskType;
     
-    @Schema(description = "任务状态: PENDING/PROCESSING/COMPLETED/FAILED/CANCELLED")
+    @Schema(description = "任务状态: DOWNLOADING/PENDING/PROCESSING/COMPLETED/FAILED/CANCELLED")
     private String status;
     
     @Schema(description = "处理进度(0-100)")
@@ -69,5 +69,23 @@ public class AnalysisTaskVO {
     
     @Schema(description = "情感标签: POSITIVE/NEUTRAL/NEGATIVE")
     private String sentimentLabel;
+    
+    @Schema(description = "来源类型: LOCAL_UPLOAD/URL_IMPORT")
+    private String sourceType;
+    
+    @Schema(description = "来源URL")
+    private String sourceUrl;
+    
+    @Schema(description = "视频缩略图URL")
+    private String thumbnailUrl;
+    
+    @Schema(description = "AI提取关键词列表")
+    private java.util.List<String> keywords;
+    
+    @Schema(description = "涉及高校名称")
+    private String universityName;
+    
+    @Schema(description = "内容主题分类")
+    private String topicCategory;
 }
 

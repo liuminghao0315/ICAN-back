@@ -81,6 +81,7 @@ public class AnalysisTask {
      * 任务状态枚举
      */
     public enum Status {
+        DOWNLOADING, // 下载中（URL导入场景）
         PENDING,     // 等待中
         PROCESSING,  // 处理中
         COMPLETED,   // 已完成

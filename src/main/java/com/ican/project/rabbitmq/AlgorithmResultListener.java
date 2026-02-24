@@ -113,8 +113,27 @@ public class AlgorithmResultListener {
             // 获取任务信息
             AnalysisTask task = analysisTaskMapper.selectById(taskId);
             if (task == null) {
-                logger.error("任务不存在: taskId={}", taskId);
-                channel.basicNack(deliveryTag, false, false);
+                // 任务已被删除，清理 Redis 中间状态并丢弃消息（不重新入队）
+                logger.warn("任务已不存在，清理Redis并丢弃结果消息: taskId={}", taskId);
+                cleanupRedis(taskId);
+                channel.basicAck(deliveryTag, false);
+                return;
+            }
+            
+            // 写保护：视频已被删除，禁止写入
+            if (videoMapper.selectById(task.getVideoId()) == null) {
+                logger.warn("视频已不存在，清理Redis并丢弃结果消息: taskId={}, videoId={}", taskId, task.getVideoId());
+                cleanupRedis(taskId);
+                channel.basicAck(deliveryTag, false);
+                return;
+            }
+            
+            // 写保护：任务已被取消或已完成，禁止写入分析结果，直接丢弃消息
+            String taskStatus = task.getStatus();
+            if (AnalysisTask.Status.CANCELLED.name().equals(taskStatus)
+                    || AnalysisTask.Status.COMPLETED.name().equals(taskStatus)) {
+                logger.warn("任务状态为 {}，拒绝写入分析结果，丢弃消息: taskId={}", taskStatus, taskId);
+                channel.basicAck(deliveryTag, false);
                 return;
             }
             
@@ -171,6 +190,16 @@ public class AlgorithmResultListener {
             // ========== 最终总结触发 ==========
             if (completedCount == 4) {
                 logger.info("========== 检测到4个模块全部完成，执行最终总结 ========== taskId={}", taskId);
+                
+                // 二次写保护：在写库前再次确认任务和视频均未被删除
+                AnalysisTask latestTask = analysisTaskMapper.selectById(taskId);
+                if (latestTask == null || AnalysisTask.Status.CANCELLED.name().equals(latestTask.getStatus())
+                        || videoMapper.selectById(videoId) == null) {
+                    logger.warn("最终总结前发现任务/视频已删除或已取消，放弃写库: taskId={}", taskId);
+                    cleanupRedis(taskId);
+                    channel.basicAck(deliveryTag, false);
+                    return;
+                }
                 
                 // 从Redis获取4个模块结果
                 Map<String, Object> moduleResults = new java.util.HashMap<>();
@@ -424,5 +453,22 @@ public class AlgorithmResultListener {
             msg.put("data", data);
         }
         return JSON.toJSONString(msg);
+    }
+    
+    /**
+     * 清理指定 taskId 的所有 Redis 中间状态
+     * 在任务被删除或取消时调用，防止消息重试时重新触发写库
+     */
+    private void cleanupRedis(String taskId) {
+        try {
+            redisTemplate.delete(REDIS_KEY_PREFIX + taskId);
+            redisTemplate.delete(REDIS_RESULT_KEY_PREFIX + taskId + ":audio");
+            redisTemplate.delete(REDIS_RESULT_KEY_PREFIX + taskId + ":video");
+            redisTemplate.delete(REDIS_RESULT_KEY_PREFIX + taskId + ":text");
+            redisTemplate.delete(REDIS_RESULT_KEY_PREFIX + taskId + ":integration");
+            logger.info("已清理Redis中间状态: taskId={}", taskId);
+        } catch (Exception e) {
+            logger.warn("清理Redis中间状态失败: taskId={}, error={}", taskId, e.getMessage());
+        }
     }
 }

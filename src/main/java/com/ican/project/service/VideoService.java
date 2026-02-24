@@ -15,6 +15,24 @@ import java.util.List;
 public interface VideoService {
     
     /**
+     * 初始化上传：在分片传输前先在数据库创建 UPLOADING 状态记录
+     * @param fileName 文件名
+     * @param title 视频标题
+     * @param fileSize 文件大小（字节）
+     * @param userId 用户ID
+     * @return 视频信息（含 videoId）
+     */
+    VideoVO initUpload(String fileName, String title, long fileSize, String userId);
+    
+    /**
+     * 取消上传：物理中断后清理数据库记录和临时分片文件
+     * @param videoId 视频ID
+     * @param fileIdentifier 文件标识（用于清理临时文件）
+     * @param userId 用户ID
+     */
+    void cancelUpload(String videoId, String fileIdentifier, String userId);
+    
+    /**
      * 检查分片上传状态（秒传检测）
      * @param fileIdentifier 文件标识
      * @param fileName 文件名
@@ -41,10 +59,10 @@ public interface VideoService {
      * @param title 视频标题
      * @param description 视频描述
      * @param userId 用户ID
-     * @return 视频信息
+     * @return 视频信息，若合并期间任务已被取消则返回 null
      */
     VideoVO mergeChunks(String fileIdentifier, String fileName, 
-                        String title, String description, String userId);
+                        String title, String description, String userId, String videoId);
     
     /**
      * 简单文件上传（小文件）
@@ -89,5 +107,13 @@ public interface VideoService {
      * @param status 状态
      */
     void updateVideoStatus(String videoId, String status);
+    
+    /**
+     * 重命名视频
+     * @param videoId 视频ID
+     * @param title 新标题
+     * @param userId 用户ID
+     */
+    void renameVideo(String videoId, String title, String userId);
 }
 
