@@ -112,6 +112,13 @@ public interface AnalysisTaskService {
     void markTaskPending(String taskId);
     
     /**
+     * 获取任务当前状态（内部调用，无需鉴权）
+     * @param taskId 任务ID
+     * @return 状态字符串，任务不存在时返回 null
+     */
+    String getTaskStatus(String taskId);
+    
+    /**
      * 更新任务进度（内部调用，用于下载进度推送）
      * @param taskId 任务ID
      * @param progress 进度

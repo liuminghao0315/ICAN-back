@@ -14,4 +14,11 @@ public interface VideoDownloadService {
      * @param userId 用户ID
      */
     void downloadVideoAsync(String url, String videoId, String taskId, String userId);
+
+    /**
+     * 预校验 URL 是否可被 yt-dlp 解析（同步，用于提交前拦截）
+     * @param url 视频URL
+     * @return 视频标题（校验通过），null 表示无法解析
+     */
+    String validateUrl(String url);
 }

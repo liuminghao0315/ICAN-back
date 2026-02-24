@@ -94,22 +94,48 @@ public class TaskProgressWebSocket {
     
     /**
      * 向指定用户发送任务进度更新
-     * @param userId 用户ID
-     * @param taskId 任务ID
-     * @param videoId 视频ID
-     * @param status 任务状态
+     * @param userId   用户ID
+     * @param taskId   任务ID
+     * @param videoId  视频ID
+     * @param status   任务状态
      * @param progress 进度（0-100）
-     * @param message 消息
+     * @param message  消息
      */
-    public static void sendTaskProgress(String userId, String taskId, String videoId, 
+    public static void sendTaskProgress(String userId, String taskId, String videoId,
                                         String status, Integer progress, String message) {
+        sendTaskProgress(userId, taskId, videoId, status, progress, message, null, null);
+    }
+
+    /**
+     * 向指定用户发送任务进度更新（含阶段标识、标题、视频URL）
+     * @param stage    阶段标识：FETCHING_TITLE / DOWNLOADING / PENDING / PROCESSING / COMPLETED / FAILED
+     * @param title    视频标题（元数据阶段获取后填入，其余阶段传 null）
+     * @param videoUrl 视频可访问URL（下载完成后填入，用于前端截帧生成缩略图）
+     */
+    public static void sendTaskProgress(String userId, String taskId, String videoId,
+                                        String status, Integer progress, String message,
+                                        String stage, String title, String videoUrl) {
         Map<String, Object> data = new java.util.HashMap<>();
         data.put("taskId", taskId);
         data.put("videoId", videoId != null ? videoId : "");
         data.put("status", status);
         data.put("progress", progress != null ? progress : 0);
         data.put("message", message != null ? message : "");
+        if (stage != null)    data.put("stage", stage);
+        if (title != null)    data.put("title", title);
+        if (videoUrl != null) data.put("videoUrl", videoUrl);
         sendMessage(userId, createMessage("task_progress", "任务进度更新", data));
+    }
+
+    /**
+     * 向指定用户发送任务进度更新（含阶段标识和标题）
+     * @param stage    阶段标识：FETCHING_TITLE / DOWNLOADING / PENDING / PROCESSING / COMPLETED / FAILED
+     * @param title    视频标题（元数据阶段获取后填入，其余阶段传 null）
+     */
+    public static void sendTaskProgress(String userId, String taskId, String videoId,
+                                        String status, Integer progress, String message,
+                                        String stage, String title) {
+        sendTaskProgress(userId, taskId, videoId, status, progress, message, stage, title, null);
     }
     
     /**

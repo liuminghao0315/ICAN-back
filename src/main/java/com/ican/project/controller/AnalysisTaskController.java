@@ -137,6 +137,32 @@ public class AnalysisTaskController {
     }
     
     /**
+     * URL预校验：验证链接是否可被 yt-dlp 解析，同时返回视频标题
+     * 前端在弹窗内调用，校验失败直接拦截，不创建任何数据库记录
+     */
+    @PostMapping("/url-validate")
+    @Operation(summary = "URL预校验", description = "验证视频链接是否可解析，返回视频标题")
+    public Result<java.util.Map<String, String>> validateUrl(
+            @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal MyUserDetails userDetails) {
+
+        String url = body.getOrDefault("url", "").trim();
+        if (url.isEmpty()) {
+            return Result.fail(400, "URL不能为空");
+        }
+
+        logger.info("URL预校验: url={}", url);
+        String title = videoDownloadService.validateUrl(url);
+        if (title == null) {
+            return Result.fail(422, "无法解析该链接，请检查链接是否有效或平台是否支持");
+        }
+
+        java.util.Map<String, String> data = new java.util.HashMap<>();
+        data.put("title", title);
+        return Result.success("链接有效", data);
+    }
+
+    /**
      * URL导入创建分析任务
      */
     @PostMapping("/url-import")
@@ -144,17 +170,17 @@ public class AnalysisTaskController {
     public Result<AnalysisTaskVO> createUrlImportTask(
             @Valid @RequestBody UrlImportTaskDTO dto,
             @AuthenticationPrincipal MyUserDetails userDetails) {
-        
+
         logger.info("URL导入创建任务: url={}", dto.getUrl());
-        
+
         UrlImportTaskDTO trimmed = dto.trimMe();
         AnalysisTaskVO result = analysisTaskService.createUrlImportTask(
                 trimmed.getUrl(), trimmed.getTitle(), trimmed.getTaskType(), userDetails.getUserId());
-        
-        // 异步启动视频下载
+
+        // 异步启动视频下载（标题已由前端校验阶段获取并传入，跳过重复 fetchVideoTitle）
         videoDownloadService.downloadVideoAsync(
                 trimmed.getUrl(), result.getVideoId(), result.getId(), userDetails.getUserId());
-        
+
         return Result.success("任务创建成功，视频正在下载中", result);
     }
 }

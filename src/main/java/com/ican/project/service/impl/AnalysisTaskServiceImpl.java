@@ -391,8 +391,11 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         task.setGmtModified(LocalDateTime.now());
         analysisTaskMapper.updateById(task);
         
-        // 更新视频状态
-        videoService.updateVideoStatus(task.getVideoId(), Video.Status.UPLOADED.name());
+        // 更新视频状态：下载中取消 → FAILED（文件未完整），其他取消 → UPLOADED
+        String videoStatus = AnalysisTask.Status.DOWNLOADING.name().equals(currentStatus)
+                ? Video.Status.FAILED.name()
+                : Video.Status.UPLOADED.name();
+        videoService.updateVideoStatus(task.getVideoId(), videoStatus);
         
         // 向 Python 发送取消信号，物理停止正在运行的分析进程
         sendCancelSignal(taskId);
@@ -764,6 +767,12 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + task.getUserId() + ":*");
         
         logger.info("任务已转为PENDING，等待分析: taskId={}", taskId);
+    }
+    
+    @Override
+    public String getTaskStatus(String taskId) {
+        AnalysisTask task = analysisTaskMapper.selectById(taskId);
+        return task != null ? task.getStatus() : null;
     }
     
     @Override
