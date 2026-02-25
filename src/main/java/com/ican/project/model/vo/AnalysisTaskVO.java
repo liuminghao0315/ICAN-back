@@ -96,5 +96,8 @@ public class AnalysisTaskVO {
 
     @Schema(description = "视频所在文件夹名称（直接归属，非递归）")
     private String folderName;
+
+    @Schema(description = "是否已被当前用户收藏")
+    private Boolean isFavorited;
 }
 

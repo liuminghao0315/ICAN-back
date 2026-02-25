@@ -126,5 +126,13 @@ public interface VideoService {
      * @param userId 用户ID
      */
     void renameVideo(String videoId, String title, String userId);
+
+    /**
+     * 生成缩略图并上传到 MinIO（供外部服务调用）
+     * @param videoFilePath 本地视频文件路径
+     * @param thumbObjectName MinIO 缩略图完整路径，如 "thumbnails/2024/01/01/<uuid>.jpg"
+     * @return MinIO 缩略图 objectName，失败返回 null
+     */
+    String generateThumbnailAndUpload(java.nio.file.Path videoFilePath, String thumbObjectName);
 }
 

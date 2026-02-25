@@ -382,17 +382,28 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
     }
 
     /**
-     * 公共收尾：上传 MinIO、更新数据库、触发分析流水线
+     * 公共收尾：上传 MinIO、生成缩略图、更新数据库、触发分析流水线
      */
     private void finishDownload(File downloadedFile, String videoId, String taskId, String userId) throws Exception {
         logger.info("视频下载完成: file={}, size={}", downloadedFile.getName(), downloadedFile.length());
 
         String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         String extension = getFileExtension(downloadedFile.getName());
-        String objectName = "videos/" + datePath + "/" + IdUtil.fastSimpleUUID() + "." + extension;
+        String fileUuid = IdUtil.fastSimpleUUID();
+        String objectName = "videos/" + datePath + "/" + fileUuid + "." + extension;
+        String thumbObjectName = "thumbnails/" + datePath + "/" + fileUuid + ".jpg";
 
         try (InputStream is = new FileInputStream(downloadedFile)) {
             minioService.uploadFile(objectName, is, getContentType(extension), downloadedFile.length());
+        }
+
+        // 生成缩略图（文件已在本地磁盘，直接提取帧）
+        String thumbnailObjectName = null;
+        try {
+            thumbnailObjectName = videoService.generateThumbnailAndUpload(
+                    downloadedFile.toPath(), thumbObjectName);
+        } catch (Exception e) {
+            logger.warn("finishDownload: 缩略图生成失败（不影响下载）: {}", e.getMessage());
         }
 
         Video video = videoMapper.selectById(videoId);
@@ -402,6 +413,7 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
             video.setFileSize(downloadedFile.length());
             video.setFileType(getContentType(extension));
             video.setStatus(Video.Status.UPLOADED.name());
+            if (thumbnailObjectName != null) video.setThumbnailPath(thumbnailObjectName);
             video.setGmtModified(LocalDateTime.now());
             videoMapper.updateById(video);
         }
@@ -414,10 +426,12 @@ public class VideoDownloadServiceImpl implements VideoDownloadService {
 
         String videoUrl = null;
         try { videoUrl = minioService.getFileUrl(objectName); } catch (Exception ignored) {}
+        String thumbnailUrl = null;
+        try { if (thumbnailObjectName != null) thumbnailUrl = minioService.getFileUrl(thumbnailObjectName); } catch (Exception ignored) {}
         TaskProgressWebSocket.sendTaskProgress(
             userId, taskId, videoId,
             "PENDING", 95, "视频下载完成，等待 AI 分析",
-            "PENDING", null, videoUrl
+            "PENDING", null, videoUrl, thumbnailUrl
         );
         analysisTaskService.markTaskPending(taskId);
 

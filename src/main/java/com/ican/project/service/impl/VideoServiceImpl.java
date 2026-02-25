@@ -83,6 +83,9 @@ public class VideoServiceImpl implements VideoService {
     
     @Value("${upload.temp-dir:${java.io.tmpdir}/ican-upload-chunks}")
     private String tempDir;
+
+    @Value("${thumbnail.ffmpeg-path:ffmpeg}")
+    private String ffmpegPath;
     
     /**
      * 初始化临时目录
@@ -402,7 +405,6 @@ public class VideoServiceImpl implements VideoService {
                                String title, String description, String userId, String videoId) {
         // 使用Path处理跨平台路径
         Path chunkDirPath = Paths.get(tempDir, fileIdentifier);
-        
         try {
             // 获取所有分片信息
             LambdaQueryWrapper<UploadChunk> wrapper = new LambdaQueryWrapper<>();
@@ -425,9 +427,11 @@ public class VideoServiceImpl implements VideoService {
             String fileExt = FileUtil.extName(fileName);
             String contentType = getContentType(fileExt);
             
-            // 生成存储路径
+            // 生成存储路径（uuid 同时用于视频和缩略图，保持同名）
             String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-            String objectName = "videos/" + datePath + "/" + IdUtil.fastSimpleUUID() + "." + fileExt;
+            String fileUuid = IdUtil.fastSimpleUUID();
+            String objectName = "videos/" + datePath + "/" + fileUuid + "." + fileExt;
+            String thumbObjectName = "thumbnails/" + datePath + "/" + fileUuid + ".jpg";
             
             // 合并分片并上传到MinIO
             Path mergedFilePath = chunkDirPath.resolve("merged_" + fileName);
@@ -444,7 +448,10 @@ public class VideoServiceImpl implements VideoService {
             try (InputStream is = new BufferedInputStream(new FileInputStream(mergedFilePath.toFile()))) {
                 minioService.uploadFile(objectName, is, contentType, totalSize);
             }
-            
+
+            // 生成缩略图并上传到 MinIO（失败不影响主流程）
+            String thumbnailObjectName = generateAndUploadThumbnail(mergedFilePath, thumbObjectName);
+
             // 写保护：合并完成后检查任务是否已被取消
             // 双重检查：1) Redis 取消标记（不受事务隔离级别影响）  2) DB 记录是否存在
             // 防止 REPEATABLE READ 快照读导致的幻读问题
@@ -492,16 +499,19 @@ public class VideoServiceImpl implements VideoService {
                     if (title != null && !title.isEmpty()) video.setTitle(title);
                     video.setDescription(description);
                     video.setStatus(Video.Status.UPLOADED.name());
+                    if (thumbnailObjectName != null) video.setThumbnailPath(thumbnailObjectName);
                     video.setGmtModified(LocalDateTime.now());
                     videoMapper.updateById(video);
                 } else {
                     // 记录不存在或不属于该用户，降级为 INSERT
                     video = buildNewVideoRecord(userId, title, description, fileName, objectName, totalSize, contentType);
+                    if (thumbnailObjectName != null) video.setThumbnailPath(thumbnailObjectName);
                     videoMapper.insert(video);
                 }
             } else {
                 // 无 videoId（旧版兼容）：INSERT 新记录
                 video = buildNewVideoRecord(userId, title, description, fileName, objectName, totalSize, contentType);
+                if (thumbnailObjectName != null) video.setThumbnailPath(thumbnailObjectName);
                 videoMapper.insert(video);
             }
             
@@ -580,12 +590,30 @@ public class VideoServiceImpl implements VideoService {
         try {
             String fileExt = FileUtil.extName(fileName);
             
-            // 生成存储路径
+            // 生成存储路径（uuid 同时用于视频和缩略图，保持同名）
             String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-            String objectName = "videos/" + datePath + "/" + IdUtil.fastSimpleUUID() + "." + fileExt;
-            
-            // 上传到MinIO
-            minioService.uploadFile(objectName, file);
+            String fileUuid = IdUtil.fastSimpleUUID();
+            String objectName = "videos/" + datePath + "/" + fileUuid + "." + fileExt;
+            String thumbObjectName = "thumbnails/" + datePath + "/" + fileUuid + ".jpg";
+
+            // 先将 MultipartFile 写入临时文件（流只能读一次，必须先落盘）
+            Path tempVideoFile = Files.createTempFile("upload_", "." + fileExt);
+            String thumbnailObjectName = null;
+            try {
+                file.transferTo(tempVideoFile.toFile());
+
+                // 从临时文件上传到 MinIO
+                try (InputStream is = new BufferedInputStream(new FileInputStream(tempVideoFile.toFile()))) {
+                    minioService.uploadFile(objectName, is, file.getContentType() != null ? file.getContentType() : "application/octet-stream", file.getSize());
+                }
+
+                // 生成缩略图（临时文件已在磁盘，直接提取帧）
+                thumbnailObjectName = generateAndUploadThumbnail(tempVideoFile, thumbObjectName);
+            } catch (Exception e) {
+                logger.warn("uploadSimple: 缩略图生成失败（不影响上传）: {}", e.getMessage(), e);
+            } finally {
+                try { Files.deleteIfExists(tempVideoFile); } catch (Exception ignored) {}
+            }
             
             // 写保护：上传完成后检查任务是否已被取消
             // 双重检查：Redis 取消标记 + DB 记录
@@ -626,16 +654,19 @@ public class VideoServiceImpl implements VideoService {
                     if (title != null && !title.isEmpty()) video.setTitle(title);
                     video.setDescription(description);
                     video.setStatus(Video.Status.UPLOADED.name());
+                    if (thumbnailObjectName != null) video.setThumbnailPath(thumbnailObjectName);
                     video.setGmtModified(LocalDateTime.now());
                     videoMapper.updateById(video);
                 } else {
                     // 记录不存在或不属于该用户，降级为 INSERT
                     video = buildNewVideoRecord(userId, title, description, fileName, objectName, file.getSize(), contentType);
+                    if (thumbnailObjectName != null) video.setThumbnailPath(thumbnailObjectName);
                     videoMapper.insert(video);
                 }
             } else {
                 // 无 videoId（旧版兼容）：INSERT 新记录
                 video = buildNewVideoRecord(userId, title, description, fileName, objectName, file.getSize(), contentType);
+                if (thumbnailObjectName != null) video.setThumbnailPath(thumbnailObjectName);
                 videoMapper.insert(video);
             }
             
@@ -901,6 +932,70 @@ public class VideoServiceImpl implements VideoService {
         };
     }
     
+    @Override
+    public String generateThumbnailAndUpload(java.nio.file.Path videoFilePath, String thumbObjectName) {
+        return generateAndUploadThumbnail(videoFilePath, thumbObjectName);
+    }
+
+    /**
+     * 用 FFmpeg 从视频文件提取第1秒帧，生成缩略图并上传到 MinIO。
+     * 失败时仅打印警告，不影响主流程。
+     *
+     * @param videoFilePath   本地视频文件路径
+     * @param thumbObjectName MinIO 缩略图完整路径，如 "thumbnails/2024/01/01/<uuid>.jpg"
+     * @return MinIO 缩略图 objectName，失败返回 null
+     */
+    private String generateAndUploadThumbnail(Path videoFilePath, String thumbObjectName) {
+        Path thumbFile = null;
+        try {
+            thumbFile = Files.createTempFile("thumb_", ".jpg");
+            // ffmpeg -ss 1 -i input -vframes 1 -q:v 5 -vf scale=480:-1 output.jpg
+            ProcessBuilder pb = new ProcessBuilder(
+                    ffmpegPath, "-y",
+                    "-ss", "1",
+                    "-i", videoFilePath.toAbsolutePath().toString(),
+                    "-vframes", "1",
+                    "-q:v", "5",
+                    "-vf", "scale=480:-1",
+                    thumbFile.toAbsolutePath().toString()
+            );
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            // 收集 FFmpeg 输出用于调试
+            StringBuilder ffmpegOutput = new StringBuilder();
+            try (java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    ffmpegOutput.append(line).append("\n");
+                }
+            }
+            int exitCode = process.waitFor();
+            if (exitCode != 0 || !Files.exists(thumbFile) || Files.size(thumbFile) == 0) {
+                logger.warn("FFmpeg 生成缩略图失败，exitCode={}, thumbFile exists={}, size={}, ffmpegPath={}\nFFmpeg output:\n{}",
+                        exitCode,
+                        Files.exists(thumbFile),
+                        Files.exists(thumbFile) ? Files.size(thumbFile) : -1,
+                        ffmpegPath,
+                        ffmpegOutput);
+                return null;
+            }
+            long thumbSize = Files.size(thumbFile);
+            try (InputStream is = new java.io.BufferedInputStream(new FileInputStream(thumbFile.toFile()))) {
+                minioService.uploadFile(thumbObjectName, is, "image/jpeg", thumbSize);
+            }
+            logger.info("缩略图上传成功: {}", thumbObjectName);
+            return thumbObjectName;
+        } catch (Exception e) {
+            logger.warn("生成/上传缩略图失败（不影响视频上传）: {}", e.getMessage(), e);
+            return null;
+        } finally {
+            if (thumbFile != null) {
+                try { Files.deleteIfExists(thumbFile); } catch (Exception ignored) {}
+            }
+        }
+    }
+
     /**
      * 清理临时文件
      */

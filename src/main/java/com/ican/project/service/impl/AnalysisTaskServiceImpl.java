@@ -287,6 +287,11 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (videoFilePath != null) {
             builder.videoUrl(minioService.getFileUrl(videoFilePath));
         }
+        // 缩略图
+        String videoThumbnailPath = (String) map.get("video_thumbnail_path");
+        if (videoThumbnailPath != null && !videoThumbnailPath.isEmpty()) {
+            builder.thumbnailUrl(minioService.getFileUrl(videoThumbnailPath));
+        }
         
         // 来源信息
         String videoSourceType = (String) map.get("video_source_type");
@@ -306,6 +311,12 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         String videoFolderName = (String) map.get("video_folder_name");
         if (videoFolderName != null) {
             builder.folderName(videoFolderName);
+        }
+
+        // 收藏状态
+        Object isFavoritedVal = map.get("is_favorited");
+        if (isFavoritedVal != null) {
+            builder.isFavorited(((Number) isFavoritedVal).intValue() == 1);
         }
         
         // 分析结果信息

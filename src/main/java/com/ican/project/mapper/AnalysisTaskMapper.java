@@ -30,15 +30,18 @@ public interface AnalysisTaskMapper extends BaseMapper<AnalysisTask> {
     @Select("<script>" +
             "SELECT t.*, " +
             "       v.title AS video_title, v.duration AS video_duration, v.file_path AS video_file_path, " +
+            "       v.thumbnail_path AS video_thumbnail_path, " +
             "       v.source_type AS video_source_type, v.source_url AS video_source_url, " +
             "       v.folder_id AS video_folder_id, " +
             "       f.name AS video_folder_name, " +
             "       r.id AS result_id, " +
-            "       CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) AS risk_score_val " +
+            "       CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) AS risk_score_val, " +
+            "       CASE WHEN uf.id IS NOT NULL THEN 1 ELSE 0 END AS is_favorited " +
             "FROM analysis_task t " +
             "LEFT JOIN video v ON t.video_id = v.id " +
             "LEFT JOIN folder f ON v.folder_id = f.id " +
             "LEFT JOIN analysis_result r ON t.id = r.task_id " +
+            "LEFT JOIN user_favorite uf ON t.id = uf.task_id AND uf.user_id = #{userId} " +
             "WHERE t.user_id = #{userId} " +
             "<if test='status != null and status != \"\"'>" +
             "  AND t.status = #{status} " +

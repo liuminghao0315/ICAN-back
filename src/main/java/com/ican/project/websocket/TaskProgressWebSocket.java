@@ -107,6 +107,29 @@ public class TaskProgressWebSocket {
     }
 
     /**
+     * 向指定用户发送任务进度更新（含阶段标识、标题、视频URL、缩略图URL）
+     * @param stage        阶段标识：FETCHING_TITLE / DOWNLOADING / PENDING / PROCESSING / COMPLETED / FAILED
+     * @param title        视频标题（元数据阶段获取后填入，其余阶段传 null）
+     * @param videoUrl     视频可访问URL（下载完成后填入）
+     * @param thumbnailUrl 缩略图URL（下载完成后填入）
+     */
+    public static void sendTaskProgress(String userId, String taskId, String videoId,
+                                        String status, Integer progress, String message,
+                                        String stage, String title, String videoUrl, String thumbnailUrl) {
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("taskId", taskId);
+        data.put("videoId", videoId != null ? videoId : "");
+        data.put("status", status);
+        data.put("progress", progress != null ? progress : 0);
+        data.put("message", message != null ? message : "");
+        if (stage != null)         data.put("stage", stage);
+        if (title != null)         data.put("title", title);
+        if (videoUrl != null)      data.put("videoUrl", videoUrl);
+        if (thumbnailUrl != null)  data.put("thumbnailUrl", thumbnailUrl);
+        sendMessage(userId, createMessage("task_progress", "任务进度更新", data));
+    }
+
+    /**
      * 向指定用户发送任务进度更新（含阶段标识、标题、视频URL）
      * @param stage    阶段标识：FETCHING_TITLE / DOWNLOADING / PENDING / PROCESSING / COMPLETED / FAILED
      * @param title    视频标题（元数据阶段获取后填入，其余阶段传 null）
@@ -115,16 +138,7 @@ public class TaskProgressWebSocket {
     public static void sendTaskProgress(String userId, String taskId, String videoId,
                                         String status, Integer progress, String message,
                                         String stage, String title, String videoUrl) {
-        Map<String, Object> data = new java.util.HashMap<>();
-        data.put("taskId", taskId);
-        data.put("videoId", videoId != null ? videoId : "");
-        data.put("status", status);
-        data.put("progress", progress != null ? progress : 0);
-        data.put("message", message != null ? message : "");
-        if (stage != null)    data.put("stage", stage);
-        if (title != null)    data.put("title", title);
-        if (videoUrl != null) data.put("videoUrl", videoUrl);
-        sendMessage(userId, createMessage("task_progress", "任务进度更新", data));
+        sendTaskProgress(userId, taskId, videoId, status, progress, message, stage, title, videoUrl, null);
     }
 
     /**
