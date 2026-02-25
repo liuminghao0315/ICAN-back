@@ -249,7 +249,7 @@ public class AnalysisTaskController {
         }
 
         AnalysisTaskVO result = analysisTaskService.createUrlImportTask(
-                url, trimmed.getTitle(), trimmed.getTaskType(), userId, trimmed.getFolderId());
+                url, trimmed.getTitle(), trimmed.getTaskType(), userId, trimmed.getFolderId(), trimmed.getSelectedPackageIds());
 
         // 异步启动视频下载（标题已由前端校验阶段获取并传入，跳过重复 fetchVideoTitle）
         videoDownloadService.downloadVideoAsync(url, result.getVideoId(), result.getId(), userId);

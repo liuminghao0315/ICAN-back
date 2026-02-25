@@ -69,6 +69,9 @@ public class AnalysisResultVO {
     @Schema(description = "场景识别结果")
     private List<Object> sceneRecognition;
     
+    @Schema(description = "挂载的风险词库包列表")
+    private List<WordPackVO> wordPacks;
+    
     @Schema(description = "创建时间")
     private LocalDateTime gmtCreated;
     

@@ -123,9 +123,11 @@ public interface AnalysisTaskService {
      * @param title 标题（可选）
      * @param taskType 任务类型
      * @param userId 用户ID
+     * @param folderId 文件夹ID
+     * @param selectedPackageIds 挂载的词库包ID列表
      * @return 任务VO
      */
-    AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId, String folderId);
+    AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId, String folderId, java.util.List<String> selectedPackageIds);
     
     /**
      * 标记任务为等待中（下载完成后调用，自动衔接分析）

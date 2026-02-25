@@ -8,17 +8,20 @@ import com.ican.project.config.RabbitMQConfig;
 import com.ican.project.exception.BusinessException;
 import com.ican.project.mapper.AnalysisResultMapper;
 import com.ican.project.mapper.AnalysisTaskMapper;
+import com.ican.project.mapper.TaskWordPackMapper;
 import com.ican.project.mapper.UserMapper;
 import com.ican.project.mapper.VideoMapper;
 import com.ican.project.model.dto.AnalysisTaskDTO;
 import com.ican.project.model.entity.AnalysisResult;
 import com.ican.project.model.entity.AnalysisTask;
+import com.ican.project.model.entity.TaskWordPack;
 import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.AnalysisTaskVO;
 import com.ican.project.service.AnalysisTaskService;
 import com.ican.project.service.FolderService;
 import com.ican.project.service.MinioService;
 import com.ican.project.service.VideoService;
+import com.ican.project.service.WordPackService;
 import com.ican.project.utils.RedisCacheUtil;
 import com.ican.project.websocket.TaskProgressWebSocket;
 import org.slf4j.Logger;
@@ -29,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -44,6 +48,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private AnalysisTaskMapper analysisTaskMapper;
     
     @Autowired
+    private TaskWordPackMapper taskWordPackMapper;
+    
+    @Autowired
     private AnalysisResultMapper analysisResultMapper;
     
     @Autowired
@@ -57,6 +64,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     
     @Autowired
     private FolderService folderService;
+    
+    @Autowired
+    private WordPackService wordPackService;
     
     @Autowired
     private MinioService minioService;
@@ -141,6 +151,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         
         // 清除相关缓存
         redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_LIST + userId + ":*");
+        
+        // 保存任务与词库包的关联
+        saveTaskWordPacks(task.getId(), dto.getSelectedPackageIds());
         
         // 更新视频状态为分析中
         videoService.updateVideoStatus(dto.getVideoId(), Video.Status.ANALYZING.name());
@@ -738,12 +751,24 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             }
         }
         
+        // 查询任务关联的词库包
+        LambdaQueryWrapper<TaskWordPack> twpWrapper = new LambdaQueryWrapper<>();
+        twpWrapper.eq(TaskWordPack::getTaskId, task.getId());
+        List<TaskWordPack> taskWordPacks = taskWordPackMapper.selectList(twpWrapper);
+        if (taskWordPacks != null && !taskWordPacks.isEmpty()) {
+            List<String> packIds = taskWordPacks.stream()
+                    .map(TaskWordPack::getPackId)
+                    .collect(Collectors.toList());
+            List<com.ican.project.model.vo.WordPackVO> packs = wordPackService.getPacksWithWords(packIds);
+            builder.wordPacks(packs);
+        }
+        
         return builder.build();
     }
     
     @Override
     @Transactional
-    public AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId, String folderId) {
+    public AnalysisTaskVO createUrlImportTask(String url, String title, String taskType, String userId, String folderId, java.util.List<String> selectedPackageIds) {
         // 确定任务类型
         if (taskType == null || taskType.isEmpty()) {
             taskType = AnalysisTask.TaskType.FULL_ANALYSIS.name();
@@ -790,6 +815,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .gmtModified(LocalDateTime.now())
                 .build();
         analysisTaskMapper.insert(task);
+        
+        // 保存任务与词库包的关联
+        saveTaskWordPacks(task.getId(), selectedPackageIds);
         
         // 增加用户累计分析次数
         userMapper.incrementAnalysisCount(userId);
@@ -863,5 +891,24 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             logger.warn("发送取消信号失败（不影响数据库状态）: taskId={}, error={}", taskId, e.getMessage());
         }
     }
-}
 
+    /**
+     * 保存任务与词库包的关联关系
+     */
+    private void saveTaskWordPacks(String taskId, List<String> selectedPackageIds) {
+        // 先清除旧关联（幂等重置场景）
+        taskWordPackMapper.delete(
+                new LambdaQueryWrapper<TaskWordPack>().eq(TaskWordPack::getTaskId, taskId)
+        );
+        if (selectedPackageIds != null && !selectedPackageIds.isEmpty()) {
+            for (String packId : selectedPackageIds) {
+                TaskWordPack twp = TaskWordPack.builder()
+                        .taskId(taskId)
+                        .packId(packId)
+                        .build();
+                taskWordPackMapper.insert(twp);
+            }
+            logger.info("任务 {} 关联了 {} 个词库包", taskId, selectedPackageIds.size());
+        }
+    }
+}

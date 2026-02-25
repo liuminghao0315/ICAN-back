@@ -3,9 +3,13 @@ package com.ican.project.service.impl;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson2.JSON;
 import com.ican.project.mapper.AnalysisTaskMapper;
+import com.ican.project.mapper.TaskWordPackMapper;
+import com.ican.project.mapper.WordPackWordMapper;
 import com.ican.project.model.entity.AnalysisResult;
 import com.ican.project.model.entity.AnalysisTask;
+import com.ican.project.model.entity.TaskWordPack;
 import com.ican.project.model.entity.Video;
+import com.ican.project.model.entity.WordPackWord;
 import com.ican.project.model.vo.AnalysisTaskVO;
 import com.ican.project.mapper.VideoMapper;
 import com.ican.project.service.AnalysisResultService;
@@ -58,6 +62,12 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
     
     @Autowired
     private AnalysisTaskMapper analysisTaskMapper;
+    
+    @Autowired
+    private TaskWordPackMapper taskWordPackMapper;
+    
+    @Autowired
+    private WordPackWordMapper wordPackWordMapper;
     
     @Autowired
     private RabbitTemplate rabbitTemplate;
@@ -216,6 +226,32 @@ public class MockAlgorithmServiceImpl implements MockAlgorithmService {
             taskMessage.put("videoTitle", video.getTitle());
             taskMessage.put("videoDuration", video.getDuration());
             taskMessage.put("fileSize", video.getFileSize());
+            
+            // 查询任务关联的词库包及其词汇，传递给 Python 端
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TaskWordPack> twpWrapper =
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+            twpWrapper.eq(TaskWordPack::getTaskId, taskId);
+            List<TaskWordPack> taskWordPacks = taskWordPackMapper.selectList(twpWrapper);
+            if (taskWordPacks != null && !taskWordPacks.isEmpty()) {
+                List<Map<String, Object>> wordPacksData = new ArrayList<>();
+                for (TaskWordPack twp : taskWordPacks) {
+                    com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<WordPackWord> wordWrapper =
+                            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+                    wordWrapper.eq(WordPackWord::getPackId, twp.getPackId());
+                    List<WordPackWord> words = wordPackWordMapper.selectList(wordWrapper);
+                    
+                    Map<String, Object> packData = new HashMap<>();
+                    packData.put("packId", twp.getPackId());
+                    List<String> wordTexts = new ArrayList<>();
+                    for (WordPackWord w : words) {
+                        wordTexts.add(w.getText());
+                    }
+                    packData.put("words", wordTexts);
+                    wordPacksData.add(packData);
+                }
+                taskMessage.put("wordPacks", wordPacksData);
+                logger.info("任务 {} 携带 {} 个词库包发送到 Python", taskId, wordPacksData.size());
+            }
             
             // 发送任务到 RabbitMQ 队列
             rabbitTemplate.convertAndSend(RabbitMQConfig.ALGORITHM_TASK_QUEUE, JSON.toJSONString(taskMessage));

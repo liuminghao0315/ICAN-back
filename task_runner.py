@@ -348,6 +348,17 @@ def run_task(task_id: str, task_message: dict):
     logger = _setup_worker_logger(task_id)
     logger.info(f"========== 子进程启动 PID={os.getpid()} ==========")
 
+    # 输出任务携带的风险词库包信息（确认 Python 端能看到词汇包）
+    word_packs = task_message.get("wordPacks")
+    if word_packs:
+        logger.info(f"[风险词库] 任务携带 {len(word_packs)} 个词库包:")
+        for pack in word_packs:
+            pack_id = pack.get("packId", "unknown")
+            words = pack.get("words", [])
+            logger.info(f"  - 词库包 {pack_id}: {len(words)} 个词汇 → {words}")
+    else:
+        logger.info("[风险词库] 任务未挂载任何词库包")
+
     sender = None
     try:
         # 初始化独立的 RabbitMQ 连接

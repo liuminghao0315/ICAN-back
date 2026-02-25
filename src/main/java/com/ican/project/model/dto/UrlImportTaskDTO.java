@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * URL导入分析任务请求DTO
  */
@@ -29,6 +31,9 @@ public class UrlImportTaskDTO {
 
     @Schema(description = "目标文件夹ID（可选，不填则归入未分类）")
     private String folderId;
+
+    @Schema(description = "挂载的风险词库包ID列表")
+    private List<String> selectedPackageIds;
     
     /**
      * 去除空格

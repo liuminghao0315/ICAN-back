@@ -99,5 +99,8 @@ public class AnalysisTaskVO {
 
     @Schema(description = "是否已被当前用户收藏")
     private Boolean isFavorited;
+
+    @Schema(description = "挂载的风险词库包列表")
+    private java.util.List<WordPackVO> wordPacks;
 }
 

@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 创建分析任务请求DTO
  */
@@ -26,6 +28,9 @@ public class AnalysisTaskDTO {
     
     @Schema(description = "是否强制重新分析（取消已有的进行中任务）")
     private Boolean forceRestart;
+
+    @Schema(description = "挂载的风险词库包ID列表")
+    private List<String> selectedPackageIds;
     
     /**
      * 去除空格

@@ -8,14 +8,17 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.exception.BusinessException;
 import com.ican.project.mapper.AnalysisResultMapper;
 import com.ican.project.mapper.AnalysisTaskMapper;
+import com.ican.project.mapper.TaskWordPackMapper;
 import com.ican.project.mapper.UserMapper;
 import com.ican.project.mapper.VideoMapper;
 import com.ican.project.model.entity.AnalysisResult;
 import com.ican.project.model.entity.AnalysisTask;
 import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.AnalysisResultVO;
+import com.ican.project.model.vo.WordPackVO;
 import com.ican.project.service.AnalysisResultService;
 import com.ican.project.service.MinioService;
+import com.ican.project.service.WordPackService;
 import com.ican.project.utils.RedisCacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +48,12 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     
     @Autowired
     private VideoMapper videoMapper;
+    
+    @Autowired
+    private TaskWordPackMapper taskWordPackMapper;
+    
+    @Autowired
+    private WordPackService wordPackService;
     
     @Autowired
     private UserMapper userMapper;
@@ -638,6 +647,25 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                     .sceneRecognition(sceneRecognition)
                     .gmtCreated(result.getGmtCreated())
                     .build();
+            
+            // 填充任务关联的词库包
+            if (result.getTaskId() != null) {
+                try {
+                    com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.ican.project.model.entity.TaskWordPack> twpWrapper =
+                            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+                    twpWrapper.eq(com.ican.project.model.entity.TaskWordPack::getTaskId, result.getTaskId());
+                    List<com.ican.project.model.entity.TaskWordPack> taskWordPacks = taskWordPackMapper.selectList(twpWrapper);
+                    if (taskWordPacks != null && !taskWordPacks.isEmpty()) {
+                        List<String> packIds = taskWordPacks.stream()
+                                .map(com.ican.project.model.entity.TaskWordPack::getPackId)
+                                .collect(java.util.stream.Collectors.toList());
+                        List<WordPackVO> packs = wordPackService.getPacksWithWords(packIds);
+                        vo.setWordPacks(packs);
+                    }
+                } catch (Exception e) {
+                    logger.warn("获取任务词库包失败: taskId={}, error={}", result.getTaskId(), e.getMessage());
+                }
+            }
             
             logger.info("AnalysisResult转换VO成功: resultId={}", result.getId());
             return vo;
