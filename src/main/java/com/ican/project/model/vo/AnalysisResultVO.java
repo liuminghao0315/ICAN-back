@@ -72,6 +72,9 @@ public class AnalysisResultVO {
     @Schema(description = "挂载的风险词库包列表")
     private List<WordPackVO> wordPacks;
     
+    @Schema(description = "PDF报告下载URL")
+    private String reportPdfUrl;
+    
     @Schema(description = "创建时间")
     private LocalDateTime gmtCreated;
     
@@ -87,6 +90,7 @@ public class AnalysisResultVO {
         private String fileName;
         private Double duration;
         private String uploadSource;
+        private String sourceUrl;
         private String description;
         private List<Object> detectedKeywords;
         private Map<String, Object> mainCharacter;

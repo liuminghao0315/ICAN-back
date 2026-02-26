@@ -102,5 +102,8 @@ public class AnalysisTaskVO {
 
     @Schema(description = "挂载的风险词库包列表")
     private java.util.List<WordPackVO> wordPacks;
+
+    @Schema(description = "PDF报告下载URL")
+    private String reportPdfUrl;
 }
 

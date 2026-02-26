@@ -148,6 +148,13 @@ public class AnalysisResult {
      */
     private String sceneRecognition;
     
+    // ========== PDF报告 ==========
+    
+    /**
+     * PDF报告MinIO存储路径
+     */
+    private String reportPdfPath;
+    
     // ========== 元数据 ==========
     
     private LocalDateTime gmtCreated;

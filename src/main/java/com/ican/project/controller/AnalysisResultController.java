@@ -2,18 +2,28 @@ package com.ican.project.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.model.common.Result;
+import com.ican.project.model.entity.AnalysisResult;
 import com.ican.project.model.vo.AnalysisResultVO;
 import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.AnalysisResultService;
+import com.ican.project.service.MinioService;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
@@ -28,6 +38,15 @@ public class AnalysisResultController {
     
     @Autowired
     private AnalysisResultService analysisResultService;
+    
+    @Autowired
+    private MinioService minioService;
+    
+    @Autowired
+    private MinioClient minioClient;
+    
+    @Value("${minio.bucketName}")
+    private String bucketName;
     
     /**
      * 获取分析结果详情
@@ -121,6 +140,56 @@ public class AnalysisResultController {
         Map<String, Long> distribution = analysisResultService.getRiskDistribution(userDetails.getUserId());
         
         return Result.success(distribution);
+    }
+    
+    /**
+     * 下载PDF分析报告
+     */
+    @GetMapping("/{resultId}/pdf")
+    @Operation(summary = "下载PDF分析报告", description = "下载指定分析结果的PDF报告文件")
+    public Object downloadPdf(
+            @Parameter(description = "结果ID") @PathVariable String resultId,
+            @AuthenticationPrincipal MyUserDetails userDetails,
+            HttpServletResponse response) {
+        
+        // 权限校验
+        AnalysisResultVO resultVO;
+        try {
+            resultVO = analysisResultService.getResultById(resultId, userDetails.getUserId());
+        } catch (Exception e) {
+            logger.warn("PDF下载权限校验失败: resultId={}, error={}", resultId, e.getMessage());
+            return Result.fail(403, "无权访问该报告");
+        }
+        
+        // 检查PDF是否已生成
+        AnalysisResult entity = analysisResultService.getEntityById(resultId);
+        if (entity == null || entity.getReportPdfPath() == null || entity.getReportPdfPath().isEmpty()) {
+            logger.warn("PDF报告尚未生成: resultId={}", resultId);
+            return Result.fail(404, "PDF报告尚未生成，请稍后重试");
+        }
+        
+        try {
+            String fileName = "分析报告_" + resultId.substring(0, Math.min(8, resultId.length())) + ".pdf";
+            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+            
+            response.setContentType("application/pdf");
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFileName + "\"; filename*=UTF-8''" + encodedFileName);
+            
+            try (InputStream is = minioClient.getObject(GetObjectArgs.builder()
+                    .bucket(bucketName)
+                    .object(entity.getReportPdfPath())
+                    .build());
+                 OutputStream os = response.getOutputStream()) {
+                is.transferTo(os);
+                os.flush();
+            }
+            
+            logger.info("PDF报告下载成功: resultId={}", resultId);
+            return null;
+        } catch (Exception e) {
+            logger.error("PDF报告下载失败: resultId={}, error={}", resultId, e.getMessage(), e);
+            return Result.fail(500, "PDF报告下载失败: " + e.getMessage());
+        }
     }
     
     /**

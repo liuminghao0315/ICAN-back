@@ -527,6 +527,11 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         logger.info("删除分析结果: resultId={}", resultId);
     }
     
+    @Override
+    public AnalysisResult getEntityById(String resultId) {
+        return analysisResultMapper.selectById(resultId);
+    }
+    
     /**
      * 转换为VO（全新实现，适配新前端数据结构）
      */
@@ -542,7 +547,12 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                             (video != null ? minioService.getFileUrl(video.getFilePath()) : ""))
                     .fileName(video != null ? video.getFileName() : "")
                     .duration(video != null && video.getDuration() != null ? video.getDuration() : 0.0)
-                    .uploadSource(video != null ? "本地上传" : "")
+                    .uploadSource(video != null
+                            ? (Video.SourceType.URL_IMPORT.name().equals(video.getSourceType()) ? "网络采集" : "本地上传")
+                            : "")
+                    .sourceUrl(video != null && Video.SourceType.URL_IMPORT.name().equals(video.getSourceType())
+                            ? video.getSourceUrl()
+                            : null)
                     .description(result.getAiDescription())
                     .detectedKeywords(parseJsonList(result.getDetectedKeywords()))
                     .mainCharacter(parseJsonMap(result.getMainCharacter()))
@@ -645,6 +655,8 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                     .timelineData(timelineData)
                     .timelineEvents(timelineEvents)
                     .sceneRecognition(sceneRecognition)
+                    .reportPdfUrl(result.getReportPdfPath() != null && !result.getReportPdfPath().isEmpty()
+                            ? minioService.getFileUrl(result.getReportPdfPath()) : null)
                     .gmtCreated(result.getGmtCreated())
                     .build();
             

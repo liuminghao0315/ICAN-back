@@ -1,4 +1,4 @@
-﻿package com.ican.project.service.impl;
+package com.ican.project.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ican.project.mapper.UserMapper;

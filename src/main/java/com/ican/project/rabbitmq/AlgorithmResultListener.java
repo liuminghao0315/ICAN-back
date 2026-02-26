@@ -4,6 +4,7 @@ import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.ican.project.config.RabbitMQConfig;
+import com.ican.project.mapper.AnalysisResultMapper;
 import com.ican.project.mapper.AnalysisTaskMapper;
 import com.ican.project.mapper.VideoMapper;
 import com.ican.project.model.entity.AnalysisResult;
@@ -12,6 +13,7 @@ import com.ican.project.model.entity.Video;
 import com.ican.project.service.AnalysisResultService;
 import com.ican.project.service.AnalysisTaskService;
 import com.ican.project.service.MinioService;
+import com.ican.project.service.ReportPdfService;
 import com.ican.project.websocket.TaskProgressWebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +49,9 @@ public class AlgorithmResultListener {
     private static final Logger logger = LoggerFactory.getLogger(AlgorithmResultListener.class);
     
     @Autowired
+    private AnalysisResultMapper analysisResultMapper;
+    
+    @Autowired
     private AnalysisTaskMapper analysisTaskMapper;
     
     @Autowired
@@ -63,6 +68,9 @@ public class AlgorithmResultListener {
     
     @Autowired
     private MinioService minioService;
+    
+    @Autowired
+    private ReportPdfService reportPdfService;
     
     /**
      * Redis Key 前缀：存储任务已完成的模块
@@ -223,6 +231,44 @@ public class AlgorithmResultListener {
                 
                 // 执行最终总结
                 String resultId = performFinalSummary(taskId, videoId, userId, moduleResults);
+                
+                // ========== 生成PDF报告并上传MinIO ==========
+                // 必须在 markTaskCompleted 之前完成，确保用户看到"分析完成"时PDF已就绪
+                boolean pdfReady = false;
+                if (resultId != null) {
+                    try {
+                        AnalysisResult savedResult = analysisResultMapper.selectById(resultId);
+                        Video pdfVideo = videoMapper.selectById(videoId);
+                        if (savedResult != null && pdfVideo != null) {
+                            String pdfPath = reportPdfService.generateAndUpload(savedResult, pdfVideo);
+                            savedResult.setReportPdfPath(pdfPath);
+                            savedResult.setGmtModified(LocalDateTime.now());
+                            analysisResultMapper.updateById(savedResult);
+                            pdfReady = true;
+                            logger.info("PDF报告已生成并存入MinIO: taskId={}, pdfPath={}", taskId, pdfPath);
+                        }
+                    } catch (Exception e) {
+                        logger.error("PDF报告生成失败，任务将标记为FAILED: taskId={}, error={}", taskId, e.getMessage(), e);
+                    }
+                }
+                
+                if (!pdfReady) {
+                    // PDF未就绪 → 任务标记为失败，前端不会显示"分析完成"
+                    analysisTaskService.updateTaskStatus(taskId,
+                            AnalysisTask.Status.FAILED.name(), 90, "PDF报告生成失败");
+                    if (userId != null) {
+                        Map<String, Object> failWsData = new java.util.HashMap<>();
+                        failWsData.put("taskId", taskId);
+                        failWsData.put("videoId", videoId);
+                        failWsData.put("status", AnalysisTask.Status.FAILED.name());
+                        failWsData.put("progress", 90);
+                        failWsData.put("message", "PDF报告生成失败");
+                        TaskProgressWebSocket.sendMessage(userId, createWebSocketMessage("task_progress", "任务失败", failWsData));
+                    }
+                    cleanupRedis(taskId);
+                    channel.basicAck(deliveryTag, false);
+                    return;
+                }
                 
                 // 更新进度为100%
                 analysisTaskService.updateTaskStatus(taskId, 

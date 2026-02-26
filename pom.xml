@@ -138,6 +138,26 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
+        <!--OpenPDF（PDF报告生成）-->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+
+        <!--Thymeleaf（PDF HTML模板引擎）-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!--Flying Saucer（HTML转PDF渲染器）-->
+        <dependency>
+            <groupId>org.xhtmlrenderer</groupId>
+            <artifactId>flying-saucer-pdf-openpdf</artifactId>
+            <version>9.4.0</version>
+        </dependency>
+
     </dependencies>
     <dependencyManagement>
         <dependencies>

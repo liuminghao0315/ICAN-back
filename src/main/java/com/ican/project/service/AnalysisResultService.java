@@ -72,5 +72,12 @@ public interface AnalysisResultService {
      * @param userId 用户ID
      */
     void deleteResult(String resultId, String userId);
+    
+    /**
+     * 根据ID获取分析结果实体（内部使用，不做权限校验）
+     * @param resultId 结果ID
+     * @return 分析结果实体
+     */
+    AnalysisResult getEntityById(String resultId);
 }
 

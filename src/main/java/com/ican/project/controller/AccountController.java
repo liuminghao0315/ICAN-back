@@ -1,4 +1,4 @@
-﻿package com.ican.project.controller;
+package com.ican.project.controller;
 
 import com.ican.project.model.common.Code;
 import com.ican.project.model.common.Result;

@@ -415,6 +415,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                     if (result.getTopicCategory() != null) {
                         builder.topicCategory(result.getTopicCategory());
                     }
+                    if (result.getReportPdfPath() != null && !result.getReportPdfPath().isEmpty()) {
+                        builder.reportPdfUrl(minioService.getFileUrl(result.getReportPdfPath()));
+                    }
                 }
             } catch (Exception e) {
                 logger.warn("提取分析结果摘要失败: resultId={}, error={}", resultId, e.getMessage());
@@ -748,6 +751,10 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             // 主题分类
             if (result.getTopicCategory() != null) {
                 builder.topicCategory(result.getTopicCategory());
+            }
+            // PDF报告URL
+            if (result.getReportPdfPath() != null && !result.getReportPdfPath().isEmpty()) {
+                builder.reportPdfUrl(minioService.getFileUrl(result.getReportPdfPath()));
             }
         }
         
