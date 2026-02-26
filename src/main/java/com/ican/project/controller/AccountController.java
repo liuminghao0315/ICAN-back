@@ -1,21 +1,25 @@
-package com.ican.project.controller;
+﻿package com.ican.project.controller;
 
 import com.ican.project.model.common.Code;
 import com.ican.project.model.common.Result;
 import com.ican.project.utils.MailServiceUtil;
 import com.ican.project.model.entity.User;
+import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.LogoutService;
 import com.ican.project.service.MailService;
 import com.ican.project.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -111,5 +115,67 @@ public class AccountController {
             logger.error("重置密码异常", e);
             throw e;
         }
+    }
+    @GetMapping("/account/sendMailToChangePwd")
+    @Operation(summary = "发送修改密码验证码", description = "向当前绑定邮箱发送修改密码验证码")
+    public Result<?> sendMailToChangePwd(@AuthenticationPrincipal MyUserDetails userDetails) {
+        if (userDetails == null) {
+            return Result.fail(Code.AUTH_FAILURE, "未登录");
+        }
+        logger.info("发送修改密码验证码: userId={}", userDetails.getUserId());
+        return userService.sendMailToChangePwd(userDetails.getUserId());
+    }
+
+    @PostMapping("/account/changePwd")
+    @Operation(summary = "修改密码", description = "验证码验证后修改密码")
+    public Result<?> changePwd(
+            @AuthenticationPrincipal MyUserDetails userDetails,
+            @Parameter(description = "验证码", required = true)
+            @RequestParam("verifyCode") @NotBlank(message = "验证码不能为空") String verifyCode,
+            @Parameter(description = "新密码", required = true)
+            @RequestParam("newPwd") @NotBlank(message = "新密码不能为空") @Size(min = 6, max = 20, message = "密码长度须在6-20个字符之间") String newPwd) {
+        if (userDetails == null) {
+            return Result.fail(Code.AUTH_FAILURE, "未登录");
+        }
+        logger.info("修改密码请求: userId={}", userDetails.getUserId());
+        return userService.changePwd(userDetails.getUserId(), verifyCode, newPwd);
+    }
+
+
+    @GetMapping("/account/sendMailToChangeEmail")
+    @Operation(summary = "发送变更邮箱验证码", description = "向新邮箱发送验证码")
+    public Result<?> sendMailToChangeEmail(
+            @Parameter(description = "新邮箱地址", required = true)
+            @RequestParam("newEmail") @NotBlank(message = "新邮箱不能为空") @Email(message = "邮箱格式不正确") String newEmail) {
+        logger.info("发送变更邮箱验证码: newEmail={}", newEmail);
+        return userService.sendMailToChangeEmail(newEmail);
+    }
+
+    @PostMapping("/account/changeEmail")
+    @Operation(summary = "变更绑定邮箱", description = "验证验证码后更新邮箱")
+    public Result<?> changeEmail(
+            @AuthenticationPrincipal MyUserDetails userDetails,
+            @Parameter(description = "新邮箱地址", required = true)
+            @RequestParam("newEmail") @NotBlank(message = "新邮箱不能为空") @Email(message = "邮箱格式不正确") String newEmail,
+            @Parameter(description = "验证码", required = true)
+            @RequestParam("verifyCode") @NotBlank(message = "验证码不能为空") String verifyCode) {
+        if (userDetails == null) {
+            return Result.fail(Code.AUTH_FAILURE, "未登录");
+        }
+        logger.info("变更邮箱请求: userId={}", userDetails.getUserId());
+        return userService.changeEmail(userDetails.getUserId(), newEmail, verifyCode);
+    }
+    @GetMapping("/account/me")
+    @Operation(summary = "获取当前用户信息", description = "返回当前登录用户的基本信息")
+    public Result<?> getCurrentUser(@AuthenticationPrincipal MyUserDetails userDetails) {
+        if (userDetails == null) {
+            return Result.fail(Code.AUTH_FAILURE, "未登录");
+        }
+        var user = userDetails.getUser();
+        return Result.success(java.util.Map.of(
+            "id", user.getId(),
+            "username", user.getName(),
+            "email", user.getEmail() != null ? user.getEmail() : ""
+        ));
     }
 }

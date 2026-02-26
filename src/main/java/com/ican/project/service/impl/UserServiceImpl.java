@@ -1,4 +1,4 @@
-package com.ican.project.service.impl;
+﻿package com.ican.project.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ican.project.mapper.UserMapper;
@@ -6,6 +6,7 @@ import com.ican.project.model.common.Code;
 import com.ican.project.model.common.Constants;
 import com.ican.project.model.common.Result;
 import com.ican.project.model.entity.User;
+import com.ican.project.service.MailService;
 import com.ican.project.service.UserService;
 import com.ican.project.utils.RedisCacheUtil;
 import org.slf4j.Logger;
@@ -24,6 +25,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private Map<String, MailService> mailServiceMap;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -201,11 +205,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 return Result.fail(Code.INTERNAL_ERROR, "用户数据异常");
             }
 
-            // 如果新旧密码相同，直接返回成功（不更新数据库，用户察觉不到）
-            if (passwordEncoder.matches(newPwd, user.getPassword())) {
-                logger.info("新旧密码相同，直接返回成功: email={}", emailByCode);
-                return Result.success("密码重置成功");
-            }
 
             String encodedPassword = passwordEncoder.encode(newPwd);
             user.setPassword(encodedPassword);
@@ -239,6 +238,123 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             logger.error("重置密码异常: verifyCode={}", verifyCode, e);
             // 保持原有逻辑：捕获异常并返回失败
             return Result.fail(Code.VERIFY_CODE_NOT_EXISTS, "密码重置失败，请稍后重试");
+        }
+    }
+    @Override
+    public Result<?> sendMailToChangePwd(String userId) {
+        if (userId == null) {
+            return Result.fail(Code.PARAMETER_ERROR, "参数不能为空");
+        }
+        try {
+            User user = userMapper.selectById(userId);
+            if (user == null) {
+                return Result.fail(Code.USER_NOT_EXISTS, "用户不存在");
+            }
+            String email = user.getEmail();
+            if (email == null || email.trim().isEmpty()) {
+                return Result.fail(Code.EMAIL_NOT_SUPPORT, "当前账号未绑定邮箱");
+            }
+            MailService service = com.ican.project.utils.MailServiceUtil.getMailServiceByEmail(mailServiceMap, email);
+            if (service == null) {
+                return Result.fail(Code.EMAIL_NOT_SUPPORT, "邮箱类型不支持");
+            }
+            return service.sendMailToChangePwd(email);
+        } catch (Exception e) {
+            logger.error("发送修改密码验证码异常: userId={}", userId, e);
+            return Result.fail(Code.INTERNAL_ERROR, "发送失败，请稍后重试");
+        }
+    }
+
+    @Override
+    public Result<?> changePwd(String userId, String verifyCode, String newPwd) {
+        if (userId == null || verifyCode == null || newPwd == null) {
+            return Result.fail(Code.PARAMETER_ERROR, "参数不能为空");
+        }
+        if (newPwd.length() < 6 || newPwd.length() > 20) {
+            return Result.fail(Code.PARAMETER_ERROR, "密码长度须在6-20个字符之间");
+        }
+        try {
+            String redisKey = Constants.RedisKey.VERIFY_CODE_CHANGE_PWD_PREFIX + verifyCode;
+            Object value = redisTemplate.opsForValue().get(redisKey);
+            // value 存的是邮箱地址
+            String emailByCode = value != null ? (String) value : null;
+            if (emailByCode == null) {
+                return Result.fail(Code.VERIFY_CODE_NOT_EXISTS, "验证码不存在或已失效");
+            }
+            User user = userMapper.selectById(userId);
+            if (user == null) {
+                return Result.fail(Code.USER_NOT_EXISTS, "用户不存在");
+            }
+            // 校验验证码对应的邮箱与当前用户邮箱一致
+            if (!emailByCode.equals(user.getEmail())) {
+                return Result.fail(Code.VERIFY_CODE_NOT_EXISTS, "验证码无效");
+            }
+            user.setPassword(passwordEncoder.encode(newPwd));
+            user.tackleTime();
+            userMapper.updateById(user);
+            redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_BY_USERNAME + user.getName());
+            redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_BY_EMAIL + user.getEmail());
+            redisTemplate.delete(redisKey);
+            logger.info("修改密码成功: userId={}", userId);
+            return Result.success("密码修改成功");
+        } catch (Exception e) {
+            logger.error("修改密码异常: userId={}", userId, e);
+            return Result.fail(Code.INTERNAL_ERROR, "修改密码失败，请稍后重试");
+        }
+    }
+
+    @Override
+    public Result<?> sendMailToChangeEmail(String newEmail) {
+        if (newEmail == null || newEmail.trim().isEmpty()) {
+            return Result.fail(Code.PARAMETER_ERROR, "新邮箱不能为空");
+        }
+        User existing = getUserByEmail(newEmail);
+        if (existing != null) {
+            return Result.fail(Code.EMAIL_EXISTS, "该邮箱已被其他账号绑定");
+        }
+        try {
+            MailService service = com.ican.project.utils.MailServiceUtil.getMailServiceByEmail(mailServiceMap, newEmail);
+            if (service == null) {
+                return Result.fail(Code.EMAIL_NOT_SUPPORT, "邮箱类型不支持，请使用QQ或网易邮箱");
+            }
+            return service.sendMailToChangeEmail(newEmail);
+        } catch (Exception e) {
+            logger.error("发送变更邮箱验证码异常: newEmail={}", newEmail, e);
+            return Result.fail(Code.INTERNAL_ERROR, "发送失败，请稍后重试");
+        }
+    }
+
+    @Override
+    public Result<?> changeEmail(String userId, String newEmail, String verifyCode) {
+        if (userId == null || newEmail == null || verifyCode == null) {
+            return Result.fail(Code.PARAMETER_ERROR, "参数不能为空");
+        }
+        try {
+            String redisKey = Constants.RedisKey.VERIFY_CODE_CHANGE_EMAIL_PREFIX + verifyCode;
+            Object value = redisTemplate.opsForValue().get(redisKey);
+            String emailByCode = value != null ? (String) value : null;
+            if (emailByCode == null || !emailByCode.equals(newEmail)) {
+                return Result.fail(Code.VERIFY_CODE_NOT_EXISTS, "验证码不存在或已失效");
+            }
+            User user = userMapper.selectById(userId);
+            if (user == null) {
+                return Result.fail(Code.USER_NOT_EXISTS, "用户不存在");
+            }
+            String oldEmail = user.getEmail();
+            user.setEmail(newEmail);
+            user.tackleTime();
+            userMapper.updateById(user);
+            redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_BY_USERNAME + user.getName());
+            if (oldEmail != null) {
+                redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_BY_EMAIL + oldEmail);
+            }
+            redisCacheUtil.delete(RedisCacheUtil.CacheKey.USER_BY_EMAIL + newEmail);
+            redisTemplate.delete(redisKey);
+            logger.info("变更邮箱成功: userId={}, newEmail={}", userId, newEmail);
+            return Result.success("邮箱变更成功");
+        } catch (Exception e) {
+            logger.error("变更邮箱异常: userId={}", userId, e);
+            return Result.fail(Code.INTERNAL_ERROR, "变更邮箱失败，请稍后重试");
         }
     }
 }

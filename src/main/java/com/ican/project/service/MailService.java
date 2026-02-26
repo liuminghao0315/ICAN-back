@@ -7,4 +7,8 @@ public interface MailService {
     Result<?> sendMailToRegister(String mailTo);
 
     Result<?> sendMailToResetPwd(String mailTo);
+
+    Result<?> sendMailToChangeEmail(String mailTo);
+
+    Result<?> sendMailToChangePwd(String mailTo);
 }

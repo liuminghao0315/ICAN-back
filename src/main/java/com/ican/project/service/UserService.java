@@ -24,4 +24,24 @@ public interface UserService extends IService<User> {
      * @return 用户对象，如果不存在则返回null
      */
     User getUserByEmail(String email);
+
+    /**
+     * 发送修改密码验证码到当前绑定邮箱
+     */
+    Result<?> sendMailToChangePwd(String userId);
+
+    /**
+     * 验证码验证后修改密码
+     */
+    Result<?> changePwd(String userId, String verifyCode, String newPwd);
+
+    /**
+     * 发送变更邮箱验证码到新邮箱
+     */
+    Result<?> sendMailToChangeEmail(String newEmail);
+
+    /**
+     * 验证验证码并更新邮箱
+     */
+    Result<?> changeEmail(String userId, String newEmail, String verifyCode);
 }

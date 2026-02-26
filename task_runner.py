@@ -27,7 +27,7 @@ import pika
 from typing import Dict, Any
 
 # ──────────────────────────── 配置 ────────────────────────────
-RABBITMQ_HOST = '192.168.178.128'
+RABBITMQ_HOST = '192.168.3.128'
 RABBITMQ_PORT = 5672
 RABBITMQ_USERNAME = 'guest'
 RABBITMQ_PASSWORD = 'guest'
@@ -35,7 +35,7 @@ RABBITMQ_VIRTUAL_HOST = '/'
 RESULT_CALLBACK_QUEUE = 'algorithm.result.queue'
 
 TUNNEL_HOST = "5aedd2d8.r12.cpolar.top"
-INTERNAL_HOST = "192.168.178.128:9000"
+INTERNAL_HOST = "192.168.3.128:9000"
 
 
 # ──────────────────────────── 子进程日志 ────────────────────────────

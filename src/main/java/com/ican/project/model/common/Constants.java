@@ -23,6 +23,12 @@ public class Constants {
 
         /** 重置密码验证码 Redis Key 前缀 */
         public static final String VERIFY_CODE_RESET_PWD_PREFIX = "verifyCodeToResetPwd:";
+
+        /** 变更邮箱验证码 Redis Key 前缀（value 存新邮箱） */
+        public static final String VERIFY_CODE_CHANGE_EMAIL_PREFIX = "verifyCodeToChangeEmail:";
+
+        /** 修改密码验证码 Redis Key 前缀（value 存 userId） */
+        public static final String VERIFY_CODE_CHANGE_PWD_PREFIX = "verifyCodeToChangePwd:";
     }
 
     /**
@@ -87,6 +93,12 @@ public class Constants {
 
         /** 重置密码邮件类型 */
         public static final int RESET_PASSWORD = 2;
+
+        /** 变更邮箱邮件类型 */
+        public static final int CHANGE_EMAIL = 3;
+
+        /** 修改密码邮件类型（登录态，发到当前邮箱） */
+        public static final int CHANGE_PWD = 4;
     }
 
     /**
@@ -110,6 +122,12 @@ public class Constants {
 
         /** 重置密码验证码邮件主题 */
         public static final String RESET_PASSWORD_SUBJECT = "您的重置密码验证码";
+
+        /** 变更邮箱验证码邮件主题 */
+        public static final String CHANGE_EMAIL_SUBJECT = "变更绑定邮箱验证码";
+
+        /** 修改密码验证码邮件主题 */
+        public static final String CHANGE_PWD_SUBJECT = "修改密码验证码";
 
         /** 验证码邮件内容模板 */
         private static final String CONTENT_TEMPLATE = "您的验证码是：%s，%d分钟内有效。";

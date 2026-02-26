@@ -36,6 +36,18 @@ public class NetEaseMailServiceImpl implements MailService {
         return sendNetEaseMail(mailTo, Constants.MailType.RESET_PASSWORD);
     }
 
+    @Override
+    public Result<?> sendMailToChangeEmail(String mailTo) {
+        logger.info("发送网易变更邮箱验证邮件: mailTo={}", mailTo);
+        return sendNetEaseMail(mailTo, Constants.MailType.CHANGE_EMAIL);
+    }
+
+    @Override
+    public Result<?> sendMailToChangePwd(String mailTo) {
+        logger.info("发送网易修改密码验证邮件: mailTo={}", mailTo);
+        return sendNetEaseMail(mailTo, Constants.MailType.CHANGE_PWD);
+    }
+
     private Result<?> sendNetEaseMail(String mailTo, int type) {
         if (mailTo == null || mailTo.trim().isEmpty()) {
             logger.warn("邮箱地址为空");
@@ -64,9 +76,13 @@ public class NetEaseMailServiceImpl implements MailService {
                 return Result.fail(Code.INTERNAL_ERROR, "验证码生成失败");
             }
 
-            String subject = type == Constants.MailType.REGISTER 
-                    ? Constants.MailContent.REGISTER_SUBJECT 
-                    : Constants.MailContent.RESET_PASSWORD_SUBJECT;
+            String subject = type == Constants.MailType.REGISTER
+                    ? Constants.MailContent.REGISTER_SUBJECT
+                    : type == Constants.MailType.CHANGE_EMAIL
+                        ? Constants.MailContent.CHANGE_EMAIL_SUBJECT
+                        : type == Constants.MailType.CHANGE_PWD
+                            ? Constants.MailContent.CHANGE_PWD_SUBJECT
+                            : Constants.MailContent.RESET_PASSWORD_SUBJECT;
             String content = Constants.MailContent.generateContent(verificationCode, Constants.VerifyCode.EXPIRE_MINUTES);
 
             try {
@@ -77,9 +93,13 @@ public class NetEaseMailServiceImpl implements MailService {
                 return Result.fail(Code.INTERNAL_ERROR, "邮件发送失败，请稍后重试");
             }
 
-            String redisKey = type == Constants.MailType.REGISTER 
-                    ? Constants.RedisKey.VERIFY_CODE_REGISTER_PREFIX + verificationCode 
-                    : Constants.RedisKey.VERIFY_CODE_RESET_PWD_PREFIX + verificationCode;
+            String redisKey = type == Constants.MailType.REGISTER
+                    ? Constants.RedisKey.VERIFY_CODE_REGISTER_PREFIX + verificationCode
+                    : type == Constants.MailType.CHANGE_EMAIL
+                        ? Constants.RedisKey.VERIFY_CODE_CHANGE_EMAIL_PREFIX + verificationCode
+                        : type == Constants.MailType.CHANGE_PWD
+                            ? Constants.RedisKey.VERIFY_CODE_CHANGE_PWD_PREFIX + verificationCode
+                            : Constants.RedisKey.VERIFY_CODE_RESET_PWD_PREFIX + verificationCode;
             try {
                 redisTemplate.opsForValue().set(redisKey, mailTo, Constants.VerifyCode.EXPIRE_MINUTES, TimeUnit.MINUTES);
                 logger.debug("验证码已存储到Redis: redisKey={}, mailTo={}", redisKey, mailTo);

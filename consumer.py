@@ -38,7 +38,7 @@ logging.basicConfig(
 logger = logging.getLogger("consumer")
 
 # ──────────────────────────── 配置 ────────────────────────────
-RABBITMQ_HOST = '192.168.178.128'
+RABBITMQ_HOST = '192.168.3.128'
 RABBITMQ_PORT = 5672
 RABBITMQ_USERNAME = 'guest'
 RABBITMQ_PASSWORD = 'guest'
