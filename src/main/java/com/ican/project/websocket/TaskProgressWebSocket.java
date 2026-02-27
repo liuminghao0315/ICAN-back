@@ -28,6 +28,11 @@ public class TaskProgressWebSocket {
      * value: Session
      */
     private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
+
+    /**
+     * 每个 Session 的发送锁，防止 getBasicRemote().sendText() 并发导致消息丢失
+     */
+    private static final ConcurrentHashMap<String, Object> SESSION_LOCKS = new ConcurrentHashMap<>();
     
     /**
      * 连接建立时调用
@@ -35,6 +40,7 @@ public class TaskProgressWebSocket {
     @OnOpen
     public void onOpen(Session session, @PathParam("userId") String userId) {
         SESSIONS.put(userId, session);
+        SESSION_LOCKS.putIfAbsent(userId, new Object());
         logger.info("WebSocket连接建立: userId={}, sessionId={}", userId, session.getId());
         
         // 发送连接成功消息
@@ -47,6 +53,7 @@ public class TaskProgressWebSocket {
     @OnClose
     public void onClose(Session session, @PathParam("userId") String userId) {
         SESSIONS.remove(userId);
+        SESSION_LOCKS.remove(userId);
         logger.info("WebSocket连接关闭: userId={}", userId);
     }
     
@@ -70,6 +77,7 @@ public class TaskProgressWebSocket {
     public void onError(Session session, Throwable error, @PathParam("userId") String userId) {
         logger.error("WebSocket错误: userId={}, error={}", userId, error.getMessage());
         SESSIONS.remove(userId);
+        SESSION_LOCKS.remove(userId);
     }
     
     /**
@@ -78,14 +86,17 @@ public class TaskProgressWebSocket {
      * @param message 消息内容
      */
     public static void sendMessage(String userId, String message) {
-        logger.info("尝试发送WebSocket消息: userId={}, 当前在线用户={}", userId, SESSIONS.keySet());
         Session session = SESSIONS.get(userId);
         if (session != null && session.isOpen()) {
-            try {
-                session.getBasicRemote().sendText(message);
-                logger.info("WebSocket消息发送成功: userId={}", userId);
-            } catch (IOException e) {
-                logger.error("发送WebSocket消息失败: userId={}, error={}", userId, e.getMessage());
+            Object lock = SESSION_LOCKS.computeIfAbsent(userId, k -> new Object());
+            synchronized (lock) {
+                try {
+                    if (session.isOpen()) {
+                        session.getBasicRemote().sendText(message);
+                    }
+                } catch (IOException e) {
+                    logger.error("发送WebSocket消息失败: userId={}, error={}", userId, e.getMessage());
+                }
             }
         } else {
             logger.warn("WebSocket发送失败: 用户 {} 不在线或会话已关闭", userId);

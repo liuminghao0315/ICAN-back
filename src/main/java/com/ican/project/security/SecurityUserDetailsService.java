@@ -1,5 +1,6 @@
 package com.ican.project.security;
 
+import com.ican.project.mapper.UserMapper;
 import com.ican.project.model.entity.User;
 import com.ican.project.service.UserService;
 import org.slf4j.Logger;
@@ -21,6 +22,9 @@ public class SecurityUserDetailsService implements UserDetailsService {
     @Lazy
     private UserService userService;
 
+    @Autowired
+    private UserMapper userMapper;
+
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         if (username == null || username.trim().isEmpty()) {
@@ -40,8 +44,13 @@ public class SecurityUserDetailsService implements UserDetailsService {
                 throw new UsernameNotFoundException("用户不存在: " + username);
             }
 
-            logger.debug("加载用户成功: username={}, userId={}", username, user.getId());
-            return new MyUserDetails(user, List.of());
+            List<String> perms = userMapper.selectPermsByUserId(user.getId());
+            if (perms == null) {
+                perms = List.of();
+            }
+
+            logger.debug("加载用户成功: username={}, userId={}, perms={}", username, user.getId(), perms.size());
+            return new MyUserDetails(user, perms);
         } catch (UsernameNotFoundException e) {
             throw e;
         } catch (Exception e) {

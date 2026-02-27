@@ -6,10 +6,14 @@ import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.exception.BusinessException;
+import com.ican.project.mapper.AnalysisFeedbackMapper;
+import com.ican.project.mapper.AnalysisResultMapper;
 import com.ican.project.mapper.AnalysisTaskMapper;
 import com.ican.project.mapper.UploadChunkMapper;
 import com.ican.project.mapper.VideoMapper;
 import com.ican.project.model.dto.ChunkUploadDTO;
+import com.ican.project.model.entity.AnalysisFeedback;
+import com.ican.project.model.entity.AnalysisResult;
 import com.ican.project.model.entity.AnalysisTask;
 import com.ican.project.model.entity.UploadChunk;
 import com.ican.project.model.entity.Video;
@@ -74,6 +78,12 @@ public class VideoServiceImpl implements VideoService {
     
     @Autowired
     private AnalysisTaskMapper analysisTaskMapper;
+    
+    @Autowired
+    private AnalysisFeedbackMapper analysisFeedbackMapper;
+
+    @Autowired
+    private AnalysisResultMapper analysisResultMapper;
     
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
@@ -783,6 +793,16 @@ public class VideoServiceImpl implements VideoService {
             throw new BusinessException("无权删除该视频");
         }
         
+        // 检查是否有未处理的反馈
+        long pendingFeedbackCount = analysisFeedbackMapper.selectCount(
+                new LambdaQueryWrapper<AnalysisFeedback>()
+                        .eq(AnalysisFeedback::getVideoId, videoId)
+                        .in(AnalysisFeedback::getStatus, "PENDING", "PROCESSING")
+        );
+        if (pendingFeedbackCount > 0) {
+            throw new BusinessException("该视频有未处理的反馈，暂时无法删除");
+        }
+        
         // 先清理该视频对应任务的 Redis 中间状态
         // 防止 Python 回调消息在删除后重试时重新写库（"复活"问题）
         LambdaQueryWrapper<AnalysisTask> taskWrapper = new LambdaQueryWrapper<>();
@@ -814,7 +834,7 @@ public class VideoServiceImpl implements VideoService {
             }
         }
         
-        // 删除MinIO文件
+        // 删除MinIO文件（视频、缩略图、PDF报告）
         try {
             minioService.deleteFile(video.getFilePath());
             if (video.getThumbnailPath() != null) {
@@ -822,6 +842,26 @@ public class VideoServiceImpl implements VideoService {
             }
         } catch (Exception e) {
             logger.warn("删除MinIO文件失败: {}", e.getMessage());
+        }
+
+        // 删除关联的 PDF 报告文件（DB 记录会被 CASCADE 删除，但 MinIO 文件需要手动清理）
+        try {
+            LambdaQueryWrapper<AnalysisResult> resultWrapper = new LambdaQueryWrapper<>();
+            resultWrapper.eq(AnalysisResult::getVideoId, videoId)
+                    .isNotNull(AnalysisResult::getReportPdfPath);
+            List<AnalysisResult> results = analysisResultMapper.selectList(resultWrapper);
+            for (AnalysisResult r : results) {
+                if (r.getReportPdfPath() != null && !r.getReportPdfPath().isEmpty()) {
+                    try {
+                        minioService.deleteFile(r.getReportPdfPath());
+                        logger.info("已删除PDF报告: {}", r.getReportPdfPath());
+                    } catch (Exception e) {
+                        logger.warn("删除PDF报告失败（不影响删除）: path={}, error={}", r.getReportPdfPath(), e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("查询关联PDF报告失败（不影响删除）: videoId={}, error={}", videoId, e.getMessage());
         }
         
         // 删除数据库记录（级联删除 analysis_task 和 analysis_result）

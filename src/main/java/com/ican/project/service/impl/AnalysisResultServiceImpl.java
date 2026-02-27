@@ -119,7 +119,7 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             throw new BusinessException("分析结果数据异常：任务ID为空");
         }
         AnalysisTask task = analysisTaskMapper.selectById(result.getTaskId());
-        if (task == null || task.getUserId() == null || !task.getUserId().equals(userId)) {
+        if (task == null || task.getUserId() == null || (!task.getUserId().equals(userId) && !isAdmin(userId))) {
             throw new BusinessException("无权访问该分析结果");
         }
         
@@ -150,7 +150,7 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         if (task == null) {
             throw new BusinessException("任务不存在");
         }
-        if (task.getUserId() == null || !task.getUserId().equals(userId)) {
+        if (task.getUserId() == null || (!task.getUserId().equals(userId) && !isAdmin(userId))) {
             throw new BusinessException("无权访问该任务的分析结果");
         }
         
@@ -189,7 +189,7 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         if (video == null) {
             throw new BusinessException("视频不存在");
         }
-        if (video.getUserId() == null || !video.getUserId().equals(userId)) {
+        if (video.getUserId() == null || (!video.getUserId().equals(userId) && !isAdmin(userId))) {
             throw new BusinessException("无权访问该视频的分析结果");
         }
         
@@ -731,6 +731,11 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             logger.warn("解析JSON Map失败: {}", e.getMessage());
             return new java.util.HashMap<>();
         }
+    }
+    
+    private boolean isAdmin(String userId) {
+        List<String> roles = userMapper.selectRoleNamesByUserId(userId);
+        return roles != null && roles.contains("Administrator");
     }
 }
 

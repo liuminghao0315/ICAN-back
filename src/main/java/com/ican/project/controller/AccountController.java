@@ -4,6 +4,7 @@ import com.ican.project.model.common.Code;
 import com.ican.project.model.common.Result;
 import com.ican.project.utils.MailServiceUtil;
 import com.ican.project.model.entity.User;
+import com.ican.project.mapper.UserMapper;
 import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.LogoutService;
 import com.ican.project.service.MailService;
@@ -23,6 +24,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -36,6 +39,8 @@ public class AccountController {
     private Map<String, MailService> mailServiceMap;
     @Autowired
     private UserService userService;
+    @Autowired
+    private UserMapper userMapper;
 
     @GetMapping("/account/logout")
     @Operation(summary = "用户登出", description = "用户登出接口，清除登录状态")
@@ -166,16 +171,20 @@ public class AccountController {
         return userService.changeEmail(userDetails.getUserId(), newEmail, verifyCode);
     }
     @GetMapping("/account/me")
-    @Operation(summary = "获取当前用户信息", description = "返回当前登录用户的基本信息")
+    @Operation(summary = "获取当前用户信息", description = "返回当前登录用户的基本信息（含角色）")
     public Result<?> getCurrentUser(@AuthenticationPrincipal MyUserDetails userDetails) {
         if (userDetails == null) {
             return Result.fail(Code.AUTH_FAILURE, "未登录");
         }
         var user = userDetails.getUser();
-        return Result.success(java.util.Map.of(
-            "id", user.getId(),
-            "username", user.getName(),
-            "email", user.getEmail() != null ? user.getEmail() : ""
-        ));
+        List<String> roles = userMapper.selectRoleNamesByUserId(user.getId());
+        String role = (roles != null && !roles.isEmpty()) ? roles.get(0) : "User";
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", user.getId());
+        data.put("username", user.getName());
+        data.put("email", user.getEmail() != null ? user.getEmail() : "");
+        data.put("role", role);
+        return Result.success(data);
     }
 }

@@ -357,4 +357,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return Result.fail(Code.INTERNAL_ERROR, "变更邮箱失败，请稍后重试");
         }
     }
+
+    @Override
+    public List<String> getRoleNames(String userId) {
+        if (userId == null) return List.of();
+        List<String> roles = userMapper.selectRoleNamesByUserId(userId);
+        return roles != null ? roles : List.of();
+    }
+
+    @Override
+    public List<String> getAdminUserIds() {
+        List<String> ids = userMapper.selectUserIdsByRoleName("Administrator");
+        return ids != null ? ids : List.of();
+    }
 }

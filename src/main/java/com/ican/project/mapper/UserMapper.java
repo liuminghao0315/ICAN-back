@@ -39,4 +39,14 @@ public interface UserMapper extends BaseMapper<User> {
      * @return 分析次数
      */
     Integer getAnalysisCount(@Param("userId") String userId);
+
+    /**
+     * 根据用户ID查询角色名称列表
+     */
+    List<String> selectRoleNamesByUserId(@Param("userId") String userId);
+
+    /**
+     * 查询所有拥有指定角色的用户ID
+     */
+    List<String> selectUserIdsByRoleName(@Param("roleName") String roleName);
 }

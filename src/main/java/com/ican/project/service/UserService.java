@@ -44,4 +44,14 @@ public interface UserService extends IService<User> {
      * 验证验证码并更新邮箱
      */
     Result<?> changeEmail(String userId, String newEmail, String verifyCode);
+
+    /**
+     * 获取用户角色名称列表
+     */
+    List<String> getRoleNames(String userId);
+
+    /**
+     * 查询所有管理员用户ID
+     */
+    List<String> getAdminUserIds();
 }

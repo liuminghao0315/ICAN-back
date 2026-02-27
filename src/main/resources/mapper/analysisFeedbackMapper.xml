@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ican.project.mapper.AnalysisFeedbackMapper">
+
+    <!-- CAS 锁定：PENDING 状态下，无 handler 或原 handler 可锁 -->
+    <update id="lockFeedback">
+        UPDATE `analysis_feedback`
+        SET status = 'PROCESSING', handler_id = #{handlerId}, gmt_modified = NOW()
+        WHERE id = #{id} AND status = 'PENDING'
+          AND (handler_id IS NULL OR handler_id = #{handlerId})
+    </update>
+
+</mapper>
