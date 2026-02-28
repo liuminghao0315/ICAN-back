@@ -8,4 +8,23 @@
         WHERE user_id = #{userId} AND is_read = 0
     </update>
 
+    <update id="markByContextAsRead">
+        UPDATE `notification`
+        SET is_read = 1
+        WHERE user_id = #{userId}
+          AND is_read = 0
+        <if test="relatedType != null and relatedType != ''">
+            AND related_type = #{relatedType}
+        </if>
+        <if test="feedbackId != null and feedbackId != ''">
+            AND feedback_id = #{feedbackId}
+        </if>
+        <if test="videoId != null and videoId != ''">
+            AND video_id = #{videoId}
+        </if>
+        <if test="targetPath != null and targetPath != ''">
+            AND target_path = #{targetPath}
+        </if>
+    </update>
+
 </mapper>

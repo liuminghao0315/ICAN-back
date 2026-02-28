@@ -31,6 +31,7 @@ public class AnalysisFeedback {
     private String status;
     private String handlerId;
     private String adminReply;
+    private Integer userUnread;
     private LocalDateTime gmtCreated;
     private LocalDateTime gmtModified;
 }

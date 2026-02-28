@@ -2,6 +2,7 @@ package com.ican.project.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ican.project.model.common.Result;
+import com.ican.project.model.dto.NotificationReadContextDTO;
 import com.ican.project.model.vo.NotificationVO;
 import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.NotificationService;
@@ -48,6 +49,20 @@ public class NotificationController {
     @Operation(summary = "全部标记已读")
     public Result<Void> markAllAsRead(@AuthenticationPrincipal MyUserDetails userDetails) {
         notificationService.markAllAsRead(userDetails.getUserId());
+        return Result.success(null);
+    }
+
+    @PutMapping("/read-context")
+    @Operation(summary = "按上下文标记已读")
+    public Result<Void> markByContextAsRead(@RequestBody NotificationReadContextDTO dto,
+                                            @AuthenticationPrincipal MyUserDetails userDetails) {
+        notificationService.markByContextAsRead(
+                userDetails.getUserId(),
+                dto.getRelatedType(),
+                dto.getFeedbackId(),
+                dto.getVideoId(),
+                dto.getTargetPath()
+        );
         return Result.success(null);
     }
 }

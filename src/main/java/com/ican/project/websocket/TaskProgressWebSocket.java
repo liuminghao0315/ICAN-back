@@ -207,6 +207,50 @@ public class TaskProgressWebSocket {
     }
     
     /**
+     * 向指定用户发送反馈新消息通知（推给管理员：有新反馈/用户追加消息）
+     * @param userId     目标用户ID（管理员）
+     * @param feedbackId 反馈ID
+     */
+    public static void sendFeedbackNew(String userId, String feedbackId) {
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("feedbackId", feedbackId);
+        sendMessage(userId, createMessage("feedback_new", "新的反馈消息", data));
+    }
+
+    /**
+     * 向其他管理员广播：某反馈已被锁定（携带处理人信息）
+     */
+    public static void sendFeedbackLocked(String userId, String feedbackId, String handlerId, String handlerName) {
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("feedbackId", feedbackId);
+        data.put("handlerId", handlerId);
+        data.put("handlerName", handlerName);
+        sendMessage(userId, createMessage("feedback_locked", "反馈已被接管", data));
+    }
+
+    /**
+     * 向其他管理员广播：某反馈有会话内容更新（仅刷新，不增加未读）
+     */
+    public static void sendFeedbackSync(String userId, String feedbackId) {
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("feedbackId", feedbackId);
+        sendMessage(userId, createMessage("feedback_sync", "反馈会话已更新", data));
+    }
+
+    /**
+     * 向指定用户发送反馈更新通知（推给用户：管理员回复/状态变更）
+     * @param userId     目标用户ID（反馈提交者）
+     * @param feedbackId 反馈ID
+     * @param status     最新状态
+     */
+    public static void sendFeedbackUpdated(String userId, String feedbackId, String status) {
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("feedbackId", feedbackId);
+        data.put("status", status);
+        sendMessage(userId, createMessage("feedback_updated", "反馈已更新", data));
+    }
+
+    /**
      * 广播消息给所有在线用户
      * @param message 消息内容
      */

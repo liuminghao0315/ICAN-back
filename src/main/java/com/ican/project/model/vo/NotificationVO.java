@@ -17,6 +17,10 @@ public class NotificationVO {
     private String title;
     private String content;
     private String relatedId;
+    private String relatedType;
+    private String feedbackId;
+    private String videoId;
+    private String targetPath;
     private Boolean isRead;
     private LocalDateTime gmtCreated;
 }

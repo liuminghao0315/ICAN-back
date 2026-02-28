@@ -23,12 +23,22 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
 
     @Override
     public void sendNotification(String userId, String type, String title, String content, String relatedId) {
+        sendNotification(userId, type, title, content, relatedId, null, null, null, null);
+    }
+
+    @Override
+    public void sendNotification(String userId, String type, String title, String content, String relatedId,
+                                 String relatedType, String feedbackId, String videoId, String targetPath) {
         Notification n = Notification.builder()
                 .userId(userId)
                 .type(type)
                 .title(title)
                 .content(content)
                 .relatedId(relatedId)
+                .relatedType(relatedType)
+                .feedbackId(feedbackId)
+                .videoId(videoId)
+                .targetPath(targetPath)
                 .isRead(false)
                 .gmtCreated(LocalDateTime.now())
                 .build();
@@ -37,9 +47,15 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
 
     @Override
     public void sendNotificationToUsers(List<String> userIds, String type, String title, String content, String relatedId) {
+        sendNotificationToUsers(userIds, type, title, content, relatedId, null, null, null, null);
+    }
+
+    @Override
+    public void sendNotificationToUsers(List<String> userIds, String type, String title, String content, String relatedId,
+                                        String relatedType, String feedbackId, String videoId, String targetPath) {
         if (userIds == null || userIds.isEmpty()) return;
         for (String uid : userIds) {
-            sendNotification(uid, type, title, content, relatedId);
+            sendNotification(uid, type, title, content, relatedId, relatedType, feedbackId, videoId, targetPath);
         }
     }
 
@@ -78,6 +94,11 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
         notificationMapper.markAllAsRead(userId);
     }
 
+    @Override
+    public void markByContextAsRead(String userId, String relatedType, String feedbackId, String videoId, String targetPath) {
+        notificationMapper.markByContextAsRead(userId, relatedType, feedbackId, videoId, targetPath);
+    }
+
     private NotificationVO toVO(Notification n) {
         return NotificationVO.builder()
                 .id(n.getId())
@@ -85,6 +106,10 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
                 .title(n.getTitle())
                 .content(n.getContent())
                 .relatedId(n.getRelatedId())
+                .relatedType(n.getRelatedType())
+                .feedbackId(n.getFeedbackId())
+                .videoId(n.getVideoId())
+                .targetPath(n.getTargetPath())
                 .isRead(n.getIsRead())
                 .gmtCreated(n.getGmtCreated())
                 .build();

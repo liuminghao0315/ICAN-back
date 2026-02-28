@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ican.project.exception.BusinessException;
 import com.ican.project.mapper.AnalysisFeedbackMapper;
+import com.ican.project.mapper.FeedbackAdminUnreadMapper;
 import com.ican.project.mapper.AnalysisResultMapper;
 import com.ican.project.mapper.UserMapper;
 import com.ican.project.mapper.VideoMapper;
@@ -20,6 +21,7 @@ import com.ican.project.model.vo.FeedbackVO;
 import com.ican.project.service.AnalysisFeedbackService;
 import com.ican.project.service.NotificationService;
 import com.ican.project.service.UserService;
+import com.ican.project.websocket.TaskProgressWebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,9 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
 
     @Autowired
     private AnalysisFeedbackMapper feedbackMapper;
+
+    @Autowired
+    private FeedbackAdminUnreadMapper adminUnreadMapper;
 
     @Autowired
     private UserMapper userMapper;
@@ -76,6 +81,8 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
 
             existing.setContent(messages.toJSONString());
 
+            // 用户追加消息，给相关管理员未读+1（新表，每人独立）
+
             // 状态策略：只有已关闭的反馈才重新打开，进行中的不打扰
             String oldStatus = existing.getStatus();
             boolean reopened = false;
@@ -88,9 +95,37 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
             existing.setGmtModified(LocalDateTime.now());
             updateById(existing);
 
-            // 只有重新打开时才通知管理员
+            // 只有重新打开时才发通知铃铛
             if (reopened) {
-                notifyAdmins(userId, existing.getId());
+                // 只通知原处理人；若无处理人则通知所有管理员
+                String reopenHandlerId = existing.getHandlerId();
+                if (reopenHandlerId != null && !reopenHandlerId.isEmpty()) {
+                    adminUnreadMapper.incrementUnread(existing.getId(), reopenHandlerId);
+                    TaskProgressWebSocket.sendFeedbackNew(reopenHandlerId, existing.getId());
+                } else {
+                    List<String> adminIds = userService.getAdminUserIds();
+                    for (String adminId : adminIds) {
+                        adminUnreadMapper.incrementUnread(existing.getId(), adminId);
+                    }
+                    notifyAdmins(existing);
+                }
+                // 推送给用户自己：状态已变回 PENDING
+                TaskProgressWebSocket.sendFeedbackUpdated(userId, existing.getId(), "PENDING");
+            } else {
+                // 已有处理人：只推给处理人；未锁定：推给所有管理员
+                String handlerId = existing.getHandlerId();
+                if (handlerId != null && !handlerId.isEmpty()) {
+                    adminUnreadMapper.incrementUnread(existing.getId(), handlerId);
+                    TaskProgressWebSocket.sendFeedbackNew(handlerId, existing.getId());
+                    // 给其他管理员同步会话内容（仅刷新，不增加未读）
+                    broadcastFeedbackSyncToOtherAdmins(handlerId, existing.getId());
+                } else {
+                    List<String> adminIds = userService.getAdminUserIds();
+                    for (String adminId : adminIds) {
+                        adminUnreadMapper.incrementUnread(existing.getId(), adminId);
+                        TaskProgressWebSocket.sendFeedbackNew(adminId, existing.getId());
+                    }
+                }
             }
             return toVO(existing);
         }
@@ -122,12 +157,18 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
                 .videoTitle(videoTitle)
                 .analysisSnapshot(snapshot)
                 .status("PENDING")
+                .userUnread(0)
                 .gmtCreated(LocalDateTime.now())
                 .gmtModified(LocalDateTime.now())
                 .build();
         save(feedback);
 
-        notifyAdmins(userId, feedback.getId());
+        // 给所有管理员未读+1
+        List<String> adminIds = userService.getAdminUserIds();
+        for (String adminId : adminIds) {
+            adminUnreadMapper.incrementUnread(feedback.getId(), adminId);
+        }
+        notifyAdmins(feedback);
         return toVO(feedback);
     }
 
@@ -151,15 +192,18 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
     }
 
     @Override
-    public Page<FeedbackVO> getAdminFeedbackList(int page, int size, String status) {
+    public Page<FeedbackVO> getAdminFeedbackList(int page, int size, String status, String adminId, boolean onlyMine) {
         Page<AnalysisFeedback> entityPage = new Page<>(page, size);
         LambdaQueryWrapper<AnalysisFeedback> wrapper = new LambdaQueryWrapper<>();
         if (status != null && !status.isEmpty()) {
             wrapper.eq(AnalysisFeedback::getStatus, status);
         }
+        if (onlyMine) {
+            wrapper.eq(AnalysisFeedback::getHandlerId, adminId);
+        }
         wrapper.orderByDesc(AnalysisFeedback::getGmtCreated);
         feedbackMapper.selectPage(entityPage, wrapper);
-        return convertPage(entityPage);
+        return convertPageForAdmin(entityPage, adminId);
     }
 
     @Override
@@ -167,6 +211,35 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
         int rows = feedbackMapper.lockFeedback(feedbackId, adminUserId);
         if (rows == 0) {
             throw new BusinessException("该反馈已被其他管理员处理或状态已变更");
+        }
+
+        // 插入系统消息：告知用户反馈已被接管
+        AnalysisFeedback feedback = feedbackMapper.selectById(feedbackId);
+        User admin = userMapper.selectById(adminUserId);
+        String adminName = admin != null ? admin.getName() : "管理员";
+        if (feedback != null) {
+            JSONArray messages = parseMessages(feedback.getContent());
+            JSONObject sysMsg = new JSONObject();
+            sysMsg.put("role", "system");
+            sysMsg.put("text", adminName + " 已接手此反馈，正在为您处理，请耐心等待。");
+            sysMsg.put("time", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+            messages.add(sysMsg);
+            feedback.setContent(messages.toJSONString());
+            feedback.setUserUnread((feedback.getUserUnread() == null ? 0 : feedback.getUserUnread()) + 1);
+            // 锁定时清零所有管理员的未读数（新表）
+            adminUnreadMapper.clearAllUnread(feedbackId);
+            feedback.setGmtModified(LocalDateTime.now());
+            updateById(feedback);
+            // 推送给用户
+            TaskProgressWebSocket.sendFeedbackUpdated(feedback.getUserId(), feedbackId, feedback.getStatus());
+        }
+
+        // 广播给其他在线管理员：该反馈已被锁定（携带处理人信息）
+        List<String> adminIds = userService.getAdminUserIds();
+        for (String aid : adminIds) {
+            if (!aid.equals(adminUserId)) {
+                TaskProgressWebSocket.sendFeedbackLocked(aid, feedbackId, adminUserId, adminName);
+            }
         }
     }
 
@@ -191,16 +264,25 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
 
         feedback.setContent(messages.toJSONString());
         feedback.setAdminReply(reply);
+        feedback.setUserUnread((feedback.getUserUnread() == null ? 0 : feedback.getUserUnread()) + 1);
         feedback.setGmtModified(LocalDateTime.now());
         updateById(feedback);
 
         notificationService.sendNotification(
                 feedback.getUserId(),
                 "FEEDBACK_REPLIED",
-                "管理员回复了您的反馈",
-                "您提交的分析反馈收到了新的管理员回复",
-                feedbackId
+                "《" + getVideoTitle(feedback) + "》收到管理员回复",
+                quoteAndTruncate(reply),
+                feedbackId,
+                "FEEDBACK",
+                feedbackId,
+                feedback.getVideoId(),
+                "/analysis"
         );
+        // WebSocket 实时推送给用户
+        TaskProgressWebSocket.sendFeedbackUpdated(feedback.getUserId(), feedbackId, feedback.getStatus());
+        // 实时同步给其他管理员（仅刷新，不增加未读）
+        broadcastFeedbackSyncToOtherAdmins(adminUserId, feedbackId);
     }
 
     @Override
@@ -219,31 +301,120 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
             throw new BusinessException("该反馈已关闭");
         }
 
+        String statusText = "RESOLVED".equals(status) ? "已解决" : "已驳回";
+
+        // 插入系统消息
+        JSONArray messages = parseMessages(feedback.getContent());
+        JSONObject sysMsg = new JSONObject();
+        sysMsg.put("role", "system");
+        sysMsg.put("text", "此反馈已被管理员标记为「" + statusText + "」，感谢您的反馈与配合。");
+        sysMsg.put("time", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        messages.add(sysMsg);
+
+        feedback.setContent(messages.toJSONString());
         feedback.setStatus(status);
+        feedback.setUserUnread((feedback.getUserUnread() == null ? 0 : feedback.getUserUnread()) + 1);
         feedback.setGmtModified(LocalDateTime.now());
         updateById(feedback);
-
-        String statusText = "RESOLVED".equals(status) ? "已解决" : "已驳回";
         notificationService.sendNotification(
                 feedback.getUserId(),
                 "FEEDBACK_REPLIED",
-                "反馈处理结果：" + statusText,
-                "您提交的分析反馈已被管理员标记为：" + statusText,
-                feedbackId
+                "《" + getVideoTitle(feedback) + "》反馈处理结果：" + statusText,
+                quoteAndTruncate("此反馈已被管理员标记为「" + statusText + "」"),
+                feedbackId,
+                "FEEDBACK",
+                feedbackId,
+                feedback.getVideoId(),
+                "/analysis"
         );
+        // WebSocket 实时推送给用户
+        TaskProgressWebSocket.sendFeedbackUpdated(feedback.getUserId(), feedbackId, status);
+        // 实时同步给其他管理员（仅刷新，不增加未读）
+        broadcastFeedbackSyncToOtherAdmins(adminUserId, feedbackId);
     }
 
-    private void notifyAdmins(String userId, String feedbackId) {
+    @Override
+    public FeedbackVO getFeedbackById(String feedbackId) {
+        AnalysisFeedback feedback = feedbackMapper.selectById(feedbackId);
+        if (feedback == null) {
+            throw new BusinessException("反馈不存在");
+        }
+        return toVO(feedback);
+    }
+
+    @Override
+    public void clearUnread(String feedbackId, boolean isAdmin, String userId) {
+        if (isAdmin) {
+            adminUnreadMapper.clearUnread(feedbackId, userId);
+        } else {
+            AnalysisFeedback feedback = feedbackMapper.selectById(feedbackId);
+            if (feedback == null) return;
+            feedback.setUserUnread(0);
+            feedback.setGmtModified(LocalDateTime.now());
+            updateById(feedback);
+        }
+    }
+
+    // 广播会话变更给除操作者外的所有管理员（仅同步，不改未读）
+    private void broadcastFeedbackSyncToOtherAdmins(String excludeAdminId, String feedbackId) {
         List<String> adminIds = userService.getAdminUserIds();
-        User submitter = userMapper.selectById(userId);
-        String submitterName = submitter != null ? submitter.getName() : "用户";
+        for (String adminId : adminIds) {
+            if (!adminId.equals(excludeAdminId)) {
+                TaskProgressWebSocket.sendFeedbackSync(adminId, feedbackId);
+            }
+        }
+    }
+
+    private void notifyAdmins(AnalysisFeedback feedback) {
+        List<String> adminIds = userService.getAdminUserIds();
         notificationService.sendNotificationToUsers(
                 adminIds,
                 "FEEDBACK_NEW",
-                "新的分析反馈",
-                submitterName + " 提交了一条分析结果反馈，请及时处理",
-                feedbackId
+                "《" + getVideoTitle(feedback) + "》有新的反馈消息",
+                quoteAndTruncate(extractLatestUserMessage(feedback)),
+                feedback.getId(),
+                "FEEDBACK",
+                feedback.getId(),
+                feedback.getVideoId(),
+                "/admin/feedback"
         );
+        // WebSocket 实时推送给所有在线管理员
+        for (String adminId : adminIds) {
+            TaskProgressWebSocket.sendFeedbackNew(adminId, feedback.getId());
+        }
+    }
+
+    private String getVideoTitle(AnalysisFeedback feedback) {
+        if (feedback.getVideoTitle() != null && !feedback.getVideoTitle().isEmpty()) {
+            return feedback.getVideoTitle();
+        }
+        Video video = videoMapper.selectById(feedback.getVideoId());
+        if (video != null && video.getTitle() != null && !video.getTitle().isEmpty()) {
+            return video.getTitle();
+        }
+        return "未知视频";
+    }
+
+    private String extractLatestUserMessage(AnalysisFeedback feedback) {
+        JSONArray messages = parseMessages(feedback.getContent());
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            JSONObject msg = messages.getJSONObject(i);
+            if (msg != null && "user".equals(msg.getString("role"))) {
+                String text = msg.getString("text");
+                return (text == null || text.isEmpty()) ? "用户发送了新消息" : text;
+            }
+        }
+        return "用户发送了新消息";
+    }
+
+    private String quoteAndTruncate(String text) {
+        if (text == null || text.isEmpty()) return "“新消息”";
+        String clean = text.replaceAll("\\s+", " ").trim();
+        int maxLen = 80;
+        if (clean.length() > maxLen) {
+            clean = clean.substring(0, maxLen) + "...";
+        }
+        return "“" + clean + "”";
     }
 
     private String buildAnalysisSnapshot(String taskId) {
@@ -291,11 +462,20 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
         return voPage;
     }
 
+    private Page<FeedbackVO> convertPageForAdmin(Page<AnalysisFeedback> entityPage, String adminId) {
+        Page<FeedbackVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
+        voPage.setRecords(entityPage.getRecords().stream().map(e -> toVOForAdmin(e, adminId)).toList());
+        return voPage;
+    }
+
     private FeedbackVO toVO(AnalysisFeedback entity) {
+        return toVOForAdmin(entity, null);
+    }
+
+    private FeedbackVO toVOForAdmin(AnalysisFeedback entity, String adminId) {
         User user = userMapper.selectById(entity.getUserId());
         User handler = entity.getHandlerId() != null ? userMapper.selectById(entity.getHandlerId()) : null;
 
-        // videoTitle: 优先用快照字段，fallback 查 video 表
         String videoTitle = entity.getVideoTitle();
         Video video = videoMapper.selectById(entity.getVideoId());
         boolean videoDeleted = (video == null);
@@ -303,7 +483,6 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
             videoTitle = video.getTitle();
         }
 
-        // 反序列化 analysisSnapshot
         Object snapshotObj = null;
         if (entity.getAnalysisSnapshot() != null && !entity.getAnalysisSnapshot().isEmpty()) {
             try {
@@ -311,6 +490,13 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
             } catch (Exception e) {
                 snapshotObj = entity.getAnalysisSnapshot();
             }
+        }
+
+        // 查该管理员自己的未读数
+        int adminUnread = 0;
+        if (adminId != null) {
+            Integer val = adminUnreadMapper.getUnread(entity.getId(), adminId);
+            adminUnread = val != null ? val : 0;
         }
 
         return FeedbackVO.builder()
@@ -327,6 +513,8 @@ public class AnalysisFeedbackServiceImpl extends ServiceImpl<AnalysisFeedbackMap
                 .handlerId(entity.getHandlerId())
                 .handlerName(handler != null ? handler.getName() : null)
                 .adminReply(entity.getAdminReply())
+                .userUnread(entity.getUserUnread() == null ? 0 : entity.getUserUnread())
+                .adminUnread(adminUnread)
                 .analysisSnapshot(snapshotObj)
                 .videoDeleted(videoDeleted)
                 .gmtCreated(entity.getGmtCreated())

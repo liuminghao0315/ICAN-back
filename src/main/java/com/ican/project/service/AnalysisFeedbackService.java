@@ -14,8 +14,8 @@ public interface AnalysisFeedbackService extends IService<AnalysisFeedback> {
     /** 用户查看自己的反馈历史 */
     Page<FeedbackVO> getMyFeedbacks(String userId, int page, int size);
 
-    /** 管理员查看所有反馈（分页） */
-    Page<FeedbackVO> getAdminFeedbackList(int page, int size, String status);
+    /** 管理员查看反馈列表（分页），adminId 用于填充每人独立的未读数；onlyMine=true 时仅查看自己处理的反馈 */
+    Page<FeedbackVO> getAdminFeedbackList(int page, int size, String status, String adminId, boolean onlyMine);
 
     /** 管理员锁定反馈（开始处理） */
     void lockFeedback(String feedbackId, String adminUserId);
@@ -28,4 +28,10 @@ public interface AnalysisFeedbackService extends IService<AnalysisFeedback> {
 
     /** 管理员关闭反馈（改状态为 RESOLVED 或 REJECTED） */
     void closeFeedback(String feedbackId, String adminUserId, String status);
+
+    /** 根据ID获取单条反馈（用户本人或管理员可访问） */
+    FeedbackVO getFeedbackById(String feedbackId);
+
+    /** 清除未读数（用户清 userUnread；管理员清自己的 adminUnread） */
+    void clearUnread(String feedbackId, boolean isAdmin, String userId);
 }

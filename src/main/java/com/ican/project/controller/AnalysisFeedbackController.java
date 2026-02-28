@@ -58,17 +58,37 @@ public class AnalysisFeedbackController {
         return Result.success(vo);
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "获取单条反馈详情（用户本人或管理员）")
+    public Result<FeedbackVO> getFeedbackById(
+            @PathVariable String id,
+            @AuthenticationPrincipal MyUserDetails userDetails) {
+        try {
+            FeedbackVO vo = feedbackService.getFeedbackById(id);
+            // 只允许本人或管理员访问
+            boolean isOwner = userDetails.getUserId().equals(vo.getUserId());
+            boolean isAdmin = isAdmin(userDetails.getUserId());
+            if (!isOwner && !isAdmin) {
+                return Result.accessFail("无权访问");
+            }
+            return Result.success(vo);
+        } catch (BusinessException e) {
+            return Result.fail(Code.PARAMETER_ERROR, e.getMessage());
+        }
+    }
+
     @GetMapping("/admin/list")
     @Operation(summary = "管理员查看反馈列表")
     public Result<?> getAdminFeedbackList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "状态筛选") @RequestParam(required = false) String status,
+            @Parameter(description = "是否仅查看我处理的反馈") @RequestParam(required = false, defaultValue = "false") boolean onlyMine,
             @AuthenticationPrincipal MyUserDetails userDetails) {
         if (!isAdmin(userDetails.getUserId())) {
             return Result.accessFail("仅管理员可访问");
         }
-        return Result.success(feedbackService.getAdminFeedbackList(page, size, status));
+        return Result.success(feedbackService.getAdminFeedbackList(page, size, status, userDetails.getUserId(), onlyMine));
     }
 
     @PutMapping("/{id}/lock")
@@ -124,6 +144,15 @@ public class AnalysisFeedbackController {
         } catch (BusinessException e) {
             return Result.fail(Code.PARAMETER_ERROR, e.getMessage());
         }
+    }
+
+    @PutMapping("/{id}/clear-unread")
+    @Operation(summary = "清除未读数（打开弹窗时调用）")
+    public Result<Void> clearUnread(
+            @PathVariable String id,
+            @AuthenticationPrincipal MyUserDetails userDetails) {
+        feedbackService.clearUnread(id, isAdmin(userDetails.getUserId()), userDetails.getUserId());
+        return Result.success(null);
     }
 
     private boolean isAdmin(String userId) {

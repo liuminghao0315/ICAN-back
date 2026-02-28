@@ -861,21 +861,21 @@ def generate_preliminary_evidences(keywords: list, sentiment_score: float, topic
             "confidence": random.randint(75, 88),
             "keyword": random.choice(identity_keywords)
         })
-    
-    # 视觉证据
-    for i in range(2):
-        evidences["identity"].append({
-            "timestamp": random.randint(10, max(15, int(duration) - 10)),
-            "type": "visual",
-            "description": random.choice([
-                "检测到学生证或校园卡",
-                "识别到校服着装",
-                "检测到学生常去场景（教室/图书馆）"
-            ]),
-            "confidence": random.randint(80, 92),
-            "keyword": "visual-identity"
-        })
-    
+
+    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
+    # for i in range(2):
+    #     evidences["identity"].append({
+    #         "timestamp": random.randint(10, max(15, int(duration) - 10)),
+    #         "type": "visual",
+    #         "description": random.choice([
+    #             "检测到学生证或校园卡",
+    #             "识别到校服着装",
+    #             "检测到学生常去场景（教室/图书馆）"
+    #         ]),
+    #         "confidence": random.randint(80, 92),
+    #         "keyword": "visual-identity"
+    #     })
+
     # 音频证据
     evidences["identity"].append({
         "timestamp": random.randint(8, max(12, int(duration) - 8)),
@@ -905,21 +905,21 @@ def generate_preliminary_evidences(keywords: list, sentiment_score: float, topic
             "confidence": random.randint(80, 92),
             "keyword": random.choice(university_keywords)
         })
-    
-    # 视觉证据（至少2个）
-    for i in range(2):
-        evidences["university"].append({
-            "timestamp": random.randint(5, max(10, int(duration) - 5)),
-            "type": "visual",
-            "description": random.choice([
-                "识别到学校logo或校徽",
-                "检测到校园标志性建筑",
-                "识别到教学楼内部场景"
-            ]),
-            "confidence": random.randint(88, 98),
-            "keyword": "campus-visual"
-        })
-    
+
+    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
+    # for i in range(2):
+    #     evidences["university"].append({
+    #         "timestamp": random.randint(5, max(10, int(duration) - 5)),
+    #         "type": "visual",
+    #         "description": random.choice([
+    #             "识别到学校logo或校徽",
+    #             "检测到校园标志性建筑",
+    #             "识别到教学楼内部场景"
+    #         ]),
+    #         "confidence": random.randint(88, 98),
+    #         "keyword": "campus-visual"
+    #     })
+
     # 音频证据
     evidences["university"].append({
         "timestamp": random.randint(15, max(20, int(duration) - 10)),
@@ -938,14 +938,15 @@ def generate_preliminary_evidences(keywords: list, sentiment_score: float, topic
             "confidence": random.randint(80, 95),
             "keyword": topic_category or "校园话题"
         })
-    evidences["topic"].append({
-        "timestamp": random.randint(12, max(18, int(duration) - 12)),
-        "type": "visual",
-        "description": "画面内容与主题相关",
-        "confidence": random.randint(75, 90),
-        "keyword": "topic-visual"
-    })
-    
+    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
+    # evidences["topic"].append({
+    #     "timestamp": random.randint(12, max(18, int(duration) - 12)),
+    #     "type": "visual",
+    #     "description": "画面内容与主题相关",
+    #     "confidence": random.randint(75, 90),
+    #     "keyword": "topic-visual"
+    # })
+
     # ========== 4. 态度相关证据（text + audio，包含sentimentScore）- 随机正负面 ==========
     # 随机生成正面、负面、中性情绪，不要总是负面
     emotion_types = []
@@ -1027,14 +1028,15 @@ def generate_preliminary_evidences(keywords: list, sentiment_score: float, topic
             "confidence": random.randint(75, 90),
             "keyword": random.choice(risk_level["text_keywords"])
         })
-    evidences["opinionRisk"].append({
-        "timestamp": random.randint(22, max(28, int(duration) - 8)),
-        "type": "visual",
-        "description": random.choice(risk_level["visual_desc"]),
-        "confidence": random.randint(70, 88),
-        "keyword": "visual-context"
-    })
-    
+    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
+    # evidences["opinionRisk"].append({
+    #     "timestamp": random.randint(22, max(28, int(duration) - 8)),
+    #     "type": "visual",
+    #     "description": random.choice(risk_level["visual_desc"]),
+    #     "confidence": random.randint(70, 88),
+    #     "keyword": "visual-context"
+    # })
+
     # ========== 6. 处置建议证据（text + audio + visual）- 增加变化性 ==========
     action_scenarios = [
         {  # 高风险场景
@@ -1074,14 +1076,15 @@ def generate_preliminary_evidences(keywords: list, sentiment_score: float, topic
         "confidence": random.randint(78, 90),
         "keyword": "audio-action"
     })
-    evidences["action"].append({
-        "timestamp": random.randint(20, max(26, int(duration) - 8)),
-        "type": "visual",
-        "description": random.choice(scenario["visual_desc"]),
-        "confidence": random.randint(75, 88),
-        "keyword": "gesture-visual"
-    })
-    
+    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
+    # evidences["action"].append({
+    #     "timestamp": random.randint(20, max(26, int(duration) - 8)),
+    #     "type": "visual",
+    #     "description": random.choice(scenario["visual_desc"]),
+    #     "confidence": random.randint(75, 88),
+    #     "keyword": "gesture-visual"
+    # })
+
     return evidences
 
 

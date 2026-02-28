@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ican.project.mapper.FeedbackAdminUnreadMapper">
+
+    <insert id="incrementUnread">
+        INSERT INTO feedback_admin_unread (feedback_id, admin_id, unread_count, gmt_modified)
+        VALUES (#{feedbackId}, #{adminId}, 1, NOW())
+        ON DUPLICATE KEY UPDATE unread_count = unread_count + 1, gmt_modified = NOW()
+    </insert>
+
+    <update id="clearUnread">
+        UPDATE feedback_admin_unread
+        SET unread_count = 0, gmt_modified = NOW()
+        WHERE feedback_id = #{feedbackId} AND admin_id = #{adminId}
+    </update>
+
+    <update id="clearAllUnread">
+        UPDATE feedback_admin_unread
+        SET unread_count = 0, gmt_modified = NOW()
+        WHERE feedback_id = #{feedbackId}
+    </update>
+
+    <select id="getUnread" resultType="java.lang.Integer">
+        SELECT COALESCE(unread_count, 0)
+        FROM feedback_admin_unread
+        WHERE feedback_id = #{feedbackId} AND admin_id = #{adminId}
+    </select>
+
+</mapper>

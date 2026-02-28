@@ -20,8 +20,11 @@ import com.ican.project.model.entity.Video;
 import com.ican.project.model.vo.ChunkUploadVO;
 import com.ican.project.model.vo.VideoVO;
 import com.ican.project.service.MinioService;
+import com.ican.project.service.NotificationService;
 import com.ican.project.service.UploadStatisticsService;
+import com.ican.project.service.UserService;
 import com.ican.project.service.VideoService;
+import com.ican.project.websocket.TaskProgressWebSocket;
 import com.ican.project.utils.RedisCacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +93,12 @@ public class VideoServiceImpl implements VideoService {
     
     @Autowired
     private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private NotificationService notificationService;
     
     @Value("${upload.temp-dir:${java.io.tmpdir}/ican-upload-chunks}")
     private String tempDir;
@@ -875,6 +884,39 @@ public class VideoServiceImpl implements VideoService {
             redisCacheUtil.deleteByPattern(RedisCacheUtil.CacheKey.TASK_BY_ID + task.getId() + ":*");
         }
         
+        // 通知所有在线管理员该视频已被删除
+        try {
+            List<String> adminIds = userService.getAdminUserIds();
+            if (!adminIds.isEmpty()) {
+                java.util.Map<String, Object> wsData = new java.util.HashMap<>();
+                wsData.put("videoId", videoId);
+                wsData.put("videoTitle", video.getTitle() != null ? video.getTitle() : "");
+                java.util.Map<String, Object> wsMsg = new java.util.HashMap<>();
+                wsMsg.put("type", "video_deleted");
+                wsMsg.put("message", "视频已被用户删除");
+                wsMsg.put("timestamp", System.currentTimeMillis());
+                wsMsg.put("data", wsData);
+                String wsMsgStr = com.alibaba.fastjson2.JSON.toJSONString(wsMsg);
+                for (String adminId : adminIds) {
+                    TaskProgressWebSocket.sendMessage(adminId, wsMsgStr);
+                }
+                notificationService.sendNotificationToUsers(
+                    adminIds,
+                    "VIDEO_DELETED",
+                    "视频已被用户删除",
+                    "用户删除了视频「" + (video.getTitle() != null ? video.getTitle() : videoId) + "」",
+                    videoId,
+                    "VIDEO",
+                    null,
+                    videoId,
+                    "/records"
+                );
+                logger.info("已向 {} 位管理员发送视频删除通知: videoId={}", adminIds.size(), videoId);
+            }
+        } catch (Exception e) {
+            logger.warn("发送视频删除通知失败（不影响删除）: videoId={}, error={}", videoId, e.getMessage());
+        }
+
         logger.info("视频删除成功: videoId={}", videoId);
     }
     
