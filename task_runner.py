@@ -189,11 +189,26 @@ def _get_identity_label(score):
     else: return "身份不明"
 
 
-def _get_university_name(score):
+def _build_university_profile(score):
+    """
+    生成高校关联结果（同时返回布尔值与名称）：
+    - isUniversityRelated: 由融合分数直接判定，避免 Java 回退到关键词推断
+    - universityName: 永不为空；未涉及时返回固定文案“未涉及具体高校”
+    """
     universities = ["北京大学", "清华大学", "复旦大学", "上海交通大学", "浙江大学"]
-    if score >= 85: return random.choice(universities)
-    elif score >= 65: return random.choice(universities + ["未明确提及"])
-    else: return "未识别到明确高校"
+
+    # 统一口径：>=65 视为涉及高校
+    is_related = score >= 65
+    if is_related:
+        return {
+            "isUniversityRelated": True,
+            "universityName": random.choice(universities)
+        }
+
+    return {
+        "isUniversityRelated": False,
+        "universityName": "未涉及具体高校"
+    }
 
 
 def _get_topic_sub_category(topic_category):
@@ -292,13 +307,16 @@ def _step_integration(task_id: str, video_result: dict, audio_result: dict,
             avg_radar[j] += v
     avg_radar = [int(v / len(radar_by_time)) for v in avg_radar]
 
+    university_profile = _build_university_profile(fusion["university"]["finalScore"])
+
     integration_result = {
         "identity": {
             "identityLabel": _get_identity_label(fusion["identity"]["finalScore"]),
             "modalityFusion": fusion["identity"]
         },
         "university": {
-            "universityName": _get_university_name(fusion["university"]["finalScore"]),
+            "isUniversityRelated": university_profile["isUniversityRelated"],
+            "universityName": university_profile["universityName"],
             "modalityFusion": fusion["university"]
         },
         "topic": {

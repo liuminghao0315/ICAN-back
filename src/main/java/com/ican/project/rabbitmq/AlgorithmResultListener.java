@@ -232,42 +232,40 @@ public class AlgorithmResultListener {
                 // 执行最终总结
                 String resultId = performFinalSummary(taskId, videoId, userId, moduleResults);
                 
-                // ========== 生成PDF报告并上传MinIO ==========
-                // 必须在 markTaskCompleted 之前完成，确保用户看到"分析完成"时PDF已就绪
-                boolean pdfReady = false;
-                if (resultId != null) {
-                    try {
-                        AnalysisResult savedResult = analysisResultMapper.selectById(resultId);
-                        Video pdfVideo = videoMapper.selectById(videoId);
-                        if (savedResult != null && pdfVideo != null) {
-                            String pdfPath = reportPdfService.generateAndUpload(savedResult, pdfVideo);
-                            savedResult.setReportPdfPath(pdfPath);
-                            savedResult.setGmtModified(LocalDateTime.now());
-                            analysisResultMapper.updateById(savedResult);
-                            pdfReady = true;
-                            logger.info("PDF报告已生成并存入MinIO: taskId={}, pdfPath={}", taskId, pdfPath);
-                        }
-                    } catch (Exception e) {
-                        logger.error("PDF报告生成失败，任务将标记为FAILED: taskId={}, error={}", taskId, e.getMessage(), e);
-                    }
-                }
-                
-                if (!pdfReady) {
-                    // PDF未就绪 → 任务标记为失败，前端不会显示"分析完成"
+                // 核心结果必须成功落库；否则任务失败
+                if (resultId == null) {
                     analysisTaskService.updateTaskStatus(taskId,
-                            AnalysisTask.Status.FAILED.name(), 90, "PDF报告生成失败");
+                            AnalysisTask.Status.FAILED.name(), 90, "分析结果汇总失败");
                     if (userId != null) {
                         Map<String, Object> failWsData = new java.util.HashMap<>();
                         failWsData.put("taskId", taskId);
                         failWsData.put("videoId", videoId);
                         failWsData.put("status", AnalysisTask.Status.FAILED.name());
                         failWsData.put("progress", 90);
-                        failWsData.put("message", "PDF报告生成失败");
+                        failWsData.put("message", "分析结果汇总失败");
                         TaskProgressWebSocket.sendMessage(userId, createWebSocketMessage("task_progress", "任务失败", failWsData));
                     }
                     cleanupRedis(taskId);
                     channel.basicAck(deliveryTag, false);
                     return;
+                }
+
+                // ========== 生成PDF报告并上传MinIO ==========
+                // PDF是增强能力：失败不影响任务主流程完成，仅记录告警
+                try {
+                    AnalysisResult savedResult = analysisResultMapper.selectById(resultId);
+                    Video pdfVideo = videoMapper.selectById(videoId);
+                    if (savedResult != null && pdfVideo != null) {
+                        String pdfPath = reportPdfService.generateAndUpload(savedResult, pdfVideo);
+                        savedResult.setReportPdfPath(pdfPath);
+                        savedResult.setGmtModified(LocalDateTime.now());
+                        analysisResultMapper.updateById(savedResult);
+                        logger.info("PDF报告已生成并存入MinIO: taskId={}, pdfPath={}", taskId, pdfPath);
+                    } else {
+                        logger.warn("PDF报告跳过：结果或视频不存在 taskId={}, resultId={}", taskId, resultId);
+                    }
+                } catch (Exception e) {
+                    logger.warn("PDF报告生成失败，但不影响任务完成: taskId={}, error={}", taskId, e.getMessage(), e);
                 }
                 
                 // 更新进度为100%
@@ -396,6 +394,7 @@ public class AlgorithmResultListener {
             builder.identityEvidences(JSON.toJSONString(preliminaryEvidences.get("identity")));
             builder.identityFusion(JSON.toJSONString(integrationIdentity.get("modalityFusion")));
             
+            builder.isUniversityRelated(resolveUniversityRelated(integrationUniversity, textVideoInfo));
             builder.universityName(getStringValue(integrationUniversity, "universityName", ""));
             builder.universityEvidences(JSON.toJSONString(preliminaryEvidences.get("university")));
             builder.universityFusion(JSON.toJSONString(integrationUniversity.get("modalityFusion")));
@@ -485,6 +484,60 @@ public class AlgorithmResultListener {
         Object value = data.get(key);
         if (value == null) return defaultValue;
         return value.toString();
+    }
+
+    /**
+     * 解析是否高校相关：优先读 integration.university.isUniversityRelated，
+     * 无值时回退到 detectedKeywords 中任一关键词的 isUniversityRelated=true。
+     */
+    @SuppressWarnings("unchecked")
+    private Boolean resolveUniversityRelated(Map<String, Object> integrationUniversity, Map<String, Object> textVideoInfo) {
+        Boolean fromIntegration = getBooleanValue(integrationUniversity, "isUniversityRelated");
+        if (fromIntegration != null) {
+            return fromIntegration;
+        }
+
+        if (textVideoInfo != null) {
+            Object detectedKeywords = textVideoInfo.get("detectedKeywords");
+            if (detectedKeywords instanceof List) {
+                for (Object item : (List<Object>) detectedKeywords) {
+                    if (item instanceof Map) {
+                        Boolean kwRelated = getBooleanValue((Map<String, Object>) item, "isUniversityRelated");
+                        if (Boolean.TRUE.equals(kwRelated)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 工具方法：安全获取Boolean值（支持 Boolean / Number / String）
+     */
+    private Boolean getBooleanValue(Map<String, Object> data, String key) {
+        if (data == null) return null;
+        Object value = data.get(key);
+        if (value == null) return null;
+
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+
+        String s = value.toString().trim();
+        if (s.isEmpty()) return null;
+        if ("true".equalsIgnoreCase(s) || "1".equals(s) || "yes".equalsIgnoreCase(s) || "y".equalsIgnoreCase(s)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(s) || "0".equals(s) || "no".equalsIgnoreCase(s) || "n".equalsIgnoreCase(s)) {
+            return false;
+        }
+        return null;
     }
     
     /**

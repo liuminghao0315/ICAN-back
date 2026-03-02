@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,14 @@ import java.util.stream.Collectors;
 public class AnalysisResultServiceImpl implements AnalysisResultService {
     
     private static final Logger logger = LoggerFactory.getLogger(AnalysisResultServiceImpl.class);
+
+    /** 风险分数阈值：>=67 高风险，>=34 中风险，其余低风险 */
+    private static final double RISK_HIGH_THRESHOLD = 67.0;
+    private static final double RISK_MEDIUM_THRESHOLD = 34.0;
+
+    /** 情感阈值：<33.3 正面，>66.7 负面，其余中性 */
+    private static final double SENTIMENT_POSITIVE_MAX = 33.3;
+    private static final double SENTIMENT_NEGATIVE_MIN = 66.7;
     
     @Autowired
     private AnalysisResultMapper analysisResultMapper;
@@ -297,125 +306,129 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             logger.debug("从缓存获取分析统计: userId={}", userId);
             return cachedStats;
         }
-        
+
         Map<String, Object> stats = new HashMap<>();
-        
+
         // 获取用户的所有视频ID
         LambdaQueryWrapper<Video> videoWrapper = new LambdaQueryWrapper<>();
         videoWrapper.eq(Video::getUserId, userId);
         List<Video> videos = videoMapper.selectList(videoWrapper);
-        
+
         // 获取累计分析次数（只增不减）
         Integer analysisCount = userMapper.getAnalysisCount(userId);
         stats.put("analysisCount", analysisCount != null ? analysisCount : 0);
-        
+
         if (videos.isEmpty()) {
             stats.put("totalVideos", 0);
             stats.put("analyzedVideos", 0);
             stats.put("totalResults", 0);
+            stats.put("latestResultVideos", 0);
             stats.put("avgRiskScore", 0.0);
             stats.put("highRiskCount", 0);
             stats.put("mediumRiskCount", 0);
             stats.put("lowRiskCount", 0);
+            stats.put("unknownRiskCount", 0);
             stats.put("positiveSentimentCount", 0);
             stats.put("negativeSentimentCount", 0);
             stats.put("neutralSentimentCount", 0);
+            stats.put("unknownSentimentCount", 0);
             stats.put("universityRelatedCount", 0);
             // 空结果也存入缓存，避免重复查询
             redisCacheUtil.setStatsCache(cacheKey, stats);
             return stats;
         }
-        
+
         List<String> videoIds = videos.stream()
                 .map(Video::getId)
                 .collect(Collectors.toList());
-        
-        // 查询分析结果
+
+        // 查询分析结果（历史全量）
         LambdaQueryWrapper<AnalysisResult> resultWrapper = new LambdaQueryWrapper<>();
         resultWrapper.in(AnalysisResult::getVideoId, videoIds);
-        List<AnalysisResult> results = analysisResultMapper.selectList(resultWrapper);
-        
+        List<AnalysisResult> allResults = analysisResultMapper.selectList(resultWrapper);
+
+        // 统计信息：总视频、结果总量、已分析视频
         stats.put("totalVideos", videos.size());
-        stats.put("totalResults", results.size());
-        
-        // 统计已分析的视频数量
+        stats.put("totalResults", allResults.size());
         long analyzedCount = videos.stream()
                 .filter(v -> Video.Status.COMPLETED.name().equals(v.getStatus()))
                 .count();
         stats.put("analyzedVideos", analyzedCount);
-        
-        // TODO: 新数据结构需要重新设计统计逻辑
-        // 基于 opinionRiskFusion.finalScore 计算风险统计
-        long highRiskCount = 0L, mediumRiskCount = 0L, lowRiskCount = 0L;
-        long positiveSentimentCount = 0L, negativeSentimentCount = 0L, neutralSentimentCount = 0L;
+
+        // Dashboard分析统计使用“每个视频最新一条结果”口径，避免同视频多次分析重复计数
+        Map<String, AnalysisResult> latestResultByVideo = allResults.stream()
+                .filter(r -> r.getVideoId() != null)
+                .collect(Collectors.toMap(
+                        AnalysisResult::getVideoId,
+                        r -> r,
+                        (r1, r2) -> {
+                            LocalDateTime t1 = r1.getGmtCreated();
+                            LocalDateTime t2 = r2.getGmtCreated();
+                            if (t1 == null && t2 == null) {
+                                return r1.getId() != null && r2.getId() != null && r1.getId().compareTo(r2.getId()) >= 0 ? r1 : r2;
+                            }
+                            if (t1 == null) return r2;
+                            if (t2 == null) return r1;
+                            return t1.isAfter(t2) ? r1 : r2;
+                        }
+                ));
+
+        List<AnalysisResult> latestResults = latestResultByVideo.values().stream()
+                .sorted(Comparator.comparing(AnalysisResult::getGmtCreated, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+        stats.put("latestResultVideos", latestResults.size());
+
+        long highRiskCount = 0L, mediumRiskCount = 0L, lowRiskCount = 0L, unknownRiskCount = 0L;
+        long positiveSentimentCount = 0L, negativeSentimentCount = 0L, neutralSentimentCount = 0L, unknownSentimentCount = 0L;
         double totalRiskScore = 0.0;
         int validScoreCount = 0;
         com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        for (AnalysisResult r : results) {
-            // 风险统计
-            String fusion = r.getOpinionRiskFusion();
-            if (fusion != null && !fusion.isBlank()) {
-                try {
-                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(fusion);
-                    com.fasterxml.jackson.databind.JsonNode scoreNode = node.get("finalScore");
-                    if (scoreNode != null && !scoreNode.isNull()) {
-                        double score = scoreNode.asDouble();
-                        totalRiskScore += score;
-                        validScoreCount++;
-                        if (score >= 67) highRiskCount++;
-                        else if (score >= 34) mediumRiskCount++;
-                        else lowRiskCount++;
-                    } else {
-                        lowRiskCount++;
-                    }
-                } catch (Exception e) {
-                    lowRiskCount++;
-                }
+
+        for (AnalysisResult r : latestResults) {
+            // 风险统计（解析失败归入 unknown，不再并入 low）
+            Double score = extractFinalRiskScore(r, objectMapper);
+            if (score == null) {
+                unknownRiskCount++;
             } else {
-                lowRiskCount++;
+                totalRiskScore += score;
+                validScoreCount++;
+                if (score >= RISK_HIGH_THRESHOLD) highRiskCount++;
+                else if (score >= RISK_MEDIUM_THRESHOLD) mediumRiskCount++;
+                else lowRiskCount++;
             }
-            // 情感统计（从 attitudeEvidences 统计）
-            String attitudeEvidences = r.getAttitudeEvidences();
-            if (attitudeEvidences != null && !attitudeEvidences.isBlank()) {
-                try {
-                    com.fasterxml.jackson.databind.JsonNode evArr = objectMapper.readTree(attitudeEvidences);
-                    int pos = 0, neu = 0, neg = 0;
-                    for (com.fasterxml.jackson.databind.JsonNode ev : evArr) {
-                        com.fasterxml.jackson.databind.JsonNode ss = ev.get("sentimentScore");
-                        if (ss != null && !ss.isNull()) {
-                            int s = ss.asInt();
-                            if (s < 33) pos++;
-                            else if (s > 67) neg++;
-                            else neu++;
-                        }
-                    }
-                    if (neg >= pos && neg >= neu) negativeSentimentCount++;
-                    else if (pos >= neu) positiveSentimentCount++;
-                    else neutralSentimentCount++;
-                } catch (Exception e) {
-                    neutralSentimentCount++;
-                }
-            } else {
+
+            // 情感统计（按单条结果主导情感；无有效 evidence 时归 unknown）
+            String sentimentClass = classifyDominantSentiment(r, objectMapper);
+            if ("NEGATIVE".equals(sentimentClass)) {
+                negativeSentimentCount++;
+            } else if ("POSITIVE".equals(sentimentClass)) {
+                positiveSentimentCount++;
+            } else if ("NEUTRAL".equals(sentimentClass)) {
                 neutralSentimentCount++;
+            } else {
+                unknownSentimentCount++;
             }
         }
+
         stats.put("avgRiskScore", validScoreCount > 0 ? totalRiskScore / validScoreCount : 0.0);
         stats.put("highRiskCount", highRiskCount);
         stats.put("mediumRiskCount", mediumRiskCount);
         stats.put("lowRiskCount", lowRiskCount);
+        stats.put("unknownRiskCount", unknownRiskCount);
         stats.put("positiveSentimentCount", positiveSentimentCount);
         stats.put("negativeSentimentCount", negativeSentimentCount);
         stats.put("neutralSentimentCount", neutralSentimentCount);
-        
-        // 高校相关内容统计（基于universityName是否为空）
-        long universityRelatedCount = results.stream()
-                .filter(r -> r.getUniversityName() != null && !r.getUniversityName().isEmpty())
+        stats.put("unknownSentimentCount", unknownSentimentCount);
+
+        // 高校相关内容统计（按最新结果口径，基于独立布尔字段）
+        long universityRelatedCount = latestResults.stream()
+                .filter(r -> Boolean.TRUE.equals(r.getIsUniversityRelated()))
                 .count();
         stats.put("universityRelatedCount", universityRelatedCount);
-        
+
         // 存入缓存
         redisCacheUtil.setStatsCache(cacheKey, stats);
-        
+
         return stats;
     }
     
@@ -429,67 +442,74 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             logger.debug("从缓存获取风险分布: userId={}", userId);
             return cachedDistribution;
         }
-        
+
         Map<String, Long> distribution = new HashMap<>();
         distribution.put("HIGH", 0L);
         distribution.put("MEDIUM", 0L);
         distribution.put("LOW", 0L);
-        
+        distribution.put("UNKNOWN", 0L);
+
         // 获取用户的所有视频ID
         LambdaQueryWrapper<Video> videoWrapper = new LambdaQueryWrapper<>();
         videoWrapper.eq(Video::getUserId, userId)
                 .select(Video::getId);
         List<Video> videos = videoMapper.selectList(videoWrapper);
-        
+
         if (videos.isEmpty()) {
             redisCacheUtil.setStatsCache(cacheKey, distribution);
             return distribution;
         }
-        
+
         List<String> videoIds = videos.stream()
                 .map(Video::getId)
                 .collect(Collectors.toList());
-        
+
         LambdaQueryWrapper<AnalysisResult> resultWrapper = new LambdaQueryWrapper<>();
         resultWrapper.in(AnalysisResult::getVideoId, videoIds);
-        List<AnalysisResult> results = analysisResultMapper.selectList(resultWrapper);
-        
-        // 基于 opinionRiskFusion.finalScore 计算风险等级分布
-        // HIGH: finalScore >= 67, MEDIUM: 34-66, LOW: < 34
-        long highCount = 0L, mediumCount = 0L, lowCount = 0L;
-        for (AnalysisResult r : results) {
-            String fusion = r.getOpinionRiskFusion();
-            if (fusion == null || fusion.isBlank()) {
-                lowCount++;
+        List<AnalysisResult> allResults = analysisResultMapper.selectList(resultWrapper);
+
+        // 风险分布使用“每视频最新结果”口径
+        Map<String, AnalysisResult> latestResultByVideo = allResults.stream()
+                .filter(r -> r.getVideoId() != null)
+                .collect(Collectors.toMap(
+                        AnalysisResult::getVideoId,
+                        r -> r,
+                        (r1, r2) -> {
+                            LocalDateTime t1 = r1.getGmtCreated();
+                            LocalDateTime t2 = r2.getGmtCreated();
+                            if (t1 == null && t2 == null) {
+                                return r1.getId() != null && r2.getId() != null && r1.getId().compareTo(r2.getId()) >= 0 ? r1 : r2;
+                            }
+                            if (t1 == null) return r2;
+                            if (t2 == null) return r1;
+                            return t1.isAfter(t2) ? r1 : r2;
+                        }
+                ));
+
+        long highCount = 0L, mediumCount = 0L, lowCount = 0L, unknownCount = 0L;
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (AnalysisResult r : latestResultByVideo.values()) {
+            Double score = extractFinalRiskScore(r, objectMapper);
+            if (score == null) {
+                unknownCount++;
                 continue;
             }
-            try {
-                com.fasterxml.jackson.databind.JsonNode node =
-                        new com.fasterxml.jackson.databind.ObjectMapper().readTree(fusion);
-                com.fasterxml.jackson.databind.JsonNode scoreNode = node.get("finalScore");
-                if (scoreNode == null || scoreNode.isNull()) {
-                    lowCount++;
-                    continue;
-                }
-                double score = scoreNode.asDouble();
-                if (score >= 67) {
-                    highCount++;
-                } else if (score >= 34) {
-                    mediumCount++;
-                } else {
-                    lowCount++;
-                }
-            } catch (Exception e) {
+            if (score >= RISK_HIGH_THRESHOLD) {
+                highCount++;
+            } else if (score >= RISK_MEDIUM_THRESHOLD) {
+                mediumCount++;
+            } else {
                 lowCount++;
             }
         }
         distribution.put("HIGH", highCount);
         distribution.put("MEDIUM", mediumCount);
         distribution.put("LOW", lowCount);
-        
+        distribution.put("UNKNOWN", unknownCount);
+
         // 存入缓存
         redisCacheUtil.setStatsCache(cacheKey, distribution);
-        
+
         return distribution;
     }
     
@@ -624,22 +644,8 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
             // ========== 6. 构建完整VO ==========
             logger.debug("构建最终VO...");
             
-            // 计算isUniversityRelated（根据detectedKeywords判断）
-            Boolean isUniversityRelated = false;
-            List<Object> detectedKeywords = parseJsonList(result.getDetectedKeywords());
-            if (detectedKeywords != null && !detectedKeywords.isEmpty()) {
-                for (Object kwObj : detectedKeywords) {
-                    if (kwObj instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> kwMap = (Map<String, Object>) kwObj;
-                        Object isUnivRelated = kwMap.get("isUniversityRelated");
-                        if (isUnivRelated != null && Boolean.TRUE.equals(isUnivRelated)) {
-                            isUniversityRelated = true;
-                            break;
-                        }
-                    }
-                }
-            }
+            // 优先使用数据库独立布尔字段（统计口径一致）
+            Boolean isUniversityRelated = Boolean.TRUE.equals(result.getIsUniversityRelated());
             
             AnalysisResultVO vo = AnalysisResultVO.builder()
                     .id(result.getId())
@@ -736,6 +742,63 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     private boolean isAdmin(String userId) {
         List<String> roles = userMapper.selectRoleNamesByUserId(userId);
         return roles != null && roles.contains("Administrator");
+    }
+
+    /** 从 opinionRiskFusion 中提取 finalScore，失败返回 null */
+    private Double extractFinalRiskScore(AnalysisResult result, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+        try {
+            String fusion = result.getOpinionRiskFusion();
+            if (fusion == null || fusion.isBlank()) {
+                return null;
+            }
+            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(fusion);
+            com.fasterxml.jackson.databind.JsonNode scoreNode = node.get("finalScore");
+            if (scoreNode == null || scoreNode.isNull()) {
+                return null;
+            }
+            return scoreNode.asDouble();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 按单条结果主导情感分类。
+     * 返回值：POSITIVE / NEUTRAL / NEGATIVE / UNKNOWN
+     */
+    private String classifyDominantSentiment(AnalysisResult result, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+        try {
+            String attitudeEvidences = result.getAttitudeEvidences();
+            if (attitudeEvidences == null || attitudeEvidences.isBlank()) {
+                return "UNKNOWN";
+            }
+            com.fasterxml.jackson.databind.JsonNode evArr = objectMapper.readTree(attitudeEvidences);
+            if (!evArr.isArray() || evArr.isEmpty()) {
+                return "UNKNOWN";
+            }
+
+            int pos = 0, neu = 0, neg = 0;
+            for (com.fasterxml.jackson.databind.JsonNode ev : evArr) {
+                com.fasterxml.jackson.databind.JsonNode scoreNode = ev.get("sentimentScore");
+                if (scoreNode == null || scoreNode.isNull()) {
+                    continue;
+                }
+                double score = scoreNode.asDouble();
+                if (score < SENTIMENT_POSITIVE_MAX) pos++;
+                else if (score > SENTIMENT_NEGATIVE_MIN) neg++;
+                else neu++;
+            }
+
+            int totalValid = pos + neu + neg;
+            if (totalValid == 0) {
+                return "UNKNOWN";
+            }
+            if (neg >= pos && neg >= neu) return "NEGATIVE";
+            if (pos >= neu) return "POSITIVE";
+            return "NEUTRAL";
+        } catch (Exception e) {
+            return "UNKNOWN";
+        }
     }
 }
 

@@ -65,6 +65,10 @@ public class AnalysisResult {
     private String identityFusion;     // JSON
     
     // 2. 高校关联
+    /**
+     * 是否高校相关（独立布尔标识，供统计口径使用）
+     */
+    private Boolean isUniversityRelated;
     private String universityName;
     private String universityEvidences;  // JSON
     private String universityFusion;     // JSON
