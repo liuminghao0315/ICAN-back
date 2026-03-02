@@ -87,6 +87,7 @@ public class AnalysisResultVO {
     public static class VideoInfo {
         private String videoId;
         private String videoUrl;
+        private String thumbnailUrl;
         private String fileName;
         private Double duration;
         private String uploadSource;

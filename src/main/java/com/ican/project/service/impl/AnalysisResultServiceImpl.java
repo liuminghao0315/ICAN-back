@@ -113,6 +113,7 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         String cacheKey = RedisCacheUtil.CacheKey.RESULT_BY_ID + resultId + ":" + userId;
         AnalysisResultVO cachedResult = redisCacheUtil.get(cacheKey, AnalysisResultVO.class);
         if (cachedResult != null) {
+            enrichVideoThumbnailIfMissing(cachedResult);
             logger.debug("从缓存获取分析结果: resultId={}", resultId);
             return cachedResult;
         }
@@ -150,6 +151,7 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         String cacheKey = RedisCacheUtil.CacheKey.RESULT_BY_TASK_ID + taskId + ":" + userId;
         AnalysisResultVO cachedResult = redisCacheUtil.get(cacheKey, AnalysisResultVO.class);
         if (cachedResult != null) {
+            enrichVideoThumbnailIfMissing(cachedResult);
             logger.debug("从缓存获取分析结果: taskId={}", taskId);
             return cachedResult;
         }
@@ -189,6 +191,7 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         String cacheKey = RedisCacheUtil.CacheKey.RESULT_BY_VIDEO_ID + videoId + ":" + userId;
         AnalysisResultVO cachedResult = redisCacheUtil.get(cacheKey, AnalysisResultVO.class);
         if (cachedResult != null) {
+            enrichVideoThumbnailIfMissing(cachedResult);
             logger.debug("从缓存获取最新分析结果: videoId={}", videoId);
             return cachedResult;
         }
@@ -565,6 +568,9 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
                     .videoId(result.getVideoId())
                     .videoUrl(result.getVideoUrl() != null ? result.getVideoUrl() : 
                             (video != null ? minioService.getFileUrl(video.getFilePath()) : ""))
+                    .thumbnailUrl(video != null && video.getThumbnailPath() != null && !video.getThumbnailPath().isEmpty()
+                            ? minioService.getFileUrl(video.getThumbnailPath())
+                            : null)
                     .fileName(video != null ? video.getFileName() : "")
                     .duration(video != null && video.getDuration() != null ? video.getDuration() : 0.0)
                     .uploadSource(video != null
@@ -742,6 +748,28 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     private boolean isAdmin(String userId) {
         List<String> roles = userMapper.selectRoleNamesByUserId(userId);
         return roles != null && roles.contains("Administrator");
+    }
+
+    /**
+     * 兼容历史缓存：若缓存中的 videoInfo 缺少 thumbnailUrl，则按 videoId 补齐。
+     */
+    private void enrichVideoThumbnailIfMissing(AnalysisResultVO resultVO) {
+        if (resultVO == null || resultVO.getVideoInfo() == null) {
+            return;
+        }
+        AnalysisResultVO.VideoInfo videoInfo = resultVO.getVideoInfo();
+        if (videoInfo.getThumbnailUrl() != null && !videoInfo.getThumbnailUrl().isEmpty()) {
+            return;
+        }
+        String videoId = videoInfo.getVideoId();
+        if (videoId == null || videoId.isEmpty()) {
+            return;
+        }
+        Video video = videoMapper.selectById(videoId);
+        if (video == null || video.getThumbnailPath() == null || video.getThumbnailPath().isEmpty()) {
+            return;
+        }
+        videoInfo.setThumbnailUrl(minioService.getFileUrl(video.getThumbnailPath()));
     }
 
     /** 从 opinionRiskFusion 中提取 finalScore，失败返回 null */

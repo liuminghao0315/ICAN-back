@@ -18,6 +18,10 @@ public class User {
      * 累计分析次数（只增不减）
      */
     private Integer analysisCount;
+    /**
+     * 头像在 MinIO 中的对象路径，例如 avatar/userId/avatar.jpg
+     */
+    private String avatarPath;
     private LocalDateTime gmtCreated;
     private LocalDateTime gmtModified;
 

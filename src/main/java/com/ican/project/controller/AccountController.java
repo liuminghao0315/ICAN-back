@@ -8,6 +8,8 @@ import com.ican.project.mapper.UserMapper;
 import com.ican.project.security.MyUserDetails;
 import com.ican.project.service.LogoutService;
 import com.ican.project.service.MailService;
+import com.ican.project.service.MinioService;
+import com.ican.project.service.UserAvatarService;
 import com.ican.project.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +44,10 @@ public class AccountController {
     private UserService userService;
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private UserAvatarService userAvatarService;
+    @Autowired
+    private MinioService minioService;
 
     @GetMapping("/account/logout")
     @Operation(summary = "用户登出", description = "用户登出接口，清除登录状态")
@@ -171,20 +178,54 @@ public class AccountController {
         return userService.changeEmail(userDetails.getUserId(), newEmail, verifyCode);
     }
     @GetMapping("/account/me")
-    @Operation(summary = "获取当前用户信息", description = "返回当前登录用户的基本信息（含角色）")
+    @Operation(summary = "获取当前用户信息", description = "返回当前登录用户的基本信息（含角色和头像URL）")
     public Result<?> getCurrentUser(@AuthenticationPrincipal MyUserDetails userDetails) {
         if (userDetails == null) {
             return Result.fail(Code.AUTH_FAILURE, "未登录");
         }
-        var user = userDetails.getUser();
+        // 从数据库重新拉取，确保 avatarPath 是最新的
+        User user = userMapper.selectById(userDetails.getUser().getId());
+        if (user == null) {
+            return Result.fail(Code.USER_NOT_EXISTS, "用户不存在");
+        }
         List<String> roles = userMapper.selectRoleNamesByUserId(user.getId());
         String role = (roles != null && !roles.isEmpty()) ? roles.get(0) : "User";
+
+        // 头像 URL：有 avatarPath 就通过 MinIO 生成访问链接，否则返回空字符串
+        String avatarUrl = "";
+        if (user.getAvatarPath() != null && !user.getAvatarPath().isBlank()) {
+            try {
+                avatarUrl = minioService.getFileUrl(user.getAvatarPath());
+            } catch (Exception e) {
+                logger.warn("获取头像URL失败: userId={}", user.getId());
+            }
+        }
 
         Map<String, Object> data = new HashMap<>();
         data.put("id", user.getId());
         data.put("username", user.getName());
         data.put("email", user.getEmail() != null ? user.getEmail() : "");
         data.put("role", role);
+        data.put("avatarUrl", avatarUrl);
         return Result.success(data);
+    }
+
+    @PostMapping("/account/avatar")
+    @Operation(summary = "上传用户头像", description = "接收裁剪后的圆形头像图片，上传至 MinIO 并更新用户记录")
+    public Result<?> uploadAvatar(
+            @AuthenticationPrincipal MyUserDetails userDetails,
+            @RequestParam("avatar") MultipartFile avatar) {
+        if (userDetails == null) {
+            return Result.fail(Code.AUTH_FAILURE, "未登录");
+        }
+        logger.info("上传头像请求: userId={}", userDetails.getUserId());
+        try {
+            String avatarUrl = userAvatarService.uploadAvatar(userDetails.getUserId(), avatar);
+            Map<String, String> data = new HashMap<>();
+            data.put("avatarUrl", avatarUrl);
+            return Result.success(data);
+        } catch (IllegalArgumentException e) {
+            return Result.fail(Code.PARAMETER_ERROR, e.getMessage());
+        }
     }
 }
