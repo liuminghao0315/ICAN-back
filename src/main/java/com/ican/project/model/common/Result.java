@@ -1,5 +1,6 @@
 package com.ican.project.model.common;
 
+import com.ican.project.utils.MessageLocalizer;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,7 +33,7 @@ public class Result<T> {
         return new Result<>(Code.AUTH_FAILURE,"未登录");
     }
     public static <T> Result<T> authFail(String message) {
-        return new Result<>(Code.AUTH_FAILURE,message);
+        return new Result<>(Code.AUTH_FAILURE, MessageLocalizer.localizeError(message));
     }
 
 
@@ -40,11 +41,11 @@ public class Result<T> {
         return new Result<>(Code.ACCESS_FAILURE,"权限不足");
     }
     public static <T> Result<T> accessFail(String message) {
-        return new Result<>(Code.ACCESS_FAILURE,message);
+        return new Result<>(Code.ACCESS_FAILURE, MessageLocalizer.localizeError(message));
     }
 
     public static <T> Result<T> fail(int code, String message) {
-        return new Result<>(code, message);
+        return new Result<>(code, MessageLocalizer.localizeError(message));
     }
 
     /**

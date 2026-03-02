@@ -32,7 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger("algorithm_simulator")
 
 # ──────────────────────────── 配置 ────────────────────────────
-RABBITMQ_HOST = '192.168.3.128'
+RABBITMQ_HOST = '192.168.253.128'
 RABBITMQ_PORT = 5672
 RABBITMQ_USERNAME = 'guest'
 RABBITMQ_PASSWORD = 'guest'
