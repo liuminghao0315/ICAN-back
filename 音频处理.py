@@ -7,7 +7,6 @@
 """
 
 import time
-import random
 import logging
 import os
 import tempfile
@@ -18,13 +17,205 @@ import jieba.analyse
 from snownlp import SnowNLP
 import librosa
 import numpy as np
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List, Optional
 
 # 配置日志
 logger = logging.getLogger(__name__)
 
 # 全局Whisper模型（避免重复加载）
 _whisper_model = None
+_audio_ov_init_attempted = False
+_audio_ov_pipeline = None
+
+
+def infer_voice_emotion_from_features(audio_quality: float, volume_level: float, noise_level: float) -> str:
+    """
+    基于可解释规则推断语音情绪标签（无专用情绪模型时的兜底方案）。
+    """
+    aq = min(1.0, max(0.0, float(audio_quality)))
+    vl = min(1.0, max(0.0, float(volume_level)))
+    nl = min(1.0, max(0.0, float(noise_level)))
+
+    if vl >= 0.75 and nl >= 0.18:
+        return "tense"
+    if vl >= 0.68:
+        return "energetic"
+    if vl <= 0.35 and aq >= 0.55:
+        return "calm"
+    return "neutral"
+
+
+def build_audio_open_vocab_prompts(word_packs: Optional[list] = None) -> List[str]:
+    """构建音频开放词汇提示词（无训练方案）。"""
+    base_prompts = [
+        "shouting", "screaming", "arguing", "fighting", "crowd noise",
+        "glass breaking", "explosion", "sirens", "alarm", "crying"
+    ]
+
+    extra = []
+    for pack in word_packs or []:
+        words = pack.get("words", []) if isinstance(pack, dict) else []
+        for w in words:
+            if isinstance(w, str):
+                t = w.strip()
+            elif isinstance(w, dict):
+                t = str(w.get("text", "")).strip()
+            else:
+                t = ""
+            if t:
+                extra.append(t)
+
+    prompts = []
+    seen = set()
+    for t in base_prompts + extra:
+        k = t.lower()
+        if k not in seen:
+            seen.add(k)
+            prompts.append(t)
+    return prompts[:50]
+
+
+def map_audio_open_vocab_to_risk(audio_hits: List[dict]) -> Dict[str, Any]:
+    """把音频开放词汇命中映射成风险分（可解释）。"""
+    if not audio_hits:
+        return {"riskScore": 0.0, "riskFactors": []}
+
+    weights = {
+        "shouting": 0.35,
+        "screaming": 0.45,
+        "arguing": 0.35,
+        "fighting": 0.5,
+        "争吵": 0.35,
+        "喊叫": 0.35,
+        "爆炸": 0.6,
+        "alarm": 0.25,
+        "sirens": 0.25,
+    }
+
+    total = 0.0
+    factors = []
+    for hit in audio_hits:
+        label = str(hit.get("label", "")).lower()
+        conf = float(hit.get("confidence", 0.0))
+        matched = None
+        w = 0.0
+        for k, v in weights.items():
+            if k.lower() in label:
+                matched = k
+                w = v
+                break
+        if w <= 0:
+            continue
+        score = min(1.0, w * max(0.0, min(1.0, conf)) * 2)
+        total += score
+        factors.append({
+            "label": hit.get("label", ""),
+            "confidence": round(conf, 3),
+            "matched": matched,
+            "score": round(score, 3),
+        })
+
+    return {"riskScore": round(min(1.0, total), 3), "riskFactors": factors}
+
+
+def _get_audio_open_vocab_pipeline():
+    """可选加载 transformers 音频零样本分类器（失败自动降级）。"""
+    global _audio_ov_init_attempted, _audio_ov_pipeline
+    if _audio_ov_pipeline is not None:
+        return _audio_ov_pipeline
+    if _audio_ov_init_attempted:
+        return None
+
+    _audio_ov_init_attempted = True
+    try:
+        from transformers import pipeline  # type: ignore
+        _audio_ov_pipeline = pipeline("zero-shot-audio-classification", model="laion/clap-htsat-unfused")
+        logger.info("音频开放词汇模型加载成功（CLAP）")
+    except Exception as e:
+        logger.warning(f"音频开放词汇模型不可用，降级规则分析: {e}")
+        _audio_ov_pipeline = None
+
+    return _audio_ov_pipeline
+
+
+def detect_audio_events_optional(audio_path: str, prompts: List[str]) -> List[dict]:
+    """可选音频开放词汇识别。"""
+    clf = _get_audio_open_vocab_pipeline()
+    if clf is None:
+        return []
+    try:
+        results = clf(audio_path, candidate_labels=prompts)
+        labels = results.get("labels", [])
+        scores = results.get("scores", [])
+        hits = []
+        for i in range(min(5, len(labels), len(scores))):
+            if float(scores[i]) >= 0.2:
+                hits.append({"label": labels[i], "confidence": round(float(scores[i]), 4)})
+        return hits
+    except Exception as e:
+        logger.warning(f"音频开放词汇推理失败，降级忽略: {e}")
+        return []
+
+
+def _extract_pack_words(custom_word_packs: Optional[list]) -> List[dict]:
+    """
+    统一解析风险词库包，支持两种格式：
+      1) { words: ["词1", "词2"] }
+      2) { words: [{text: "词1", category: "...", riskLevel: "..."}] }
+    """
+    if not custom_word_packs:
+        return []
+
+    normalized = []
+    for pack in custom_word_packs:
+        words = pack.get("words", []) if isinstance(pack, dict) else []
+        for w in words:
+            if isinstance(w, str):
+                text = w.strip()
+                if text:
+                    normalized.append({
+                        "text": text,
+                        "category": "自定义词库",
+                        "riskLevel": "medium",
+                        "packName": pack.get("name", "自定义词库") if isinstance(pack, dict) else "自定义词库"
+                    })
+            elif isinstance(w, dict):
+                text = str(w.get("text", "")).strip()
+                if text:
+                    normalized.append({
+                        "text": text,
+                        "category": w.get("category", "自定义词库"),
+                        "riskLevel": w.get("riskLevel", "medium"),
+                        "packName": pack.get("name", "自定义词库") if isinstance(pack, dict) else "自定义词库"
+                    })
+    return normalized
+
+
+def build_hotwords_from_word_packs(custom_word_packs: Optional[list], max_words: int = 80) -> List[str]:
+    """从前端挂载词库中提取 Whisper 热词。"""
+    words = _extract_pack_words(custom_word_packs)
+    # 高风险词优先，其次按词长排序（长词更有业务价值）
+    risk_weight = {"high": 0, "medium": 1, "low": 2}
+    words.sort(key=lambda x: (risk_weight.get(str(x.get("riskLevel", "medium")).lower(), 1), -len(x.get("text", ""))))
+
+    dedup = []
+    seen = set()
+    for w in words:
+        text = w["text"]
+        if text not in seen:
+            seen.add(text)
+            dedup.append(text)
+        if len(dedup) >= max_words:
+            break
+    return dedup
+
+
+def build_whisper_initial_prompt(hotwords: List[str]) -> str:
+    """构造 Whisper initial_prompt，引导识别业务词汇。"""
+    if not hotwords:
+        return ""
+    joined = "、".join(hotwords)
+    return f"以下词汇在音频中可能出现，请尽量准确识别：{joined}。"
 
 
 def get_whisper_model():
@@ -90,7 +281,7 @@ def extract_audio_from_video(video_source: str, task_id: str) -> str:
         raise
 
 
-def asr_recognize(audio_path: str, task_id: str) -> str:
+def asr_recognize(audio_path: str, task_id: str, custom_word_packs: Optional[list] = None) -> str:
     """
     使用Whisper进行ASR语音识别
     
@@ -107,11 +298,16 @@ def asr_recognize(audio_path: str, task_id: str) -> str:
         # 获取Whisper模型
         model = get_whisper_model()
         
+        # 热词提示（来自前端风险词库管理）
+        hotwords = build_hotwords_from_word_packs(custom_word_packs)
+        initial_prompt = build_whisper_initial_prompt(hotwords)
+
         # 转录音频
         result = model.transcribe(
             audio_path,
             language="zh",  # 中文
-            fp16=False  # CPU模式不使用FP16
+            fp16=False,  # CPU模式不使用FP16
+            initial_prompt=initial_prompt if initial_prompt else None,
         )
         
         # 获取识别的文本
@@ -121,6 +317,8 @@ def asr_recognize(audio_path: str, task_id: str) -> str:
             full_text = "（未检测到语音内容）"
         
         logger.info(f"[任务 {task_id}] [音频处理模块] ========== ASR识别文本: {full_text} ==========")
+        if hotwords:
+            logger.info(f"[任务 {task_id}] [音频处理模块] 已应用风险词库热词 {len(hotwords)} 个")
         
         return full_text
         
@@ -143,30 +341,35 @@ def generate_audio_effect_events(duration: float, audio_quality: float, task_id:
     """
     audio_events = []
     event_id = 1
-    
-    # 生成5-8个声学事件，时间分散
-    event_count = min(8, max(5, int(duration / 10)))
-    
-    # 生成随机时间点并排序
-    time_points = sorted([random.randint(3, int(duration) - 3) for _ in range(event_count)])
-    
-    for i, start_time in enumerate(time_points):
+
+    duration_i = max(1, int(duration))
+    event_count = min(8, max(3, duration_i // 12))
+    step = max(5, duration_i // (event_count + 1))
+    aq = min(1.0, max(0.0, float(audio_quality)))
+
+    for i in range(event_count):
+        start_time = min(duration_i - 1, (i + 1) * step)
+        event_len = 2 + int((1 - aq) * 3)
+        end_time = min(duration_i, start_time + event_len)
+        intensity = min(1.0, 0.45 + (1 - aq) * 0.4 + (i % 3) * 0.05)
+        risk_score = int(min(95, max(35, intensity * 100)))
+
+        if intensity >= 0.8:
+            desc = "检测到异常高能量声学片段"
+        elif intensity >= 0.65:
+            desc = "检测到音量波动明显"
+        else:
+            desc = "检测到常规语音/环境音变化"
+
         audio_events.append({
             "id": f"audio-{event_id:03d}",
             "modality": "audio-effect",
             "startTime": start_time,
-            "endTime": min(start_time + random.randint(2, 5), int(duration)),
-            "riskScore": random.randint(50, 90),
-            "description": random.choice([
-                "检测到重物撞击声（疑似拍桌动作）",
-                "检测到异常音量突变",
-                "检测到背景噪音异常",
-                "检测到愤怒咆哮声，音量骤升",
-                "检测到尖锐声响",
-                "检测到金属碰撞声"
-            ]),
-            "intensity": round(random.uniform(0.6, 0.95), 2),
-            "confidence": random.randint(80, 95)
+            "endTime": end_time,
+            "riskScore": risk_score,
+            "description": desc,
+            "intensity": round(intensity, 2),
+            "confidence": int(min(98, max(70, 78 + aq * 18)))
         })
         event_id += 1
     
@@ -189,37 +392,20 @@ def generate_audio_emotions(duration: float, speech_ratio: float) -> list:
     num_segments = int(duration / time_granularity) + 1
     audio_emotions = []
     
-    # 生成情绪波动曲线
+    sr = min(1.0, max(0.0, float(speech_ratio)))
     for i in range(num_segments):
-        if speech_ratio < 0.3:
-            # 语音少，情绪强度低
-            intensity = random.uniform(0.15, 0.35)
-            reason = random.choice(["无语音或语音很少", "背景音乐", "安静片段"])
-        elif i < 2:
-            # 开头段
-            intensity = random.uniform(0.25, 0.45)
-            reason = random.choice(["语音平稳", "开始介绍", "平静陈述"])
-        elif i >= num_segments - 2:
-            # 结尾段
-            intensity = random.uniform(0.3, 0.5)
-            reason = random.choice(["情绪平复", "结束陈述", "趋于平静"])
+        pos = i / max(1, num_segments - 1)
+        peak = 1 - abs(pos - 0.55) * 1.8
+        peak = max(0.0, min(1.0, peak))
+        intensity = 0.2 + sr * 0.35 + peak * 0.25
+        intensity = max(0.1, min(0.98, intensity))
+
+        if intensity >= 0.8:
+            reason = "语音强度较高，情绪张力明显"
+        elif intensity >= 0.55:
+            reason = "语音表达中等偏强"
         else:
-            # 中间段：可能出现情绪高峰
-            if random.random() > 0.7:
-                intensity = random.uniform(0.8, 0.98)
-                reason = random.choice([
-                    "检测到愤怒咆哮，音量突然增大",
-                    "情绪激动，语速加快",
-                    "语调升高，情绪紧张"
-                ])
-            else:
-                intensity = random.uniform(0.35, 0.7)
-                reason = random.choice([
-                    "语气正常",
-                    "语速平稳",
-                    "情绪中等",
-                    "持续陈述"
-                ])
+            reason = "语音表达平稳"
         
         audio_emotions.append({
             "intensity": round(intensity, 2),
@@ -241,23 +427,28 @@ def calculate_audio_risk_scores(audio_quality: float, speech_ratio: float, volum
     Returns:
         6个维度的音频分数（0-100）
     """
-    # 1. 身份置信度（语音比例高时分数高）
-    identity_score = int(60 + speech_ratio * 35 + random.randint(-5, 10))
-    
-    # 2. 学校关联度（音频模态需要结合文本，暂给中等分）
-    university_score = random.randint(70, 90)
-    
-    # 3. 负面情感度（基于音量和语速）
-    attitude_score = int(40 + volume_level * 40 + random.randint(-10, 15))
-    
-    # 4. 主题分数
-    topic_score = random.randint(60, 90)
-    
-    # 5. 舆论风险（音频情绪强度影响）
-    opinion_risk_score = int(45 + volume_level * 30 + random.randint(-10, 20))
-    
-    # 6. 处置紧迫度
-    action_score = random.randint(50, 85)
+    # 去随机化：使用可解释、可复现实用规则（无算法组专用模型时的稳定方案）
+    aq = min(1.0, max(0.0, float(audio_quality)))
+    sr = min(1.0, max(0.0, float(speech_ratio)))
+    vl = min(1.0, max(0.0, float(volume_level)))
+
+    # 1. 身份置信度：语音占比 + 音频质量越高，越容易判断身份线索
+    identity_score = int(35 + sr * 45 + aq * 20)
+
+    # 2. 学校关联度：音频本身对“高校关联”能力有限，给中等且随语音质量变化
+    university_score = int(40 + sr * 25 + aq * 20)
+
+    # 3. 负面情感度：音量偏高、语速（语音占比）偏高通常意味着情绪更强
+    attitude_score = int(25 + vl * 45 + sr * 20)
+
+    # 4. 主题分数：语音可懂度（质量+语音占比）越高，主题识别越稳
+    topic_score = int(30 + aq * 35 + sr * 30)
+
+    # 5. 舆论风险：高音量是主要信号，语音占比辅助
+    opinion_risk_score = int(20 + vl * 55 + sr * 20)
+
+    # 6. 处置紧迫度：由态度与舆论风险共同决定
+    action_score = int(opinion_risk_score * 0.6 + attitude_score * 0.4)
     
     return {
         "identity": min(100, max(0, identity_score)),
@@ -300,8 +491,14 @@ def process_audio(task_id: str, video_info: Dict[str, Any]) -> Tuple[Dict[str, A
         # Step 2: 音频特征提取
         audio_features = extract_audio_features(task_id, video_info, audio_path)
         
-        # Step 3: ASR转文本
-        transcription = asr_recognize(audio_path, task_id)
+        # Step 3: ASR转文本（接入前端风险词库热词提示）
+        custom_word_packs = video_info.get("wordPacks")
+        transcription = asr_recognize(audio_path, task_id, custom_word_packs=custom_word_packs)
+
+        # Step 3.5: 音频开放词汇识别（可选：CLAP/transformers）
+        audio_ov_prompts = build_audio_open_vocab_prompts(custom_word_packs)
+        audio_ov_hits = detect_audio_events_optional(audio_path, audio_ov_prompts)
+        audio_ov_risk = map_audio_open_vocab_to_risk(audio_ov_hits)
         
         # ========== 构建音频模块结果（Step 2: Audio → 50%） ==========
         
@@ -324,6 +521,11 @@ def process_audio(task_id: str, video_info: Dict[str, Any]) -> Tuple[Dict[str, A
             audio_features.get("speechRatio", 0.5),
             audio_features.get("volumeLevel", 0.6)
         )
+
+        # 将开放词汇音频风险注入分数（可解释增强）
+        ov_bonus = int(audio_ov_risk.get("riskScore", 0.0) * 25)
+        audio_risk_scores["opinionRisk"] = min(100, audio_risk_scores["opinionRisk"] + ov_bonus)
+        audio_risk_scores["action"] = min(100, audio_risk_scores["action"] + int(ov_bonus * 0.8))
         
         audio_result = {
             # 声学事件流
@@ -344,12 +546,25 @@ def process_audio(task_id: str, video_info: Dict[str, Any]) -> Tuple[Dict[str, A
                 # 6个维度的音频风险分数
                 "audioRiskScores": audio_risk_scores
             },
+
+            "openVocab": {
+                "engine": "CLAP(optional)",
+                "prompts": audio_ov_prompts,
+                "detections": audio_ov_hits,
+                "risk": audio_ov_risk,
+            },
             
             "processingTime": audio_features.get("processingTime", 0)
         }
         
         # ========== 构建文本模块结果（Step 3: Text → 75%） ==========
-        text_analysis_result = convert_audio_to_text(task_id, video_info, transcription, duration)
+        text_analysis_result = convert_audio_to_text(
+            task_id,
+            video_info,
+            transcription,
+            duration,
+            custom_word_packs=custom_word_packs,
+        )
         
         logger.info(f"[任务 {task_id}] [音频处理模块] 音频流处理完成")
         return audio_result, text_analysis_result
@@ -358,8 +573,13 @@ def process_audio(task_id: str, video_info: Dict[str, Any]) -> Tuple[Dict[str, A
         logger.error(f"[任务 {task_id}] [音频处理模块] 处理失败: {e}", exc_info=True)
         raise
     finally:
-        # 保留音频文件用于验证
-        pass
+        # 分析完成后清理临时音频文件（避免磁盘堆积）
+        try:
+            if audio_path and os.path.exists(audio_path):
+                os.remove(audio_path)
+                logger.info(f"[任务 {task_id}] [音频处理模块] 已清理临时音频文件: {audio_path}")
+        except Exception as cleanup_err:
+            logger.warning(f"[任务 {task_id}] [音频处理模块] 清理临时音频文件失败: {cleanup_err}")
 
 
 def extract_audio_features(task_id: str, video_info: Dict[str, Any], audio_path: str = None) -> Dict[str, Any]:
@@ -400,29 +620,31 @@ def extract_audio_features(task_id: str, video_info: Dict[str, Any], audio_path:
             noise_level = float(np.std(rms))
             noise_level = min(0.5, max(0.0, noise_level))
             
+            emotion_in_voice = infer_voice_emotion_from_features(audio_quality, volume_level, noise_level)
+
             result = {
                 "hasAudio": True,
                 "audioQuality": round(audio_quality, 4),
                 "speechRatio": round(speech_ratio, 4),
-                "musicRatio": round(random.uniform(0, 0.3), 4),  # 音乐检测较复杂，暂用估计值
+                "musicRatio": round(max(0.0, min(1.0, 1 - speech_ratio - noise_level)), 4),
                 "noiseLevel": round(noise_level, 4),
                 "volumeLevel": round(volume_level, 4),
-                "emotionInVoice": "neutral",  # 音频情感检测较复杂，暂用默认值
+                "emotionInVoice": emotion_in_voice,
                 "processingTime": round(time.time() - start_time, 2)
             }
             
             logger.info(f"[任务 {task_id}] [音频处理模块] 使用Librosa真实分析完成")
         else:
-            # 降级方案：使用mock数据
+            # 无法读取音频，不再返回随机mock，返回明确空特征
             logger.warning(f"[任务 {task_id}] [音频处理模块] 音频文件不存在，使用估计值")
             result = {
-                "hasAudio": True,
-                "audioQuality": round(random.uniform(0.6, 1.0), 4),
-                "speechRatio": round(random.uniform(0.3, 0.8), 4),
-                "musicRatio": round(random.uniform(0, 0.3), 4),
-                "noiseLevel": round(random.uniform(0, 0.3), 4),
-                "volumeLevel": round(random.uniform(0.4, 0.8), 4),
-                "emotionInVoice": random.choice(["calm", "energetic", "neutral"]),
+                "hasAudio": False,
+                "audioQuality": 0.0,
+                "speechRatio": 0.0,
+                "musicRatio": 0.0,
+                "noiseLevel": 0.0,
+                "volumeLevel": 0.0,
+                "emotionInVoice": "neutral",
                 "processingTime": round(time.time() - start_time, 2)
             }
         
@@ -431,20 +653,20 @@ def extract_audio_features(task_id: str, video_info: Dict[str, Any], audio_path:
         
     except Exception as e:
         logger.error(f"[任务 {task_id}] [音频处理模块] 音频特征提取失败: {e}")
-        # 返回默认值
+        # 返回失败态空特征，避免伪造
         return {
-            "hasAudio": True,
-            "audioQuality": 0.7,
-            "speechRatio": 0.5,
-            "musicRatio": 0.1,
-            "noiseLevel": 0.2,
-            "volumeLevel": 0.6,
+            "hasAudio": False,
+            "audioQuality": 0.0,
+            "speechRatio": 0.0,
+            "musicRatio": 0.0,
+            "noiseLevel": 0.0,
+            "volumeLevel": 0.0,
             "emotionInVoice": "neutral",
             "processingTime": round(time.time() - start_time, 2)
         }
 
 
-def analyze_text_with_nlp(transcription: str, task_id: str) -> Dict[str, Any]:
+def analyze_text_with_nlp(transcription: str, task_id: str, custom_word_packs: Optional[list] = None) -> Dict[str, Any]:
     """
     使用Jieba和SnowNLP进行真实文本分析（增强版：词云数据+敏感词检测）
     
@@ -464,7 +686,7 @@ def analyze_text_with_nlp(transcription: str, task_id: str) -> Dict[str, Any]:
                 "sensitiveWords": [],
                 "sentimentScore": 0.0,
                 "sentimentLabel": "NEUTRAL",
-            "topicCategory": "校园生活"
+            "topicCategory": "未知"
             }
         
         # 1. 关键词提取（使用TF-IDF，带权重用于词云）
@@ -477,7 +699,7 @@ def analyze_text_with_nlp(transcription: str, task_id: str) -> Dict[str, Any]:
         keywords = [word for word, weight in keywords_with_weight[:7]]
         
         # 2. 敏感词检测（高校相关敏感词库）
-        sensitive_words = detect_sensitive_words(transcription)
+        sensitive_words = detect_sensitive_words(transcription, custom_word_packs=custom_word_packs)
         
         # 3. 情感分析（SnowNLP）
         s = SnowNLP(transcription)
@@ -509,18 +731,18 @@ def analyze_text_with_nlp(transcription: str, task_id: str) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"[任务 {task_id}] [文本分析] NLP分析失败: {e}")
-        # 返回默认值
+        # 返回失败态空结果，避免伪造关键词
         return {
-            "keywords": ["大学生", "校园"],
+            "keywords": [],
             "wordCloud": [],
             "sensitiveWords": [],
             "sentimentScore": 0.0,
             "sentimentLabel": "NEUTRAL",
-            "topicCategory": "校园生活"
+            "topicCategory": "未知"
         }
 
 
-def detect_sensitive_words(text: str) -> list:
+def detect_sensitive_words(text: str, custom_word_packs: Optional[list] = None) -> list:
     """
     检测敏感词汇（高校风险预警相关）
     
@@ -541,10 +763,31 @@ def detect_sensitive_words(text: str) -> list:
     }
     
     detected = []
+    seen = set()
     for category, words in sensitive_categories.items():
         for word in words:
             if word in text:
-                detected.append({"word": word, "category": category})
+                key = (word, category)
+                if key not in seen:
+                    seen.add(key)
+                    detected.append({"word": word, "category": category, "source": "builtin"})
+
+    # 合并前端挂载词库（风险词库管理）
+    custom_words = _extract_pack_words(custom_word_packs)
+    for cw in custom_words:
+        word = cw.get("text", "")
+        category = cw.get("category", "自定义词库")
+        if word and word in text:
+            key = (word, category)
+            if key not in seen:
+                seen.add(key)
+                detected.append({
+                    "word": word,
+                    "category": category,
+                    "riskLevel": cw.get("riskLevel", "medium"),
+                    "packName": cw.get("packName", "自定义词库"),
+                    "source": "wordPack",
+                })
     
     return detected
 
@@ -585,8 +828,7 @@ def classify_topic_by_keywords(keywords: list) -> str:
     elif any(word in keywords_str for word in ["宿舍", "食堂", "寝室", "校园卡"]):
         return "校园生活"
     else:
-        # 默认返回校园生活（不返回"其他"）
-        return "校园生活"
+        return "未知"
 
 
 def generate_speech_events(transcription: str, duration: float, sentiment_score: float, keywords: list, task_id: str) -> list:
@@ -647,29 +889,26 @@ def generate_speech_events(transcription: str, duration: float, sentiment_score:
         # 从句子中提取关键词
         sentence_keywords = [kw for kw in keywords if kw in sentence]
         
-        # 根据情感分数和关键词判断风险
-        if any(word in sentence for word in ["抵制", "反对", "抗议", "不满", "垃圾", "傻逼"]):
-            risk_score = random.randint(85, 98)
+        neg_hit = any(word in sentence for word in ["抵制", "反对", "抗议", "不满", "垃圾", "傻逼"])
+        base = 50 + int(-sentiment_score * 25)
+        if neg_hit:
+            base += 25
+        base += min(10, len(sentence_keywords) * 2)
+        risk_score = max(5, min(98, base))
+
+        if risk_score >= 80:
             emotion_label = "愤怒"
             emotion_intensity = 0.9
             emotion_bg = "rgba(245, 108, 108, 0.15)"
             emotion_text = "#f56c6c"
-        elif sentiment_score < -0.3:
-            risk_score = random.randint(65, 85)
-            emotion_label = random.choice(["严肃", "紧张"])
+        elif risk_score >= 60:
+            emotion_label = "紧张"
             emotion_intensity = 0.7
             emotion_bg = "rgba(250, 173, 20, 0.15)"
             emotion_text = "#faad14"
-        elif sentiment_score > 0.3:
-            risk_score = random.randint(15, 35)
-            emotion_label = "平静"
-            emotion_intensity = 0.3
-            emotion_bg = "rgba(82, 196, 26, 0.15)"
-            emotion_text = "#52c41a"
         else:
-            risk_score = random.randint(30, 60)
             emotion_label = "平静"
-            emotion_intensity = 0.4
+            emotion_intensity = 0.35
             emotion_bg = "rgba(82, 196, 26, 0.15)"
             emotion_text = "#52c41a"
         
@@ -687,7 +926,7 @@ def generate_speech_events(transcription: str, duration: float, sentiment_score:
                 "bgColor": emotion_bg,
                 "textColor": emotion_text
             },
-            "confidence": random.randint(85, 98)
+            "confidence": max(70, min(98, 80 + len(sentence_keywords) * 3))
         })
         event_id += 1
     
@@ -713,38 +952,21 @@ def generate_text_risks(duration: float, sentiment_score: float, sensitive_words
     
     has_sensitive = len(sensitive_words) > 0
     
+    sens_factor = min(0.35, len(sensitive_words) * 0.08)
+    sent_factor = max(0.0, -float(sentiment_score)) * 0.35
+
     for i in range(num_segments):
-        if i < 2:
-            # 开头段：低风险
-            intensity = random.uniform(0.12, 0.28)
-            reason = random.choice(["开场无语音", "平静介绍", "正常陈述"])
-        elif i >= num_segments - 2:
-            # 结尾段
-            intensity = random.uniform(0.25, 0.45)
-            reason = random.choice(["总结陈述", "情绪平复", "结束语"])
+        pos = i / max(1, num_segments - 1)
+        center_boost = max(0.0, 1 - abs(pos - 0.5) * 2) * 0.15
+        intensity = 0.18 + sens_factor + sent_factor + center_boost
+        intensity = max(0.05, min(1.0, intensity))
+
+        if len(sensitive_words) > 0 and intensity >= 0.7:
+            reason = "检测到敏感关键词并伴随负向表达"
+        elif intensity >= 0.55:
+            reason = "文本情绪偏负面，存在传播风险"
         else:
-            # 中间段：根据情感和敏感词生成
-            if has_sensitive and random.random() > 0.6:
-                intensity = random.uniform(0.85, 1.0)
-                reason = random.choice([
-                    "情绪激烈，使用极端词汇批评",
-                    "持续批评，出现煽动性词汇",
-                    "检测到敏感关键词"
-                ])
-            elif sentiment_score < -0.3:
-                intensity = random.uniform(0.55, 0.75)
-                reason = random.choice([
-                    "表达不满，涉及负面评价",
-                    "持续表达不满情绪",
-                    "可能引发共鸣"
-                ])
-            else:
-                intensity = random.uniform(0.25, 0.55)
-                reason = random.choice([
-                    "正常陈述",
-                    "提及相关信息",
-                    "客观描述"
-                ])
+            reason = "文本内容整体平稳"
         
         text_risks.append({
             "reason": reason,
@@ -769,44 +991,18 @@ def calculate_text_risk_scores(sentiment_score: float, keywords: list, sensitive
     """
     has_sensitive = len(sensitive_words) > 0
     keyword_count = len(keywords)
-    
-    # 1. 身份置信度（基于关键词）
-    identity_score = int(60 + keyword_count * 4 + random.randint(-5, 10))
-    
-    # 2. 学校关联度（基于关键词和主题）
-    university_score = 0
+    neg = max(0.0, -float(sentiment_score))
+
+    identity_score = int(35 + min(30, keyword_count * 4))
+
     university_keywords = ["大学", "学校", "校园", "学生", "老师", "教务", "宿舍", "食堂"]
     university_related_count = sum(1 for kw in keywords if any(uk in kw for uk in university_keywords))
-    university_score = int(50 + university_related_count * 10 + random.randint(-5, 15))
-    
-    # 3. 负面情感度（基于情感分数）
-    if sentiment_score < -0.5:
-        attitude_score = random.randint(80, 95)
-    elif sentiment_score < -0.2:
-        attitude_score = random.randint(60, 80)
-    elif sentiment_score > 0.2:
-        attitude_score = random.randint(15, 35)
-    else:
-        attitude_score = random.randint(40, 60)
-    
-    # 4. 主题分数（基于主题分类和关键词）
-    topic_score = int(60 + keyword_count * 3 + random.randint(-5, 15))
-    
-    # 5. 舆论风险（基于敏感词和情感）
-    if has_sensitive:
-        opinion_risk_score = random.randint(70, 90)
-    elif sentiment_score < -0.3:
-        opinion_risk_score = random.randint(55, 75)
-    else:
-        opinion_risk_score = random.randint(35, 60)
-    
-    # 6. 处置紧迫度（基于综合判断）
-    if has_sensitive and sentiment_score < -0.5:
-        action_score = random.randint(75, 95)
-    elif has_sensitive or sentiment_score < -0.3:
-        action_score = random.randint(55, 80)
-    else:
-        action_score = random.randint(40, 65)
+    university_score = int(35 + min(50, university_related_count * 12) + (10 if "校园" in topic_category else 0))
+
+    attitude_score = int(25 + neg * 60 + (8 if has_sensitive else 0))
+    topic_score = int(35 + min(35, keyword_count * 4) + (8 if topic_category else 0))
+    opinion_risk_score = int(20 + neg * 50 + min(30, len(sensitive_words) * 10))
+    action_score = int(opinion_risk_score * 0.65 + attitude_score * 0.35)
     
     return {
         "identity": min(100, max(0, identity_score)),
@@ -839,256 +1035,43 @@ def generate_preliminary_evidences(keywords: list, sentiment_score: float, topic
         "opinionRisk": [],
         "action": []
     }
-    
-    # ========== 1. 身份相关证据（text + visual + audio）==========
-    # 文本证据
-    identity_keywords = ["学生", "我是", "我们", "同学", "班级", "学号"]
-    for kw in keywords[:2]:
-        if any(ik in kw for ik in identity_keywords):
-            evidences["identity"].append({
-                "timestamp": random.randint(5, max(10, int(duration) - 5)),
-                "type": "text",
-                "description": f"身份相关词汇：{kw}",
-                "confidence": random.randint(80, 95),
-                "keyword": kw
-            })
-    # 补充文本证据
-    while len([e for e in evidences["identity"] if e["type"] == "text"]) < 2:
-        evidences["identity"].append({
-            "timestamp": random.randint(5, max(10, int(duration) - 10)),
-            "type": "text",
-            "description": random.choice(["使用第一人称表达", "疑似在校学生语气"]),
-            "confidence": random.randint(75, 88),
-            "keyword": random.choice(identity_keywords)
-        })
 
-    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
-    # for i in range(2):
-    #     evidences["identity"].append({
-    #         "timestamp": random.randint(10, max(15, int(duration) - 10)),
-    #         "type": "visual",
-    #         "description": random.choice([
-    #             "检测到学生证或校园卡",
-    #             "识别到校服着装",
-    #             "检测到学生常去场景（教室/图书馆）"
-    #         ]),
-    #         "confidence": random.randint(80, 92),
-    #         "keyword": "visual-identity"
-    #     })
+    d = max(1, int(duration))
+    ts1 = min(d - 1, max(1, int(d * 0.2)))
+    ts2 = min(d - 1, max(1, int(d * 0.5)))
+    ts3 = min(d - 1, max(1, int(d * 0.8)))
 
-    # 音频证据
-    evidences["identity"].append({
-        "timestamp": random.randint(8, max(12, int(duration) - 8)),
-        "type": "audio",
-        "description": "声音特征符合年轻学生群体",
-        "confidence": random.randint(75, 88),
-        "keyword": "voice-age"
-    })
-    
-    # ========== 2. 高校相关证据（text + visual + audio）==========
-    # 文本证据
-    university_keywords = ["大学", "北大", "清华", "学校", "校园", "教务", "选课", "宿舍", "食堂"]
-    for kw in keywords[:2]:
-        if any(uk in kw for uk in university_keywords):
-            evidences["university"].append({
-                "timestamp": random.randint(5, max(10, int(duration) - 5)),
-                "type": "text",
-                "description": f"高校关键词：{kw}",
-                "confidence": random.randint(85, 98),
-                "keyword": kw
-            })
-    while len([e for e in evidences["university"] if e["type"] == "text"]) < 2:
-        evidences["university"].append({
-            "timestamp": random.randint(10, max(15, int(duration) - 10)),
-            "type": "text",
-            "description": "多次提及学校相关内容",
-            "confidence": random.randint(80, 92),
-            "keyword": random.choice(university_keywords)
-        })
+    id_kw = next((k for k in keywords if any(w in k for w in ["学生", "同学", "班", "学号", "老师"])), None)
+    uni_kw = next((k for k in keywords if any(w in k for w in ["大学", "校园", "学校", "教务", "宿舍", "食堂"])), None)
+    topic_kw = keywords[0] if keywords else None
 
-    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
-    # for i in range(2):
-    #     evidences["university"].append({
-    #         "timestamp": random.randint(5, max(10, int(duration) - 5)),
-    #         "type": "visual",
-    #         "description": random.choice([
-    #             "识别到学校logo或校徽",
-    #             "检测到校园标志性建筑",
-    #             "识别到教学楼内部场景"
-    #         ]),
-    #         "confidence": random.randint(88, 98),
-    #         "keyword": "campus-visual"
-    #     })
+    if id_kw:
+        evidences["identity"].append({"timestamp": ts1, "type": "text", "description": f"文本中出现身份相关线索：{id_kw}", "confidence": 85, "keyword": id_kw})
+    if uni_kw:
+        evidences["university"].append({"timestamp": ts1, "type": "text", "description": f"文本中出现高校相关线索：{uni_kw}", "confidence": 88, "keyword": uni_kw})
+    if topic_kw:
+        evidences["topic"].append({"timestamp": ts2, "type": "text", "description": f"主题归类依据关键词：{topic_kw}", "confidence": 82, "keyword": topic_kw})
 
-    # 音频证据
-    evidences["university"].append({
-        "timestamp": random.randint(15, max(20, int(duration) - 10)),
-        "type": "audio",
-        "description": "背景声包含校园特征音（如上下课铃声）",
-        "confidence": random.randint(70, 85),
-        "keyword": "campus-audio"
-    })
-    
-    # ========== 3. 主题相关证据（text + visual）==========
-    for i in range(2):
-        evidences["topic"].append({
-            "timestamp": random.randint(10, max(15, int(duration) - 10)),
-            "type": "text",
-            "description": f"主题关键内容{i+1}",
-            "confidence": random.randint(80, 95),
-            "keyword": topic_category or "校园话题"
-        })
-    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
-    # evidences["topic"].append({
-    #     "timestamp": random.randint(12, max(18, int(duration) - 12)),
-    #     "type": "visual",
-    #     "description": "画面内容与主题相关",
-    #     "confidence": random.randint(75, 90),
-    #     "keyword": "topic-visual"
-    # })
+    senti_100 = int((1 - sentiment_score) * 50)
+    senti_100 = max(0, min(100, senti_100))
+    att_desc = "检测到负向情绪表达" if sentiment_score < -0.2 else "情绪整体平稳"
+    evidences["attitude"].append({"timestamp": ts2, "type": "text", "description": att_desc, "confidence": 80, "keyword": "sentiment", "sentimentScore": senti_100})
 
-    # ========== 4. 态度相关证据（text + audio，包含sentimentScore）- 随机正负面 ==========
-    # 随机生成正面、负面、中性情绪，不要总是负面
-    emotion_types = []
-    for _ in range(4):  # 生成4个证据
-        rand_val = random.random()
-        if rand_val < 0.25:  # 25%概率负面
-            emotion_types.append({
-                "sentiment": "negative",
-                "score": random.randint(70, 95),
-                "words": ["失望", "不满", "批评", "抱怨", "质疑", "愤怒"],
-                "audio_desc": ["语气情绪激动，音量突然升高", "检测到愤怒情绪", "语速加快，情绪紧张"]
-            })
-        elif rand_val < 0.65:  # 40%概率中性
-            emotion_types.append({
-                "sentiment": "neutral",
-                "score": random.randint(40, 60),
-                "words": ["讨论", "陈述", "说明", "提及", "谈到"],
-                "audio_desc": ["语调平稳，正常陈述", "语气平和", "保持冷静态度"]
-            })
-        else:  # 35%概率正面
-            emotion_types.append({
-                "sentiment": "positive",
-                "score": random.randint(10, 35),
-                "words": ["赞同", "支持", "满意", "认可", "欣赏"],
-                "audio_desc": ["语气愉悦，表达认可", "语调轻松", "情绪积极"]
-            })
-    
-    # 文本证据（2个）
-    for i in range(2):
-        emotion = emotion_types[i]
-        evidences["attitude"].append({
-            "timestamp": random.randint(15, max(20, int(duration) - 10)),
-            "type": "text",
-            "description": f"{random.choice(emotion['words'])}情绪表达",
-            "confidence": random.randint(85, 95),
-            "keyword": random.choice(emotion['words']),
-            "sentimentScore": emotion["score"]
-        })
-    
-    # 音频证据（2个）
-    for i in range(2):
-        emotion = emotion_types[i + 2]
-        evidences["attitude"].append({
-            "timestamp": random.randint(18, max(25, int(duration) - 12)),
-            "type": "audio",
-            "description": random.choice(emotion["audio_desc"]),
-            "confidence": random.randint(80, 92),
-            "keyword": "emotion-audio",
-            "sentimentScore": emotion["score"]
-        })
-    
-    # ========== 5. 舆论风险证据（text + visual）- 增加变化性 ==========
-    risk_templates = [
-        {
-            "text_descs": ["可能引发共鸣的措辞", "使用煽动性词汇", "呼吁集体行动", "表达强烈诉求"],
-            "text_keywords": ["大家", "所有人", "我们应该", "一起", "共同"],
-            "visual_desc": ["画面显示群体聚集", "检测到横幅标语", "多人同框出现"]
-        },
-        {
-            "text_descs": ["正常表达观点", "客观陈述", "提出建议", "理性讨论"],
-            "text_keywords": ["建议", "希望", "可以", "应该", "认为"],
-            "visual_desc": ["正常画面内容", "单人场景", "静态画面"]
-        },
-        {
-            "text_descs": ["情感化表达", "个人感受分享", "经历叙述"],
-            "text_keywords": ["我觉得", "我认为", "我的体验", "感觉"],
-            "visual_desc": ["个人镜头特写", "情绪化表情", "手势动作"]
-        }
-    ]
-    
-    # 随机选择风险等级
-    risk_level = random.choice(risk_templates)
-    
-    for i in range(2):
-        evidences["opinionRisk"].append({
-            "timestamp": random.randint(20, max(25, int(duration) - 10)),
-            "type": "text",
-            "description": random.choice(risk_level["text_descs"]),
-            "confidence": random.randint(75, 90),
-            "keyword": random.choice(risk_level["text_keywords"])
-        })
-    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
-    # evidences["opinionRisk"].append({
-    #     "timestamp": random.randint(22, max(28, int(duration) - 8)),
-    #     "type": "visual",
-    #     "description": random.choice(risk_level["visual_desc"]),
-    #     "confidence": random.randint(70, 88),
-    #     "keyword": "visual-context"
-    # })
-
-    # ========== 6. 处置建议证据（text + audio + visual）- 增加变化性 ==========
-    action_scenarios = [
-        {  # 高风险场景
-            "text_desc": ["关键负面词汇出现", "极端表达", "煽动性言论"],
-            "text_keywords": ["批评", "抗议", "抵制", "反对"],
-            "audio_desc": ["情绪激烈片段，持续高音量", "愤怒咆哮", "激动发言"],
-            "visual_desc": ["检测到激动手势", "肢体语言强烈", "表情激动"]
-        },
-        {  # 中等风险场景
-            "text_desc": ["负面评价", "不满表达", "质疑内容"],
-            "text_keywords": ["不满", "质疑", "失望", "不好"],
-            "audio_desc": ["语气较重", "情绪波动", "语速加快"],
-            "visual_desc": ["表情变化", "手势辅助", "眉头紧锁"]
-        },
-        {  # 低风险场景
-            "text_desc": ["正常表达", "客观描述", "平和陈述"],
-            "text_keywords": ["说明", "介绍", "讨论", "分享"],
-            "audio_desc": ["语气平稳", "正常语调", "声音清晰"],
-            "visual_desc": ["表情自然", "姿态放松", "正常画面"]
-        }
-    ]
-    
-    # 随机选择场景（倾向于随机分布）
-    scenario = random.choice(action_scenarios)
-    
-    evidences["action"].append({
-        "timestamp": random.randint(15, max(20, int(duration) - 5)),
-        "type": "text",
-        "description": random.choice(scenario["text_desc"]),
-        "confidence": random.randint(80, 92),
-        "keyword": random.choice(scenario["text_keywords"])
-    })
-    evidences["action"].append({
-        "timestamp": random.randint(18, max(24, int(duration) - 6)),
-        "type": "audio",
-        "description": random.choice(scenario["audio_desc"]),
-        "confidence": random.randint(78, 90),
-        "keyword": "audio-action"
-    })
-    # 视觉证据 - 已移除，visual类型仅用于CV检测，不作为证据
-    # evidences["action"].append({
-    #     "timestamp": random.randint(20, max(26, int(duration) - 8)),
-    #     "type": "visual",
-    #     "description": random.choice(scenario["visual_desc"]),
-    #     "confidence": random.randint(75, 88),
-    #     "keyword": "gesture-visual"
-    # })
+    op_desc = "负向表达可能带来传播风险" if sentiment_score < -0.3 else "文本传播风险较低"
+    evidences["opinionRisk"].append({"timestamp": ts3, "type": "text", "description": op_desc, "confidence": 78, "keyword": "opinion"})
+    if sentiment_score < -0.25:
+        evidences["action"].append({"timestamp": ts3, "type": "text", "description": "建议进行人工复核", "confidence": 80, "keyword": "review"})
 
     return evidences
 
 
-def convert_audio_to_text(task_id: str, video_info: Dict[str, Any], transcription: str, duration: float) -> Dict[str, Any]:
+def convert_audio_to_text(
+    task_id: str,
+    video_info: Dict[str, Any],
+    transcription: str,
+    duration: float,
+    custom_word_packs: Optional[list] = None,
+) -> Dict[str, Any]:
     """
     文本分析（使用Jieba和SnowNLP进行真实NLP分析）
     适配新的前端数据结构
@@ -1106,7 +1089,7 @@ def convert_audio_to_text(task_id: str, video_info: Dict[str, Any], transcriptio
     start_time = time.time()
     
     # 使用真实的NLP分析
-    nlp_result = analyze_text_with_nlp(transcription, task_id)
+    nlp_result = analyze_text_with_nlp(transcription, task_id, custom_word_packs=custom_word_packs)
     
     sentiment_score = nlp_result["sentimentScore"]
     keywords = nlp_result["keywords"]
@@ -1143,15 +1126,8 @@ def convert_audio_to_text(task_id: str, video_info: Dict[str, Any], transcriptio
         duration
     )
     
-    # 5. 判断高校关联性（Mock阶段强制添加一些高校关键词）
+    # 5. 判断高校关联性（仅基于真实提取关键词）
     university_keywords = ["大学", "学院", "学校", "校园", "北大", "清华", "复旦", "教务", "选课", "宿舍", "食堂"]
-    
-    # 强制添加一些高校关键词用于展示（如果原关键词列表中没有）
-    has_university_kw = any(any(uk in kw for uk in university_keywords) for kw in keywords)
-    if not has_university_kw or len(keywords) < 3:
-        # 添加高校关键词
-        additional_keywords = ["北京大学", "选课系统", "教务处", "校园卡"]
-        keywords.extend([kw for kw in additional_keywords if kw not in keywords])
     
     detected_keywords_list = [
         {
@@ -1229,7 +1205,7 @@ def convert_audio_to_text(task_id: str, video_info: Dict[str, Any], transcriptio
             "sentimentScore": sentiment_score,
             "sentimentLabel": nlp_result["sentimentLabel"],
             "topicCategory": topic_category,
-            "languageConfidence": 0.95,
+            "languageConfidence": 0.95 if transcription not in ["（未检测到语音内容）", "（ASR识别失败）"] else 0.0,
             
             # 6个维度的文本风险分数
             "textRiskScores": text_risk_scores

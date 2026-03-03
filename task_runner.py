@@ -20,7 +20,6 @@ import os
 import sys
 import json
 import time
-import random
 import logging
 import urllib.parse
 import pika
@@ -139,7 +138,7 @@ def convert_url_to_tunnel(original_url: str) -> str:
 def _step_media_split(task_id: str, video_info: dict, logger) -> dict:
     """Step 1: 媒体分割"""
     logger.info("Step 1: 开始媒体分割...")
-    process_time = random.uniform(1, 3)
+    process_time = 1.2
     time.sleep(process_time)
     result = {
         "visualStreamReady": True,
@@ -195,14 +194,12 @@ def _build_university_profile(score):
     - isUniversityRelated: 由融合分数直接判定，避免 Java 回退到关键词推断
     - universityName: 永不为空；未涉及时返回固定文案“未涉及具体高校”
     """
-    universities = ["北京大学", "清华大学", "复旦大学", "上海交通大学", "浙江大学"]
-
     # 统一口径：>=65 视为涉及高校
     is_related = score >= 65
     if is_related:
         return {
             "isUniversityRelated": True,
-            "universityName": random.choice(universities)
+            "universityName": "高校相关（未识别具体学校）"
         }
 
     return {
@@ -224,7 +221,7 @@ def _get_topic_sub_category(topic_category):
         "心理健康": ["心理调适", "情绪管理", "压力释放"],
         "社会实践": ["志愿服务", "社会调研", "公益活动"]
     }
-    return random.choice(sub_categories.get(topic_category, ["其他"]))
+    return sub_categories.get(topic_category, ["其他"])[0]
 
 
 def _get_risk_reason(score):
@@ -270,7 +267,7 @@ def _step_integration(task_id: str, video_result: dict, audio_result: dict,
     fusion = {}
     for dim in dimensions:
         fusion[dim] = _calculate_modality_fusion(
-            dim, v_scores.get(dim, 50), a_scores.get(dim, 50), t_scores.get(dim, 50)
+            dim, v_scores.get(dim, 0), a_scores.get(dim, 0), t_scores.get(dim, 0)
         )
 
     # 综合风险时间序列
@@ -280,9 +277,9 @@ def _step_integration(task_id: str, video_result: dict, audio_result: dict,
 
     comprehensive_risks = []
     for i in range(num_segments):
-        vi = video_risks[i]["intensity"] if i < len(video_risks) else 0.3
-        ai = audio_emotions[i]["intensity"] if i < len(audio_emotions) else 0.3
-        ti = text_risks[i]["intensity"] if i < len(text_risks) else 0.3
+        vi = video_risks[i]["intensity"] if i < len(video_risks) else 0.0
+        ai = audio_emotions[i]["intensity"] if i < len(audio_emotions) else 0.0
+        ti = text_risks[i]["intensity"] if i < len(text_risks) else 0.0
         comprehensive_risks.append({"intensity": round(max(vi, ai, ti), 2)})
 
     # 雷达图时间序列

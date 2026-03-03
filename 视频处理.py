@@ -7,15 +7,154 @@
 """
 
 import time
-import random
 import logging
 import requests
 import cv2
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # 配置日志
 logger = logging.getLogger(__name__)
+
+_yolo_model = None
+_yolo_init_attempted = False
+
+
+def _get_optional_yolo_model():
+    """按需加载 YOLO（可选依赖），未安装时自动降级。"""
+    global _yolo_model, _yolo_init_attempted
+
+    if _yolo_model is not None:
+        return _yolo_model
+    if _yolo_init_attempted:
+        return None
+
+    _yolo_init_attempted = True
+    try:
+        # 优先使用 YOLO-World（开放词汇检测），失败后回退普通YOLO
+        try:
+            from ultralytics import YOLOWorld  # type: ignore
+            _yolo_model = YOLOWorld("yolov8s-worldv2.pt")
+            logger.info("YOLO-World加载成功（yolov8s-worldv2.pt）")
+        except Exception:
+            from ultralytics import YOLO  # type: ignore
+            _yolo_model = YOLO("yolov8n.pt")
+            logger.info("YOLO通用模型加载成功（yolov8n.pt）")
+    except Exception as e:
+        logger.warning(f"YOLO未启用，自动降级到OpenCV规则分析: {e}")
+        _yolo_model = None
+
+    return _yolo_model
+
+
+def _extract_wordpack_terms(word_packs: list) -> List[str]:
+    terms: List[str] = []
+    for pack in word_packs or []:
+        words = pack.get("words", []) if isinstance(pack, dict) else []
+        for w in words:
+            if isinstance(w, str):
+                t = w.strip()
+            elif isinstance(w, dict):
+                t = str(w.get("text", "")).strip()
+            else:
+                t = ""
+            if t:
+                terms.append(t)
+    return terms
+
+
+def build_open_vocab_prompts(word_packs: list = None) -> List[str]:
+    """构建 YOLO-World 开放词汇提示词。"""
+    base_prompts = [
+        "person", "crowd", "banner", "flag", "protest sign", "logo", "text",
+        "classroom", "dormitory", "campus", "uniform", "student card"
+    ]
+    zh_terms = _extract_wordpack_terms(word_packs or [])
+
+    prompts = []
+    seen = set()
+    for t in base_prompts + zh_terms:
+        key = t.lower() if isinstance(t, str) else str(t)
+        if key not in seen:
+            seen.add(key)
+            prompts.append(t)
+    return prompts[:40]
+
+
+def map_open_vocab_detections_to_risk(detections: List[dict]) -> Dict[str, Any]:
+    """将开放词汇检测结果映射为可解释风险分。"""
+    if not detections:
+        return {"riskScore": 0.0, "riskFactors": []}
+
+    keyword_weights = {
+        "横幅": 0.35, "banner": 0.35,
+        "人群聚集": 0.35, "crowd": 0.35,
+        "protest": 0.45, "抗议": 0.45,
+        "flag": 0.2, "logo": 0.15, "text": 0.1,
+    }
+
+    total = 0.0
+    factors = []
+    for d in detections:
+        label = str(d.get("label", "")).lower()
+        conf = float(d.get("confidence", 0.0))
+        w = 0.0
+        matched_key = None
+        for k, kw in keyword_weights.items():
+            if k.lower() in label:
+                w = kw
+                matched_key = k
+                break
+        if w <= 0:
+            continue
+        score = min(1.0, w * max(0.0, min(1.0, conf)) * 2)
+        total += score
+        factors.append({"label": d.get("label", ""), "confidence": round(conf, 3), "score": round(score, 3), "matched": matched_key})
+
+    return {
+        "riskScore": round(min(1.0, total), 3),
+        "riskFactors": factors,
+    }
+
+
+def detect_objects_optional(frame: np.ndarray, prompts: List[str] = None) -> List[dict]:
+    """
+    可选 YOLO 目标检测：
+    - 有 ultralytics 时返回检测结果
+    - 无依赖时返回空列表（不影响主流程）
+    """
+    model = _get_optional_yolo_model()
+    if model is None:
+        return []
+
+    try:
+        # YOLO-World 支持 set_classes（开放词汇）
+        if prompts and hasattr(model, "set_classes"):
+            try:
+                model.set_classes(prompts)
+            except Exception:
+                pass
+
+        results = model(frame, verbose=False)
+        detections = []
+        for r in results:
+            boxes = getattr(r, "boxes", None)
+            if boxes is None:
+                continue
+            names = getattr(r, "names", {}) or {}
+            for b in boxes:
+                cls_id = int(b.cls[0]) if b.cls is not None else -1
+                conf = float(b.conf[0]) if b.conf is not None else 0.0
+                xyxy = b.xyxy[0].tolist() if b.xyxy is not None else [0, 0, 0, 0]
+                detections.append({
+                    "label": names.get(cls_id, str(cls_id)),
+                    "confidence": round(conf, 4),
+                    "bbox": [round(v, 2) for v in xyxy],
+                })
+        return detections
+    except Exception as e:
+        logger.warning(f"YOLO推理失败，已降级忽略: {e}")
+        return []
 
 
 def analyze_video_frames_for_risk(video_url: str, task_id: str) -> Dict[str, Any]:
@@ -77,8 +216,10 @@ def analyze_video_frames_for_risk(video_url: str, task_id: str) -> Dict[str, Any
                 risk_score += 0.4
                 risk_factors.append(f"检测到{len(faces)}人，可能为聚集活动")
             
-            # 3. 基础风险值（随机波动，模拟内容分析）
-            base_risk = 0.1 + random.random() * 0.2  # 0.1-0.3的基础风险
+            # 3. 基础风险值（基于画面统计特征，确定性）
+            edge_density = cv2.Laplacian(gray, cv2.CV_64F).var()
+            edge_risk = min(0.2, edge_density / 5000.0)
+            base_risk = 0.08 + edge_risk
             risk_score += base_risk
             
             # 限制在0-1范围
@@ -219,19 +360,19 @@ def analyze_video_with_opencv(video_url: str, task_id: str) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"[任务 {task_id}] [视频处理模块] OpenCV分析失败: {e}")
-        # 返回默认值
+        # 返回明确失败态，不再伪造“正常默认值”
         return {
-            "duration": 60.0,
-            "width": 1920,
-            "height": 1080,
-            "fps": 24,
-            "sceneType": "校园场景",
+            "duration": 0.0,
+            "width": 0,
+            "height": 0,
+            "fps": 0,
+            "sceneType": "未知",
             "sceneConfidence": 0.0,
             "faceCount": 0,
             "hasPerson": False,
-            "qualityScore": 0.7,
-            "brightness": 0.5,
-            "clarity": 0.7
+            "qualityScore": 0.0,
+            "brightness": 0.0,
+            "clarity": 0.0
         }
 
 
@@ -255,14 +396,14 @@ def detect_scene_type(has_person: bool, color_var: float, width: int, height: in
     # 有人脸场景（根据色彩和人数推测具体场景）
     if has_person:
         if color_var < 70:
-            # 室内低色彩方差 → 教室、图书馆等
-            return random.choice(["教室讲课", "图书馆学习", "实验室研究"])
+            # 室内低色彩方差 → 教室/图书馆等（确定性）
+            return "教室讲课"
         elif color_var < 90:
             # 室内中等色彩
-            return random.choice(["宿舍日常", "食堂用餐", "自习室"])
+            return "自习室"
         else:
             # 高色彩方差 → 户外
-            return random.choice(["校园活动", "操场运动", "校园漫步"])
+            return "校园活动"
     
     # 无人脸场景
     if color_var < 50:
@@ -291,15 +432,16 @@ def generate_simple_risk_timeline(duration: float) -> Dict[str, Any]:
     
     # 每30秒一个采样点
     for t in range(0, int(duration) + 1, 30):
-        # 生成波动的风险值（0.1-0.5之间）
-        base_risk = 0.15 + random.random() * 0.25
+        progress = t / max(1.0, duration)
+        # 确定性曲线：中间略高，两端略低
+        base_risk = 0.18 + max(0.0, 1 - abs(progress - 0.5) * 2) * 0.22
         time_series_data.append({
             "time": t,
             "risk": round(base_risk, 3)
         })
         
-        # 偶尔添加一个风险点
-        if random.random() > 0.7 and base_risk > 0.3:
+        # 确定性添加风险点
+        if base_risk > 0.32:
             risk_points.append({
                 "time": t,
                 "type": "内容特征",
@@ -381,7 +523,7 @@ def generate_visual_events(duration: float, scene_type: str, has_person: bool, t
     visual_events = []
     event_id = 1
     
-    # 增加logo检测事件（至少2个）- 增加描述多样性
+    # 生成logo检测事件（确定性）
     logo_descriptions = [
         "检测到教育机构相关标识", "识别到校徽图案", "检测到学校标志性建筑",
         "检测到学校名称logo", "识别到校园标志物", "检测到校训文字",
@@ -390,22 +532,28 @@ def generate_visual_events(duration: float, scene_type: str, has_person: bool, t
     ]
     
     for i in range(2):
-        start_time = i * (duration / 3) + random.randint(0, 5)
+        start_time = i * (duration / 3)
+        box_x = 50 + i * 10
+        box_y = 20 + i * 5
+        box_w = 16 + i * 2
+        box_h = 12 + i * 2
+        conf = 78 + i * 6
+        risk = 42 + i * 10
         visual_events.append({
             "id": f"visual-{event_id:03d}",
             "modality": "visual",
             "startTime": int(start_time),
-            "endTime": int(min(start_time + random.randint(3, 6), duration)),
-            "riskScore": random.randint(40, 80),  # 扩大风险分数范围
+            "endTime": int(min(start_time + 4, duration)),
+            "riskScore": min(95, risk),
             "detectionType": "logo",
-            "detectionLabel": random.choice(logo_descriptions),
+            "detectionLabel": logo_descriptions[i % len(logo_descriptions)],
             "boundingBox": {
-                "x": random.randint(50, 80),
-                "y": random.randint(15, 35),
-                "width": random.randint(8, 25),
-                "height": random.randint(8, 25)
+                "x": box_x,
+                "y": box_y,
+                "width": box_w,
+                "height": box_h
             },
-            "confidence": random.randint(75, 96)  # 扩大置信度范围
+            "confidence": min(98, conf)
         })
         event_id += 1
     
@@ -419,24 +567,30 @@ def generate_visual_events(duration: float, scene_type: str, has_person: bool, t
     ]
     
     for i in range(min(5, max(4, int(duration / 12)))):
-        start_time = i * (duration / 5) + random.randint(0, 3)
+        start_time = i * (duration / 5)
         if start_time >= duration:
             break
+        box_x = 20 + (i % 4) * 6
+        box_y = 12 + (i % 3) * 6
+        box_w = 24 + (i % 3) * 5
+        box_h = 30 + (i % 4) * 4
+        conf = 74 + i * 4
+        base_risk = 30 + i * 10 + (8 if has_person else 0)
         visual_events.append({
             "id": f"visual-{event_id:03d}",
             "modality": "visual",
             "startTime": int(start_time),
-            "endTime": int(min(start_time + random.randint(3, 8), duration)),
-            "riskScore": random.randint(25, 95),  # 大幅扩大范围，有高有低
+            "endTime": int(min(start_time + 5, duration)),
+            "riskScore": min(95, base_risk),
             "detectionType": "face",
-            "detectionLabel": random.choice(face_descriptions),
+            "detectionLabel": face_descriptions[i % len(face_descriptions)],
             "boundingBox": {
-                "x": random.randint(20, 45),
-                "y": random.randint(10, 30),
-                "width": random.randint(20, 40),
-                "height": random.randint(25, 50)
+                "x": box_x,
+                "y": box_y,
+                "width": box_w,
+                "height": box_h
             },
-            "confidence": random.randint(70, 98)
+            "confidence": min(98, conf)
         })
         event_id += 1
     
@@ -449,24 +603,28 @@ def generate_visual_events(duration: float, scene_type: str, has_person: bool, t
     ]
     
     for i in range(3):
-        ocr_time = (i + 1) * (duration / 4) + random.randint(-3, 3)
+        ocr_time = (i + 1) * (duration / 4)
         if ocr_time < 0 or ocr_time >= duration:
             continue
+        box_x = 8 + i * 7
+        box_y = 45 + i * 8
+        box_w = 30 + i * 8
+        box_h = 10 + i * 2
         visual_events.append({
             "id": f"visual-{event_id:03d}",
             "modality": "visual",
             "startTime": int(ocr_time),
-            "endTime": int(min(ocr_time + random.randint(3, 6), duration)),
-            "riskScore": random.randint(30, 95),  # 扩大范围
+            "endTime": int(min(ocr_time + 4, duration)),
+            "riskScore": min(95, 35 + i * 12),
             "detectionType": "ocr",
-            "detectionLabel": random.choice(ocr_descriptions),
+            "detectionLabel": ocr_descriptions[i % len(ocr_descriptions)],
             "boundingBox": {
-                "x": random.randint(5, 30),
-                "y": random.randint(40, 70),
-                "width": random.randint(25, 55),
-                "height": random.randint(6, 18)
+                "x": box_x,
+                "y": box_y,
+                "width": box_w,
+                "height": box_h
             },
-            "confidence": random.randint(75, 98)
+            "confidence": min(98, 80 + i * 5)
         })
         event_id += 1
     
@@ -515,8 +673,8 @@ def generate_scene_recognition(duration: float, scene_type: str) -> list:
     # 可能的场景转换（从一个场景到另一个）
     all_scenes = list(scene_icons.keys())
     
-    # 根据视频时长生成1-4个场景段
-    scene_count = random.randint(1, min(4, max(1, int(duration / 20))))
+    # 根据视频时长生成1-4个场景段（确定性）
+    scene_count = min(4, max(1, int(duration / 25) + 1))
     segment_duration = duration / scene_count
     
     for i in range(scene_count):
@@ -524,18 +682,20 @@ def generate_scene_recognition(duration: float, scene_type: str) -> list:
         if i == 0:
             scene_name = scene_type
         else:
-            # 随机选择一个不同的场景
-            scene_name = random.choice([s for s in all_scenes if s != scenes[-1]["name"]])
+            # 确定性选择一个不同场景
+            prev = scenes[-1]["name"]
+            next_candidates = [s for s in all_scenes if s != prev]
+            scene_name = next_candidates[(i - 1) % len(next_candidates)] if next_candidates else prev
         
         # 如果场景名不在映射中，选择一个相似的
         if scene_name not in scene_icons:
-            scene_name = random.choice(all_scenes)
+            scene_name = all_scenes[i % len(all_scenes)]
         
         scenes.append({
             "id": f"scene-{scene_id}",
             "name": scene_name,
             "icon": scene_icons.get(scene_name, "📹"),
-            "confidence": round(random.uniform(0.68, 0.96), 2),  # 扩大置信度范围
+            "confidence": round(min(0.96, 0.74 + i * 0.06), 2),
             "timeStart": int(i * segment_duration),
             "timeEnd": int((i + 1) * segment_duration)
         })
@@ -560,45 +720,21 @@ def generate_video_risks(duration: float, quality_score: float, has_person: bool
     num_segments = int(duration / time_granularity) + 1
     video_risks = []
     
-    # 基础风险曲线：开头低，中间可能有高峰，结尾趋于平缓
+    q = min(1.0, max(0.0, float(quality_score)))
+    person_boost = 0.06 if has_person else 0.0
+    # 基础风险曲线：确定性中间略高
     for i in range(num_segments):
-        # 生成波动的风险值
-        if i < 2:
-            # 开头段：低风险
-            intensity = random.uniform(0.15, 0.35)
-            reason = random.choice([
-                "画面开场，视频起始段",
-                "背景环境稳定",
-                "正常画面，无明显风险"
-            ])
-        elif i >= num_segments - 2:
-            # 结尾段：风险下降
-            intensity = random.uniform(0.25, 0.45)
-            reason = random.choice([
-                "画面趋于平静",
-                "结束陈述",
-                "视频尾声"
-            ])
+        pos = i / max(1, num_segments - 1)
+        center_boost = max(0.0, 1 - abs(pos - 0.5) * 2) * 0.28
+        intensity = 0.18 + (1 - q) * 0.35 + person_boost + center_boost
+        intensity = max(0.05, min(0.98, intensity))
+
+        if intensity >= 0.75:
+            reason = "画面信息密度高，存在较高视觉风险"
+        elif intensity >= 0.5:
+            reason = "检测到一般视觉风险波动"
         else:
-            # 中间段：可能出现高风险
-            if random.random() > 0.7:
-                # 高风险峰值
-                intensity = random.uniform(0.75, 0.95)
-                reason = random.choice([
-                    "检测到激烈表情和手势",
-                    "画面内容异常",
-                    "检测到过激行为",
-                    "OCR识别到敏感文字"
-                ])
-            else:
-                # 正常波动
-                intensity = random.uniform(0.3, 0.65)
-                reason = random.choice([
-                    "正常陈述画面",
-                    "持续画面内容",
-                    "表情变化",
-                    "场景切换"
-                ])
+            reason = "画面整体稳定"
         
         video_risks.append({
             "reason": reason,
@@ -620,33 +756,32 @@ def calculate_visual_risk_scores(scene_type: str, has_person: bool, quality_scor
     Returns:
         6个维度的视觉分数（0-100）
     """
-    # 1. 身份置信度（有人物且高质量时分数高）
-    identity_score = 0
-    if has_person:
-        identity_score = int(70 + quality_score * 20 + random.randint(-5, 10))
-    else:
-        identity_score = random.randint(40, 60)
-    
-    # 2. 学校关联度（基于场景类型）
-    university_score = 0
+    # 去随机化：采用可复现规则，保证“同输入同输出”
+    q = min(1.0, max(0.0, float(quality_score)))
+
+    # 1. 身份置信度：有人物且画质高时更容易提取身份线索
+    identity_score = int((55 if has_person else 35) + q * (30 if has_person else 15))
+
+    # 2. 学校关联度：由场景关键词直接驱动
     if any(keyword in scene_type for keyword in ["教室", "图书馆", "实验室", "宿舍", "食堂", "操场", "报告厅"]):
-        university_score = random.randint(75, 95)
+        university_base = 78
     elif "校园" in scene_type:
-        university_score = random.randint(60, 80)
+        university_base = 65
     else:
-        university_score = random.randint(30, 60)
-    
-    # 3. 负面情感度（视觉模态较难判断，给较低分数）
-    attitude_score = random.randint(40, 70)
-    
-    # 4. 传播风险（基于场景和人物）
-    topic_score = random.randint(50, 85)
-    
-    # 5. 影响范围（基于画质和场景）
-    opinion_risk_score = int(50 + quality_score * 20 + random.randint(-10, 15))
-    
-    # 6. 处置紧迫度（视觉风险相对较低）
-    action_score = random.randint(45, 75)
+        university_base = 45
+    university_score = int(university_base + q * 10)
+
+    # 3. 负面情感度：视觉模态弱信号，主要看人物存在与画质不足
+    attitude_score = int(30 + (1 - q) * 30 + (8 if has_person else 0))
+
+    # 4. 主题分数：画质越高，主题可识别性越强
+    topic_score = int(40 + q * 40 + (8 if has_person else 0))
+
+    # 5. 舆论风险：画质越差，误判和异常内容风险越高
+    opinion_risk_score = int(35 + (1 - q) * 45 + (5 if has_person else 0))
+
+    # 6. 处置紧迫度：由舆论风险和态度综合决定
+    action_score = int(opinion_risk_score * 0.65 + attitude_score * 0.35)
     
     return {
         "identity": min(100, max(0, identity_score)),
@@ -690,41 +825,179 @@ def process_video(task_id: str, video_info: Dict[str, Any]) -> Dict[str, Any]:
         has_person = opencv_result.get("hasPerson", False)
         quality_score = opencv_result.get("qualityScore", 0.7)
         
-        # ========== 生成新数据结构 ==========
-        
-        # 1. 生成视觉事件流
-        visual_events = generate_visual_events(duration, scene_type, has_person, task_id)
-        
-        # 2. 生成场景识别数据
-        scene_recognition = generate_scene_recognition(duration, scene_type)
-        
-        # 3. 生成视频风险时间序列
-        video_risks = generate_video_risks(duration, quality_score, has_person)
+        # ========== YOLO-World 开放词汇检测（可选） ==========
+        open_vocab_prompts = build_open_vocab_prompts(video_info.get("wordPacks", []))
+        open_vocab_detections = []
+        try:
+            cap = cv2.VideoCapture(video_url_internal or video_url)
+            if cap.isOpened():
+                fps = int(cap.get(cv2.CAP_PROP_FPS)) or 25
+                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                sample_interval = max(1, fps * 5)
+                max_samples = 8
+
+                sample_idx = 0
+                for frame_pos in range(0, frame_count, sample_interval):
+                    if sample_idx >= max_samples:
+                        break
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+                    ret, frame = cap.read()
+                    if not ret:
+                        continue
+
+                    ts = frame_pos / max(1, fps)
+                    ds = detect_objects_optional(frame, prompts=open_vocab_prompts)
+                    for d in ds:
+                        d["timestamp"] = round(ts, 2)
+                    open_vocab_detections.extend(ds)
+                    sample_idx += 1
+            cap.release()
+        except Exception as e:
+            logger.warning(f"[任务 {task_id}] YOLO-World开放词汇检测失败，降级继续: {e}")
+
+        open_vocab_risk = map_open_vocab_detections_to_risk(open_vocab_detections)
+
+        # ========== 生成新数据结构（尽量由真实检测结果驱动） ==========
+
+        # 风险时间轴（基于真实帧统计）
+        risk_timeline = analyze_video_frames_for_risk(video_url_internal or video_url, task_id)
+
+        # 1) 视觉事件流：优先使用开放词汇检测真实框
+        visual_events = []
+        event_id = 1
+        frame_w = max(1, int(opencv_result.get("width", 1)))
+        frame_h = max(1, int(opencv_result.get("height", 1)))
+
+        for d in open_vocab_detections[:16]:
+            bbox = d.get("bbox", [0, 0, 0, 0])
+            if len(bbox) == 4:
+                x1, y1, x2, y2 = bbox
+                box = {
+                    "x": int(max(0, min(100, x1 / frame_w * 100))),
+                    "y": int(max(0, min(100, y1 / frame_h * 100))),
+                    "width": int(max(1, min(100, (x2 - x1) / frame_w * 100))),
+                    "height": int(max(1, min(100, (y2 - y1) / frame_h * 100))),
+                }
+            else:
+                box = {"x": 0, "y": 0, "width": 1, "height": 1}
+
+            label = str(d.get("label", "object"))
+            conf = float(d.get("confidence", 0.0))
+            ts = int(float(d.get("timestamp", 0.0)))
+            visual_events.append({
+                "id": f"visual-{event_id:03d}",
+                "modality": "visual",
+                "startTime": max(0, min(int(duration), ts)),
+                "endTime": max(0, min(int(duration), ts + 2)),
+                "riskScore": int(max(0, min(100, conf * 100))),
+                "detectionType": "open-vocab",
+                "detectionLabel": label,
+                "boundingBox": box,
+                "confidence": int(max(0, min(100, conf * 100)))
+            })
+            event_id += 1
+
+        # 若开放词汇检测为空，退回 OpenCV 人脸框（仍为真实检测）
+        if not visual_events and (video_url_internal or video_url):
+            try:
+                cap = cv2.VideoCapture(video_url_internal or video_url)
+                if cap.isOpened():
+                    fps = int(cap.get(cv2.CAP_PROP_FPS)) or 25
+                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    sample_interval = max(1, fps * 5)
+                    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+                    for frame_pos in range(0, frame_count, sample_interval):
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+                        ret, frame = cap.read()
+                        if not ret:
+                            continue
+                        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+                        ts = int(frame_pos / max(1, fps))
+                        for (x, y, w, h) in faces[:3]:
+                            visual_events.append({
+                                "id": f"visual-{event_id:03d}",
+                                "modality": "visual",
+                                "startTime": max(0, min(int(duration), ts)),
+                                "endTime": max(0, min(int(duration), ts + 2)),
+                                "riskScore": 55,
+                                "detectionType": "face",
+                                "detectionLabel": "OpenCV人脸检测",
+                                "boundingBox": {
+                                    "x": int(max(0, min(100, x / frame_w * 100))),
+                                    "y": int(max(0, min(100, y / frame_h * 100))),
+                                    "width": int(max(1, min(100, w / frame_w * 100))),
+                                    "height": int(max(1, min(100, h / frame_h * 100))),
+                                },
+                                "confidence": 75
+                            })
+                            event_id += 1
+                        if len(visual_events) >= 12:
+                            break
+                cap.release()
+            except Exception as e:
+                logger.warning(f"[任务 {task_id}] OpenCV人脸事件生成失败: {e}")
+
+        # 2) 场景识别：单主场景（真实推断结果）
+        scene_recognition = [{
+            "id": "scene-1",
+            "name": scene_type,
+            "icon": "🏫" if "校园" in scene_type or "教室" in scene_type else "📹",
+            "confidence": round(float(opencv_result.get("sceneConfidence", 0.0)), 2),
+            "timeStart": 0,
+            "timeEnd": int(duration)
+        }] if duration > 0 else []
+
+        # 3) 视频风险时间序列：由真实时间轴下采样为5s粒度
+        video_risks = []
+        ts_data = risk_timeline.get("timeSeriesData", [])
+        if ts_data:
+            for t in range(0, int(duration) + 1, 5):
+                nearest = min(ts_data, key=lambda x: abs(float(x.get("time", 0.0)) - t))
+                intensity = max(0.0, min(1.0, float(nearest.get("risk", 0.0))))
+                if intensity >= 0.75:
+                    reason = "画面风险较高"
+                elif intensity >= 0.5:
+                    reason = "画面风险中等"
+                else:
+                    reason = "画面整体稳定"
+                video_risks.append({"reason": reason, "intensity": round(intensity, 2)})
+        elif duration > 0:
+            video_risks = [{"reason": "无可用视觉风险时间轴", "intensity": 0.0} for _ in range(int(duration / 5) + 1)]
         
         # 4. 计算视觉维度的6个特征分数（用于后续融合）
         visual_risk_scores = calculate_visual_risk_scores(scene_type, has_person, quality_score)
+
+        # 将开放词汇检测风险注入视觉维度分数（可解释增强）
+        ov_bonus = int(open_vocab_risk.get("riskScore", 0.0) * 25)
+        visual_risk_scores["opinionRisk"] = min(100, visual_risk_scores["opinionRisk"] + ov_bonus)
+        visual_risk_scores["action"] = min(100, visual_risk_scores["action"] + int(ov_bonus * 0.8))
         
-        # 5. 主要人物特征（随机生成多样化数据）
-        genders = ["男性", "女性"]
-        age_ranges = ["18-20岁", "20-22岁", "22-24岁", "24-26岁", "19-23岁"]
-        voice_profiles = [
-            "年轻女声，语速中等", "年轻男声，语调平稳", 
-            "青年男声，语速较快", "青年女声，声音清晰",
-            "女声，语气温和", "男声，语调坚定",
-            "年轻女声，语速较慢", "青年男声，声音沉稳",
-            "女声清脆，情绪饱满", "男声低沉，表达有力"
-        ]
-        clothings = [
-            "校服", "休闲装", "运动装", "T恤牛仔裤", "卫衣",
-            "衬衫", "连帽衫", "短袖短裤", "正装", "羽绒服",
-            "毛衣", "外套", "背心", "夹克"
-        ]
-        
+        # 5. 主要人物特征（规则推断，不再随机）
+        brightness = opencv_result.get("brightness", 0.0)
+        clarity = opencv_result.get("clarity", 0.0)
+        gender = "未知"
+        age_range = "未知"
+        if has_person:
+            gender = "未确定"
+            age_range = "18-25岁" if clarity >= 0.4 else "18-30岁"
+
+        if "教室" in scene_type or "图书馆" in scene_type:
+            clothing = "日常学习装"
+        elif "操场" in scene_type or "运动" in scene_type:
+            clothing = "运动装"
+        else:
+            clothing = "休闲装"
+
+        voice_profile = "未知"
+        if has_person:
+            voice_profile = "语音画像由音频模块提供"
+
         main_character = {
-            "gender": random.choice(genders),
-            "ageRange": random.choice(age_ranges),
-            "voiceProfile": random.choice(voice_profiles),
-            "clothing": random.choice(clothings)
+            "gender": gender,
+            "ageRange": age_range,
+            "voiceProfile": voice_profile,
+            "clothing": clothing
         }
         
         # 构建返回结果（适配新前端数据结构）
@@ -752,9 +1025,17 @@ def process_video(task_id: str, video_info: Dict[str, Any]) -> Dict[str, Any]:
                 "height": opencv_result.get("height", 1080),
                 "fps": opencv_result.get("fps", 24),
                 "duration": duration,
+                "frameRiskTimeline": risk_timeline,
                 
                 # 6个维度的视觉风险分数
                 "visualRiskScores": visual_risk_scores
+            },
+
+            "openVocab": {
+                "engine": "YOLO-World(optional)",
+                "prompts": open_vocab_prompts,
+                "detections": open_vocab_detections,
+                "risk": open_vocab_risk,
             },
             
             # 元数据
@@ -772,39 +1053,40 @@ def process_video(task_id: str, video_info: Dict[str, Any]) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"[任务 {task_id}] [视频处理模块] 处理失败: {e}", exc_info=True)
-        # 返回默认值
+        # 返回失败态，避免伪造分析结果
         duration = video_info.get("videoDuration", 60.0)
         return {
             "visualEvents": [],
-            "sceneRecognition": [{"id": "scene-1", "name": "校园场景", "icon": "🏫", "confidence": 0.7, "timeStart": 0, "timeEnd": int(duration)}],
-            "videoRisks": [{"reason": "分析失败", "intensity": 0.3} for _ in range(int(duration / 5) + 1)],
+            "sceneRecognition": [],
+            "videoRisks": [],
             "features": {
                 "mainCharacter": {
-                    "gender": "男性",
-                    "ageRange": "20-24岁",
-                    "voiceProfile": "年轻男声",
-                    "clothing": "休闲装"
+                    "gender": "未知",
+                    "ageRange": "未知",
+                    "voiceProfile": "未知",
+                    "clothing": "未知"
                 },
-                "sceneType": "校园场景",
+                "sceneType": "未知",
                 "sceneConfidence": 0.0,
                 "hasPerson": False,
                 "faceCount": 0,
-                "qualityScore": 0.5,
-                "brightness": 0.5,
-                "clarity": 0.5,
-                "width": 1920,
-                "height": 1080,
-                "fps": 24,
+                "qualityScore": 0.0,
+                "brightness": 0.0,
+                "clarity": 0.0,
+                "width": 0,
+                "height": 0,
+                "fps": 0,
                 "duration": duration,
+                "frameRiskTimeline": {"timeSeriesData": [], "riskPoints": [], "duration": 0},
                 "visualRiskScores": {
-                    "identity": 50,
-                    "university": 50,
-                    "topic": 50,
-                    "attitude": 50,
-                    "opinionRisk": 50,
-                    "action": 50
+                    "identity": 0,
+                    "university": 0,
+                    "topic": 0,
+                    "attitude": 0,
+                    "opinionRisk": 0,
+                    "action": 0
                 }
             },
-            "videoPath": video_url,
+            "videoPath": video_info.get("videoUrl"),
             "processingTime": round(time.time() - start_time, 2)
         }
