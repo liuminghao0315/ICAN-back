@@ -2,18 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 子进程 Worker — 每个 taskId 对应一个独立的 Process
-
-本文件是 multiprocessing.Process 的 target 入口。
-子进程内部：
-  1. 重新初始化所有资源连接（RabbitMQ、模型等）
-  2. 执行完整的 5 步分析流水线
-  3. 逐步向 Java 端发送 video / audio / text / integration 消息
-  4. 如果被 SIGKILL 强杀，进程直接消失，主进程负责善后
-
-设计原则：
-  - 子进程不共享主进程的任何连接或文件句柄
-  - 子进程内部不需要处理取消逻辑（SIGKILL 不可捕获）
-  - 所有日志带 [Worker PID] 前缀，便于区分
+...
 """
 
 import os
@@ -25,6 +14,34 @@ import urllib.parse
 import pika
 from typing import Dict, Any
 
+# 优先从 backend 目录加载 .env（DEEPSEEK_API_KEY 等）
+def _load_env():
+    try:
+        from dotenv import load_dotenv
+        _backend_dir = os.path.dirname(os.path.abspath(__file__))
+        candidates = [
+            os.path.join(_backend_dir, ".env"),
+            os.path.join(os.getcwd(), ".env"),
+            os.path.join(os.getcwd(), "backend", ".env"),
+        ]
+        loaded = None
+        for p in candidates:
+            if os.path.isfile(p):
+                load_dotenv(p, override=True)
+                loaded = p
+                break
+        key_set = bool(os.getenv("DEEPSEEK_API_KEY", "").strip())
+        if not key_set and loaded:
+            print(f"[.env] 已加载 {loaded}，但 DEEPSEEK_API_KEY 未设置或为空，请检查 .env 内容")
+        elif key_set:
+            print(f"[.env] DEEPSEEK_API_KEY 已就绪（来自 {loaded or '环境变量'}）")
+        elif not loaded:
+            print(f"[.env] 未找到 .env 文件（已尝试: {candidates}），DeepSeek 将不可用")
+    except Exception as e:
+        print(f"[.env] 加载异常: {e}")
+
+_load_env()
+
 # ──────────────────────────── 配置 ────────────────────────────
 RABBITMQ_HOST = '192.168.253.128'
 RABBITMQ_PORT = 5672
@@ -35,6 +52,11 @@ RESULT_CALLBACK_QUEUE = 'algorithm.result.queue'
 
 TUNNEL_HOST = "5aedd2d8.r12.cpolar.top"
 INTERNAL_HOST = "192.168.253.128:9000"
+# 是否强制把 MinIO 预签名 URL 改写为隧道域名（默认关闭）
+# 说明：预签名 URL 的 host/query 对鉴权敏感，改写后很容易出现 403/404。
+USE_TUNNEL_VIDEO_URL = os.getenv("USE_TUNNEL_VIDEO_URL", "0").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 
 # ──────────────────────────── 子进程日志 ────────────────────────────
@@ -244,6 +266,67 @@ def _get_action_detail(score):
     else: return "内容健康，可以放心发布"
 
 
+def _to_float(value: Any, default: float = 0.0) -> float:
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _calc_segment_count(duration: float, time_granularity: int) -> int:
+    safe_duration = max(0.0, _to_float(duration, 0.0))
+    safe_granularity = max(1, int(time_granularity or 1))
+    # 0s 也至少要有一个时间点（t=0）
+    return max(1, int(safe_duration / safe_granularity) + 1)
+
+
+def _normalize_timeline_series(series: Any, expected_len: int, fallback_reason: str) -> list:
+    """
+    将任意模态时间序列对齐到 expected_len：
+    - 长度不足：沿用最后一个有效点（而不是补 0，避免尾部曲线断崖）
+    - 长度过长：截断
+    """
+    if not isinstance(series, list):
+        series = []
+
+    normalized = []
+    last_intensity = 0.0
+    last_reason = fallback_reason
+
+    for i in range(expected_len):
+        raw = series[i] if i < len(series) else None
+        if isinstance(raw, dict):
+            intensity = max(0.0, min(1.0, _to_float(raw.get("intensity"), last_intensity)))
+            reason = raw.get("reason") or last_reason
+            last_intensity = intensity
+            last_reason = reason
+        else:
+            intensity = last_intensity
+            reason = last_reason
+
+        normalized.append({
+            "intensity": round(intensity, 2),
+            "reason": reason
+        })
+
+    return normalized
+
+
+def _normalize_fusion_weights(video_w: float, audio_w: float, text_w: float) -> tuple:
+    """将融合权重归一化到 [0,1] 且总和为 1。"""
+    vw = max(0.0, _to_float(video_w, 0.0))
+    aw = max(0.0, _to_float(audio_w, 0.0))
+    tw = max(0.0, _to_float(text_w, 0.0))
+
+    total = vw + aw + tw
+    if total <= 0:
+        return 1 / 3, 1 / 3, 1 / 3
+
+    return vw / total, aw / total, tw / total
+
+
 def _step_integration(task_id: str, video_result: dict, audio_result: dict,
                       text_result: dict, logger) -> dict:
     """Step 4: 综合分析（融合计算 + 雷达图）"""
@@ -258,9 +341,11 @@ def _step_integration(task_id: str, video_result: dict, audio_result: dict,
     a_scores = audio_features.get("audioRiskScores", {})
     t_scores = text_features.get("textRiskScores", {})
 
-    duration = video_features.get("duration", 60.0)
+    duration = _to_float(video_features.get("duration"), 0.0)
+    if duration <= 0:
+        duration = 60.0
     time_granularity = 5
-    num_segments = int(duration / time_granularity) + 1
+    num_segments = _calc_segment_count(duration, time_granularity)
 
     # 6 维融合
     dimensions = ["identity", "university", "topic", "attitude", "opinionRisk", "action"]
@@ -271,16 +356,59 @@ def _step_integration(task_id: str, video_result: dict, audio_result: dict,
         )
 
     # 综合风险时间序列
-    video_risks = video_result.get("videoRisks", [])
-    audio_emotions = audio_result.get("audioEmotions", [])
-    text_risks = text_result.get("textRisks", [])
+    video_risks = _normalize_timeline_series(
+        video_result.get("videoRisks", []),
+        num_segments,
+        "画面数据不足，沿用上一个有效值"
+    )
+    audio_emotions = _normalize_timeline_series(
+        audio_result.get("audioEmotions", []),
+        num_segments,
+        "音频数据不足，沿用上一个有效值"
+    )
+    text_risks = _normalize_timeline_series(
+        text_result.get("textRisks", []),
+        num_segments,
+        "文本数据不足，沿用上一个有效值"
+    )
+
+    logger.info(
+        "Step 4: 时间轴长度对齐完成 duration=%.2fs granularity=%ss segments=%s (video=%s audio=%s text=%s)",
+        duration,
+        time_granularity,
+        num_segments,
+        len(video_risks),
+        len(audio_emotions),
+        len(text_risks),
+    )
+
+    # 使用 opinionRisk 的多模态贡献度作为时间轴融合权重（避免“综合风险=单一模态”）
+    op_fusion = fusion.get("opinionRisk", {})
+    w_video, w_audio, w_text = _normalize_fusion_weights(
+        _to_float(op_fusion.get("videoContribution"), 33.3),
+        _to_float(op_fusion.get("audioContribution"), 33.3),
+        _to_float(op_fusion.get("textContribution"), 33.3),
+    )
+
+    logger.info(
+        "Step 4: 时间轴融合权重 video=%.3f audio=%.3f text=%.3f",
+        w_video,
+        w_audio,
+        w_text,
+    )
 
     comprehensive_risks = []
     for i in range(num_segments):
-        vi = video_risks[i]["intensity"] if i < len(video_risks) else 0.0
-        ai = audio_emotions[i]["intensity"] if i < len(audio_emotions) else 0.0
-        ti = text_risks[i]["intensity"] if i < len(text_risks) else 0.0
-        comprehensive_risks.append({"intensity": round(max(vi, ai, ti), 2)})
+        vi = video_risks[i]["intensity"]
+        ai = audio_emotions[i]["intensity"]
+        ti = text_risks[i]["intensity"]
+
+        # 先做加权平均，再适当引入峰值（15%）以保留突发风险感知
+        weighted = vi * w_video + ai * w_audio + ti * w_text
+        peak = max(vi, ai, ti)
+        fused = min(1.0, max(0.0, weighted * 0.85 + peak * 0.15))
+
+        comprehensive_risks.append({"intensity": round(fused, 2)})
 
     # 雷达图时间序列
     radar_by_time = []
@@ -379,11 +507,19 @@ def run_task(task_id: str, task_message: dict):
         # 初始化独立的 RabbitMQ 连接
         sender = ResultSender(task_id, logger)
 
-        # URL 转换
+        # URL 准备
         original_url = task_message.get("videoUrl")
         if original_url:
             task_message["videoUrlInternal"] = original_url
-            task_message["videoUrl"] = convert_url_to_tunnel(original_url)
+            # 默认保留原始 URL 参与分析；隧道 URL 仅用于调试排查
+            tunnel_url = convert_url_to_tunnel(original_url)
+            task_message["videoUrlTunnel"] = tunnel_url
+
+            if USE_TUNNEL_VIDEO_URL:
+                task_message["videoUrl"] = tunnel_url
+                logger.info("已启用隧道URL改写: videoUrl -> %s", tunnel_url)
+            else:
+                logger.info("保留原始视频URL用于分析，隧道URL仅调试使用")
 
         # Step 1: 媒体分割
         _step_media_split(task_id, task_message, logger)
@@ -391,6 +527,12 @@ def run_task(task_id: str, task_message: dict):
         # Step 2a: 视频分析
         video_result = _step_video_analysis(task_id, task_message, logger)
         sender.send("video", video_result)
+
+        # 将视频真实时长回填给后续音频/文本模块，确保时间轴长度与视频一致
+        video_duration = _to_float(video_result.get("features", {}).get("duration"), 0.0)
+        if video_duration > 0:
+            task_message["videoDuration"] = video_duration
+            logger.info("已回填视频真实时长给音频模块: %.2fs", video_duration)
 
         # Step 2b: 音频分析
         audio_result, text_result = _step_audio_analysis(task_id, task_message, logger)

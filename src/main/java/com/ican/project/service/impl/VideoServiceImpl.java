@@ -46,6 +46,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 视频服务实现类
@@ -138,6 +140,9 @@ public class VideoServiceImpl implements VideoService {
             "video/mp4", "video/x-msvideo", "video/quicktime", "video/x-ms-wmv",
             "video/x-flv", "video/x-matroska", "video/webm", "video/mpeg"
     );
+
+    // FFmpeg cropdetect 日志中的裁剪参数，如：crop=1918:804:0:138
+    private static final Pattern FFMPEG_CROP_PATTERN = Pattern.compile("crop=(\\d+):(\\d+):(\\d+):(\\d+)");
     
     @Override
     public ChunkUploadVO checkChunkUpload(String fileIdentifier, String fileName, 
@@ -1031,28 +1036,20 @@ public class VideoServiceImpl implements VideoService {
         Path thumbFile = null;
         try {
             thumbFile = Files.createTempFile("thumb_", ".jpg");
-            // ffmpeg -ss 1 -i input -vframes 1 -q:v 5 -vf scale=480:-1 output.jpg
-            ProcessBuilder pb = new ProcessBuilder(
-                    ffmpegPath, "-y",
-                    "-ss", "1",
-                    "-i", videoFilePath.toAbsolutePath().toString(),
-                    "-vframes", "1",
-                    "-q:v", "5",
-                    "-vf", "scale=480:-1",
-                    thumbFile.toAbsolutePath().toString()
-            );
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            // 收集 FFmpeg 输出用于调试
+            // 先尝试检测黑边并自动裁剪，再生成缩略图（避免前端看到上下/左右黑边）
+            String cropFilter = detectAutoCropFilter(videoFilePath);
+            String vf = (cropFilter != null ? cropFilter + "," : "") + "scale=480:-1";
+
             StringBuilder ffmpegOutput = new StringBuilder();
-            try (java.io.BufferedReader br = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    ffmpegOutput.append(line).append("\n");
-                }
+            int exitCode = runThumbnailExtract(videoFilePath, thumbFile, vf, ffmpegOutput);
+
+            // 若“自动裁剪”失败，回退到仅 scale，保证主流程稳定
+            if ((exitCode != 0 || !Files.exists(thumbFile) || Files.size(thumbFile) == 0) && cropFilter != null) {
+                logger.warn("FFmpeg 自动裁剪缩略图失败，回退到普通缩略图生成。cropFilter={}, ffmpegPath={}", cropFilter, ffmpegPath);
+                ffmpegOutput.setLength(0);
+                exitCode = runThumbnailExtract(videoFilePath, thumbFile, "scale=480:-1", ffmpegOutput);
             }
-            int exitCode = process.waitFor();
+
             if (exitCode != 0 || !Files.exists(thumbFile) || Files.size(thumbFile) == 0) {
                 logger.warn("FFmpeg 生成缩略图失败，exitCode={}, thumbFile exists={}, size={}, ffmpegPath={}\nFFmpeg output:\n{}",
                         exitCode,
@@ -1076,6 +1073,96 @@ public class VideoServiceImpl implements VideoService {
                 try { Files.deleteIfExists(thumbFile); } catch (Exception ignored) {}
             }
         }
+    }
+
+    /**
+     * 用 cropdetect 检测视频首段黑边，返回可直接用于 -vf 的 crop 过滤器。
+     * 返回示例：crop=1918:804:0:138
+     */
+    private String detectAutoCropFilter(Path videoFilePath) {
+        StringBuilder detectOutput = new StringBuilder();
+        try {
+            ProcessBuilder detectPb = new ProcessBuilder(
+                    ffmpegPath,
+                    "-ss", "1",
+                    "-t", "2",
+                    "-i", videoFilePath.toAbsolutePath().toString(),
+                    "-vf", "cropdetect=24:16:0",
+                    "-f", "null",
+                    "-"
+            );
+            detectPb.redirectErrorStream(true);
+            Process detectProcess = detectPb.start();
+
+            String lastCrop = null;
+            try (java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(detectProcess.getInputStream()))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    detectOutput.append(line).append("\n");
+                    Matcher matcher = FFMPEG_CROP_PATTERN.matcher(line);
+                    while (matcher.find()) {
+                        lastCrop = matcher.group(1) + ":" + matcher.group(2) + ":" + matcher.group(3) + ":" + matcher.group(4);
+                    }
+                }
+            }
+
+            int detectExit = detectProcess.waitFor();
+            if (detectExit != 0 || lastCrop == null) {
+                return null;
+            }
+
+            String[] parts = lastCrop.split(":");
+            if (parts.length != 4) {
+                return null;
+            }
+
+            int cropW = Integer.parseInt(parts[0]);
+            int cropH = Integer.parseInt(parts[1]);
+            int cropX = Integer.parseInt(parts[2]);
+            int cropY = Integer.parseInt(parts[3]);
+
+            // 过滤掉无意义裁剪（接近不裁剪）
+            if (cropW < 64 || cropH < 64) {
+                return null;
+            }
+            if (cropX <= 2 && cropY <= 2) {
+                return null;
+            }
+
+            String cropFilter = "crop=" + cropW + ":" + cropH + ":" + cropX + ":" + cropY;
+            logger.info("检测到视频黑边，缩略图将自动裁剪: {}", cropFilter);
+            return cropFilter;
+        } catch (Exception e) {
+            logger.debug("cropdetect 检测失败，回退普通缩略图: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 执行 FFmpeg 缩略图提取。
+     */
+    private int runThumbnailExtract(Path videoFilePath, Path thumbFile, String vf, StringBuilder ffmpegOutput)
+            throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(
+                ffmpegPath, "-y",
+                "-ss", "1",
+                "-i", videoFilePath.toAbsolutePath().toString(),
+                "-vframes", "1",
+                "-q:v", "5",
+                "-vf", vf,
+                thumbFile.toAbsolutePath().toString()
+        );
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        try (java.io.BufferedReader br = new java.io.BufferedReader(
+                new java.io.InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                ffmpegOutput.append(line).append("\n");
+            }
+        }
+        return process.waitFor();
     }
 
     /**

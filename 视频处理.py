@@ -493,13 +493,35 @@ def download_video(video_url: str, task_id: str) -> str:
         视频URL或本地路径
     """
     try:
-        # 验证URL是否可访问（HEAD请求）
-        response = requests.head(video_url, timeout=10)
-        if response.status_code == 200:
-            logger.info(f"[任务 {task_id}] 视频URL验证成功: {video_url}")
+        # 对预签名URL优先进行轻量可达性检查：
+        # 某些 MinIO / 代理场景对 HEAD 不友好（会返回 403），但 GET 实际可读。
+        try:
+            response = requests.head(video_url, timeout=8, allow_redirects=True)
+            if response.status_code == 200:
+                logger.info(f"[任务 {task_id}] 视频URL验证成功(HEAD): {video_url}")
+                return video_url
+            if response.status_code in [401, 403, 405]:
+                logger.warning(
+                    f"[任务 {task_id}] 视频URL HEAD返回{response.status_code}，改用GET(range)复验"
+                )
+                try:
+                    get_resp = requests.get(
+                        video_url,
+                        headers={"Range": "bytes=0-1"},
+                        timeout=10,
+                        stream=True,
+                    )
+                    if get_resp.status_code in [200, 206]:
+                        logger.info(f"[任务 {task_id}] 视频URL验证成功(GET-range): {video_url}")
+                        return video_url
+                    logger.warning(f"[任务 {task_id}] 视频URL GET-range返回状态码: {get_resp.status_code}")
+                except Exception as ge:
+                    logger.warning(f"[任务 {task_id}] 视频URL GET-range验证失败: {ge}")
+            else:
+                logger.warning(f"[任务 {task_id}] 视频URL返回状态码: {response.status_code}")
             return video_url
-        else:
-            logger.warning(f"[任务 {task_id}] 视频URL返回状态码: {response.status_code}")
+        except Exception as head_err:
+            logger.warning(f"[任务 {task_id}] 视频URL HEAD验证异常，继续尝试直接读取: {head_err}")
             return video_url
     except Exception as e:
         logger.error(f"[任务 {task_id}] 视频URL验证失败: {e}")
@@ -814,8 +836,9 @@ def process_video(task_id: str, video_info: Dict[str, Any]) -> Dict[str, Any]:
         video_url_internal = video_info.get("videoUrlInternal") or video_url
         logger.info(f"[任务 {task_id}] [视频处理模块] ========== 视频URL: {video_url} ==========")
         
-        # 验证URL
-        video_path = download_video(video_url, task_id) if video_url else None
+        # 验证URL：优先用内网可达地址，避免外网临时域名造成误报
+        validate_url = video_url_internal or video_url
+        video_path = download_video(validate_url, task_id) if validate_url else None
         
         # 使用OpenCV进行真实视频分析
         opencv_result = analyze_video_with_opencv(video_url_internal or video_url, task_id)
