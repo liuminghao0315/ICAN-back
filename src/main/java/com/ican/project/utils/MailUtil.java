@@ -23,15 +23,22 @@ public class MailUtil {
     private static final String CONTENT_TYPE = "text/html;charset=UTF-8";
     private static final String SMTP_AUTH = "true";
     private static final String SOCKET_FACTORY_FALLBACK = "false";
+    private static final String CHARSET_UTF8 = "UTF-8";
 
     @Value("${qqMail.sender}")
     private String qqSender;
+
+    @Value("${qqMail.senderName:}")
+    private String qqSenderName;
 
     @Value("${qqMail.smtpCode}")
     private String qqSmtpCode;
 
     @Value("${netease.sender}")
     private String neteaseSender;
+
+    @Value("${netease.senderName:}")
+    private String neteaseSenderName;
 
     @Value("${netease.smtpCode}")
     private String neteaseSmtpCode;
@@ -44,7 +51,7 @@ public class MailUtil {
      * @throws MessagingException 邮件发送异常
      */
     public void sendQQMail(String to, String subject, String content) throws MessagingException {
-        sendMail("smtp.qq.com", qqSender, qqSmtpCode, to, subject, content);
+        sendMail("smtp.qq.com", qqSender, qqSmtpCode, to, subject, content, qqSenderName);
     }
 
     /**
@@ -55,7 +62,7 @@ public class MailUtil {
      * @throws MessagingException 邮件发送异常
      */
     public void sendNetEaseMail(String to, String subject, String content) throws MessagingException {
-        sendMail("smtp.163.com", neteaseSender, neteaseSmtpCode, to, subject, content);
+        sendMail("smtp.163.com", neteaseSender, neteaseSmtpCode, to, subject, content, neteaseSenderName);
     }
 
     /**
@@ -66,9 +73,10 @@ public class MailUtil {
      * @param to 收件人邮箱
      * @param subject 邮件主题
      * @param content 邮件内容
+     * @param fromPersonal 发件人显示名称（可选，为空则仅显示邮箱地址）
      * @throws MessagingException 邮件发送异常
      */
-    private void sendMail(String smtpHost, String from, String password, String to, String subject, String content) throws MessagingException {
+    private void sendMail(String smtpHost, String from, String password, String to, String subject, String content, String fromPersonal) throws MessagingException {
         try {
             // 配置邮箱信息
             Properties props = new Properties();
@@ -105,8 +113,10 @@ public class MailUtil {
 
             // 建立邮件对象
             MimeMessage message = new MimeMessage(session);
-            // 设置发件人地址（必须与认证用户完全一致，即from参数的值）
-            InternetAddress fromAddress = new InternetAddress(from);
+            // 设置发件人：若配置了显示名称则使用 "显示名称 <邮箱>"，否则仅邮箱
+            InternetAddress fromAddress = (fromPersonal != null && !fromPersonal.trim().isEmpty())
+                    ? new InternetAddress(from, fromPersonal.trim(), CHARSET_UTF8)
+                    : new InternetAddress(from);
             message.setFrom(fromAddress);
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
             message.setSubject(subject);

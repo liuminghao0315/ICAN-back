@@ -118,22 +118,25 @@ public class Constants {
         private MailContent() {}
 
         /** 注册验证码邮件主题 */
-        public static final String REGISTER_SUBJECT = "您的注册验证码";
+        public static final String REGISTER_SUBJECT = "【SynSight】账号注册验证码";
 
         /** 重置密码验证码邮件主题 */
-        public static final String RESET_PASSWORD_SUBJECT = "您的重置密码验证码";
+        public static final String RESET_PASSWORD_SUBJECT = "【SynSight】重置密码验证码";
 
         /** 变更邮箱验证码邮件主题 */
-        public static final String CHANGE_EMAIL_SUBJECT = "变更绑定邮箱验证码";
+        public static final String CHANGE_EMAIL_SUBJECT = "【SynSight】变更绑定邮箱验证码";
 
         /** 修改密码验证码邮件主题 */
-        public static final String CHANGE_PWD_SUBJECT = "修改密码验证码";
+        public static final String CHANGE_PWD_SUBJECT = "【SynSight】修改密码验证码";
 
-        /** 验证码邮件内容模板 */
-        private static final String CONTENT_TEMPLATE = "您的验证码是：%s，%d分钟内有效。";
+        /** 验证码邮件正文模板：验证码前置，便于用户快速查看；格式为 验证码 + 有效期 + 安全提示 */
+        private static final String CONTENT_TEMPLATE =
+                "<p style=\"margin:0 0 12px 0;font-size:15px;\"><strong>验证码：%s</strong></p>"
+                + "<p style=\"margin:0 0 8px 0;color:#666;font-size:13px;\">有效期 %d 分钟，请勿向他人泄露。</p>"
+                + "<p style=\"margin:0;color:#999;font-size:12px;\">此邮件由系统自动发送，请勿直接回复。如非本人操作，请忽略。</p>";
 
         /**
-         * 生成验证码邮件内容
+         * 生成验证码邮件内容（HTML，验证码置于最前）
          * @param code 验证码
          * @param expireMinutes 过期时间（分钟）
          * @return 邮件内容

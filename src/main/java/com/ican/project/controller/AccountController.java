@@ -64,26 +64,38 @@ public class AccountController {
     }
 
     @GetMapping("/account/sendMailToResetPwd")
-    @Operation(summary = "发送重置密码邮件", description = "向用户邮箱发送重置密码验证码邮件")
+    @Operation(summary = "发送重置密码邮件", description = "根据用户名或邮箱向用户邮箱发送重置密码验证码邮件")
     public Result<?> sendMailToResetPwd(
-            @Parameter(description = "用户名", required = true)
-            @RequestParam("username") @NotBlank(message = "用户名不能为空") String username) {
-        logger.info("发送重置密码邮件请求: username={}", username);
+            @Parameter(description = "用户名或邮箱", required = true)
+            @RequestParam("username") @NotBlank(message = "用户名或邮箱不能为空") String username) {
+        String identifier = username;
+        logger.info("发送重置密码邮件请求: identifier={}", identifier);
         try {
             if (userService == null) {
                 logger.error("用户服务未初始化");
                 return Result.fail(Code.INTERNAL_ERROR, "系统服务未初始化");
             }
 
-            User user = userService.getUserByUsername(username);
+            // 支持“用户名或邮箱”两种输入方式：
+            // - 如果包含 @，按邮箱查询
+            // - 否则按用户名查询
+            User user;
+            if (identifier.contains("@")) {
+                logger.info("按邮箱查找用户: email={}", identifier);
+                user = userService.getUserByEmail(identifier);
+            } else {
+                logger.info("按用户名查找用户: username={}", identifier);
+                user = userService.getUserByUsername(identifier);
+            }
+
             if (user == null) {
-                logger.warn("用户不存在: username={}", username);
+                logger.warn("用户不存在: identifier={}", identifier);
                 return Result.fail(Code.USER_NOT_EXISTS, "用户不存在");
             }
 
             String email = user.getEmail();
             if (email == null || email.trim().isEmpty()) {
-                logger.warn("用户邮箱为空: username={}", username);
+                logger.warn("用户邮箱为空: identifier={}", identifier);
                 return Result.fail(Code.EMAIL_NOT_SUPPORT, "用户邮箱为空");
             }
 
@@ -102,7 +114,7 @@ public class AccountController {
             }
             return result;
         } catch (Exception e) {
-            logger.error("发送重置密码邮件异常: username={}", username, e);
+            logger.error("发送重置密码邮件异常: identifier={}", identifier, e);
             throw e;
         }
     }
