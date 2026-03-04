@@ -53,14 +53,14 @@ public interface UserFavoriteMapper extends BaseMapper<UserFavorite> {
             "  AND r.id IS NOT NULL " +
             "  <choose>" +
             "    <when test='riskLevel == \"HIGH\"'>" +
-            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) >= 67 " +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) >= 70 " +
             "    </when>" +
             "    <when test='riskLevel == \"MEDIUM\"'>" +
-            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) >= 34 " +
-            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) &lt; 67 " +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) >= 40 " +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) &lt; 70 " +
             "    </when>" +
             "    <when test='riskLevel == \"LOW\"'>" +
-            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) &lt; 34 " +
+            "      AND CAST(JSON_UNQUOTE(JSON_EXTRACT(r.opinion_risk_fusion, '$.finalScore')) AS DECIMAL(10,2)) &lt; 40 " +
             "    </when>" +
             "  </choose>" +
             "</if>" +

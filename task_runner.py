@@ -246,24 +246,37 @@ def _get_topic_sub_category(topic_category):
     return sub_categories.get(topic_category, ["其他"])[0]
 
 
+# 风险等级阈值（与要求文档一致：综合风险评分 >0.7 高风险，>0.4 中风险）
+RISK_THRESHOLD_HIGH = 70   # >70% 触发高风险预警
+RISK_THRESHOLD_MEDIUM = 40  # >40% 触发中风险提醒
+
+
 def _get_risk_reason(score):
-    if score >= 70: return "可能引发跟风吐槽"
-    elif score >= 50: return "存在一定传播风险"
-    else: return "风险较低"
+    if score >= RISK_THRESHOLD_HIGH:
+        return "可能引发跟风吐槽"
+    if score >= RISK_THRESHOLD_MEDIUM:
+        return "存在一定传播风险"
+    return "风险较低"
 
 
 def _get_action_suggestion(score):
-    if score >= 75: return "禁止发布"
-    elif score >= 60: return "谨慎发布"
-    elif score >= 40: return "可以发布"
-    else: return "推荐发布"
+    if score >= 75:
+        return "禁止发布"
+    if score >= RISK_THRESHOLD_HIGH:  # >=70
+        return "谨慎发布"
+    if score >= RISK_THRESHOLD_MEDIUM:  # >=40
+        return "可以发布"
+    return "推荐发布"
 
 
 def _get_action_detail(score):
-    if score >= 75: return "检测到高风险内容，建议禁止上传到公开平台"
-    elif score >= 60: return "建议人工复核后决定是否上传"
-    elif score >= 40: return "内容相对安全，可以发布但建议关注后续反馈"
-    else: return "内容健康，可以放心发布"
+    if score >= 75:
+        return "检测到高风险内容，建议禁止上传到公开平台"
+    if score >= RISK_THRESHOLD_HIGH:
+        return "建议人工复核后决定是否上传"
+    if score >= RISK_THRESHOLD_MEDIUM:
+        return "内容相对安全，可以发布但建议关注后续反馈"
+    return "内容健康，可以放心发布"
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:

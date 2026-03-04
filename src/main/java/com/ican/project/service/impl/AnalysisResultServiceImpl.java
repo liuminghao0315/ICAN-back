@@ -41,13 +41,13 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     
     private static final Logger logger = LoggerFactory.getLogger(AnalysisResultServiceImpl.class);
 
-    /** 风险分数阈值：>=67 高风险，>=34 中风险，其余低风险 */
-    private static final double RISK_HIGH_THRESHOLD = 67.0;
-    private static final double RISK_MEDIUM_THRESHOLD = 34.0;
+    /** 风险分数阈值：>=70 高风险，>=40 中风险，其余低风险 */
+    private static final double RISK_HIGH_THRESHOLD = 70.0;
+    private static final double RISK_MEDIUM_THRESHOLD = 40.0;
 
-    /** 情感阈值：<33.3 正面，>66.7 负面，其余中性 */
-    private static final double SENTIMENT_POSITIVE_MAX = 33.3;
-    private static final double SENTIMENT_NEGATIVE_MIN = 66.7;
+    /** 情感/态度阈值：<40 正面，>70 负面，其余中性（与风险阈值统一为 40/70） */
+    private static final double SENTIMENT_POSITIVE_MAX = 40.0;
+    private static final double SENTIMENT_NEGATIVE_MIN = 70.0;
     
     @Autowired
     private AnalysisResultMapper analysisResultMapper;

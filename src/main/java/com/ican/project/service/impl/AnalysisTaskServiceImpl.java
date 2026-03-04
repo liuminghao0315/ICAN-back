@@ -351,10 +351,10 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                             Double riskScore = finalScore / 100.0;
                             builder.riskScore(riskScore);
                             
-                            // 根据分数计算风险等级
-                            if (finalScore >= 67) {
+                            // 根据分数计算风险等级（与要求一致：>70 高，>40 中）
+                            if (finalScore >= 70) {
                                 builder.riskLevel("HIGH");
-                            } else if (finalScore >= 34) {
+                            } else if (finalScore >= 40) {
                                 builder.riskLevel("MEDIUM");
                             } else {
                                 builder.riskLevel("LOW");
@@ -375,7 +375,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                                     if (sentimentScore != null) {
                                         if (sentimentScore < 33) {
                                             positive++;
-                                        } else if (sentimentScore > 67) {
+                                        } else if (sentimentScore > 70) {
                                             negative++;
                                         } else {
                                             neutral++;
@@ -665,9 +665,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                     Integer finalScore = fusion.getInteger("finalScore");
                     if (finalScore != null) {
                         builder.riskScore(finalScore / 100.0);
-                        if (finalScore >= 67) {
+                        if (finalScore >= 70) {
                             builder.riskLevel("HIGH");
-                        } else if (finalScore >= 34) {
+                        } else if (finalScore >= 40) {
                             builder.riskLevel("MEDIUM");
                         } else {
                             builder.riskLevel("LOW");
@@ -691,7 +691,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                                 Integer sentimentScore = ev.getInteger("sentimentScore");
                                 if (sentimentScore != null) {
                                     if (sentimentScore < 33) positive++;
-                                    else if (sentimentScore > 67) negative++;
+                                    else if (sentimentScore > 70) negative++;
                                     else neutral++;
                                 }
                             }

@@ -252,8 +252,8 @@ public class ReportPdfServiceImpl implements ReportPdfService {
         for (Map<String, Object> ev : attitudeEvidences) {
             double score = toDouble(ev.get("sentimentScore"));
             if (score == 0) score = 50;
-            if (score < 33.3) positive++;
-            else if (score > 66.7) negative++;
+            if (score < 40) positive++;
+            else if (score > 70) negative++;
             else neutral++;
         }
         int attTotal = attitudeEvidences.size();
@@ -359,7 +359,7 @@ public class ReportPdfServiceImpl implements ReportPdfService {
         Map<String, Object> dim = new java.util.LinkedHashMap<>();
         dim.put("title", title);
         dim.put("scoreLabel", scoreLabel);
-        String scoreClass = finalScore >= 67 ? "sc-high" : (finalScore >= 34 ? "sc-mid" : "sc-low");
+        String scoreClass = finalScore >= 70 ? "sc-high" : (finalScore >= 40 ? "sc-mid" : "sc-low");
         if (finalScore < 0) scoreClass = "";
         dim.put("scoreClass", scoreClass);
         dim.put("rows", rows);

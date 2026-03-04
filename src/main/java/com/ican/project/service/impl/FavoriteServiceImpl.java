@@ -175,8 +175,8 @@ public class FavoriteServiceImpl implements FavoriteService {
                         Integer finalScore = fusion.getInteger("finalScore");
                         if (finalScore != null) {
                             builder.riskScore(finalScore / 100.0);
-                            if (finalScore >= 67)      builder.riskLevel("HIGH");
-                            else if (finalScore >= 34) builder.riskLevel("MEDIUM");
+                            if (finalScore >= 70)      builder.riskLevel("HIGH");
+                            else if (finalScore >= 40) builder.riskLevel("MEDIUM");
                             else                       builder.riskLevel("LOW");
                         }
                     }
@@ -192,7 +192,7 @@ public class FavoriteServiceImpl implements FavoriteService {
                                     Integer s = ((com.alibaba.fastjson2.JSONObject) obj).getInteger("sentimentScore");
                                     if (s != null) {
                                         if (s < 33) positive++;
-                                        else if (s > 67) negative++;
+                                        else if (s > 70) negative++;
                                         else neutral++;
                                     }
                                 }

@@ -1879,16 +1879,8 @@ def generate_text_risks(duration: float, sentiment_score: float, sensitive_words
 
 def calculate_text_risk_scores(sentiment_score: float, keywords: list, sensitive_words: list, topic_category: str) -> dict:
     """
-    计算文本维度的6个风险分数
-    
-    Args:
-        sentiment_score: 情感分数
-        keywords: 关键词列表
-        sensitive_words: 敏感词列表
-        topic_category: 主题分类
-        
-    Returns:
-        6个维度的文本分数（0-100）
+    计算文本维度的6个风险分数。
+    要求文档：综合风险 >0.7 高风险，>0.4 中风险；主题为「未知/其他」时降低情感对舆论风险的权重，避免演示类内容误判。
     """
     has_sensitive = len(sensitive_words) > 0
     keyword_count = len(keywords)
@@ -1902,9 +1894,13 @@ def calculate_text_risk_scores(sentiment_score: float, keywords: list, sensitive
 
     attitude_score = int(25 + neg * 60 + (8 if has_sensitive else 0))
     topic_score = int(35 + min(35, keyword_count * 4) + (8 if topic_category else 0))
-    opinion_risk_score = int(20 + neg * 50 + min(30, len(sensitive_words) * 10))
+
+    # 舆论风险：主题为「未知/其他」时情感权重减半，避免演示/教程类内容被 SnowNLP 误判负面时分数过高
+    topic_weak = (topic_category or "").strip() in ("", "未知", "其他")
+    neg_coef = 25 if topic_weak else 50
+    opinion_risk_score = int(20 + neg * neg_coef + min(30, len(sensitive_words) * 10))
     action_score = int(opinion_risk_score * 0.65 + attitude_score * 0.35)
-    
+
     return {
         "identity": min(100, max(0, identity_score)),
         "university": min(100, max(0, university_score)),
