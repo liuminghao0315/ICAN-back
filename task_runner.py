@@ -14,33 +14,16 @@ import urllib.parse
 import pika
 from typing import Dict, Any
 
-# 优先从 backend 目录加载 .env（DEEPSEEK_API_KEY 等）
-def _load_env():
-    try:
-        from dotenv import load_dotenv
-        _backend_dir = os.path.dirname(os.path.abspath(__file__))
-        candidates = [
-            os.path.join(_backend_dir, ".env"),
-            os.path.join(os.getcwd(), ".env"),
-            os.path.join(os.getcwd(), "backend", ".env"),
-        ]
-        loaded = None
-        for p in candidates:
-            if os.path.isfile(p):
-                load_dotenv(p, override=True)
-                loaded = p
-                break
-        key_set = bool(os.getenv("DEEPSEEK_API_KEY", "").strip())
-        if not key_set and loaded:
-            print(f"[.env] 已加载 {loaded}，但 DEEPSEEK_API_KEY 未设置或为空，请检查 .env 内容")
-        elif key_set:
-            print(f"[.env] DEEPSEEK_API_KEY 已就绪（来自 {loaded or '环境变量'}）")
-        elif not loaded:
-            print(f"[.env] 未找到 .env 文件（已尝试: {candidates}），DeepSeek 将不可用")
-    except Exception as e:
-        print(f"[.env] 加载异常: {e}")
-
-_load_env()
+# 导入配置
+try:
+    from config import Config
+    _deepseek_key = Config.get("DEEPSEEK_API_KEY", "")
+    if _deepseek_key and _deepseek_key.strip() and _deepseek_key != "填写你的 DeepSeek API Key":
+        print(f"[Config] DEEPSEEK_API_KEY 已就绪（来自 backend/config.py）")
+    else:
+        print(f"[Config] DEEPSEEK_API_KEY 未设置，请检查 backend/config.py")
+except ImportError:
+    print(f"[Config] 未找到 backend/config.py，DeepSeek 将不可用")
 
 # ──────────────────────────── 配置 ────────────────────────────
 RABBITMQ_HOST = '192.168.253.128'

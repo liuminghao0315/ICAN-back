@@ -4,7 +4,7 @@
 用于在无训练模型场景下，用语音转文本结果通过大模型补全「身份判定、涉及高校、内容主题、
 对学校态度、潜在舆论风险、处置建议」的详细证据，供前端卡片展示。
 
-配置：请在环境变量中设置 DEEPSEEK_API_KEY，勿将密钥写入代码。可参考 backend/.env.example。
+配置：请在 backend/config.py 中设置 DEEPSEEK_API_KEY。
 """
 
 import json
@@ -14,41 +14,31 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-# 加载 backend/.env（多路径尝试，确保子进程/脚本都能读到 DEEPSEEK_API_KEY）
-def _load_dotenv_for_deepseek():
-    try:
-        from dotenv import load_dotenv
-        _dir = os.path.dirname(os.path.abspath(__file__))
-        candidates = [
-            os.path.join(_dir, ".env"),
-            os.path.join(os.getcwd(), ".env"),
-            os.path.join(os.getcwd(), "backend", ".env"),
-        ]
-        for p in candidates:
-            if os.path.isfile(p):
-                load_dotenv(p, override=True)
-                return
-    except Exception:
-        pass
-
-_load_dotenv_for_deepseek()
+# 导入配置
+try:
+    from config import Config
+    DEEPSEEK_API_URL = Config.get("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions")
+    DEEPSEEK_API_KEY = (Config.get("DEEPSEEK_API_KEY", "") or "").strip()
+    DEEPSEEK_MODEL = Config.get("DEEPSEEK_MODEL", "deepseek-chat")
+    DEEPSEEK_TIMEOUT = int(Config.get("DEEPSEEK_TIMEOUT", 45))
+    MIN_TRANSCRIPTION_LENGTH = int(Config.get("DEEPSEEK_MIN_TRANSCRIPTION_LENGTH", 20))
+except ImportError:
+    # 如果 config.py 不存在，回退到环境变量
+    DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions")
+    DEEPSEEK_API_KEY = (os.getenv("DEEPSEEK_API_KEY") or "").strip()
+    DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    DEEPSEEK_TIMEOUT = int(os.getenv("DEEPSEEK_TIMEOUT", "45"))
+    MIN_TRANSCRIPTION_LENGTH = int(os.getenv("DEEPSEEK_MIN_TRANSCRIPTION_LENGTH", "20"))
 
 import requests
 
 logger = logging.getLogger(__name__)
 
-DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions")
-DEEPSEEK_API_KEY = (os.getenv("DEEPSEEK_API_KEY") or "").strip()
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-DEEPSEEK_TIMEOUT = int(os.getenv("DEEPSEEK_TIMEOUT", "45"))
-# 转写文本过短时跳过 API 调用，直接用规则证据
-MIN_TRANSCRIPTION_LENGTH = int(os.getenv("DEEPSEEK_MIN_TRANSCRIPTION_LENGTH", "20"))
-
 # 首次导入时打一条，便于确认子进程是否读到 key
-if DEEPSEEK_API_KEY:
+if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY != "填写你的 DeepSeek API Key":
     print("[DeepSeek] 模块已加载，DEEPSEEK_API_KEY 已就绪")
 else:
-    print("[DeepSeek] 模块已加载，DEEPSEEK_API_KEY 未设置（请检查 backend/.env 或环境变量）")
+    print("[DeepSeek] 模块已加载，DEEPSEEK_API_KEY 未设置（请检查 backend/config.py）")
 
 # 单条证据的合法字段（与前端 Evidence 接口一致）
 EVIDENCE_KEYS = {"timestamp", "type", "description", "confidence", "keyword", "sentimentScore"}
@@ -211,7 +201,7 @@ def generate_evidences_via_deepseek(
           "attitude": [...], "opinionRisk": [...], "action": [...] }
         若未配置 API Key、文本过短、或请求失败则返回 None。
     """
-    if not DEEPSEEK_API_KEY or not DEEPSEEK_API_KEY.strip():
+    if not DEEPSEEK_API_KEY or not DEEPSEEK_API_KEY.strip() or DEEPSEEK_API_KEY == "填写你的 DeepSeek API Key":
         msg = "DEEPSEEK_API_KEY 未配置，跳过 DeepSeek 证据生成"
         logger.debug(msg)
         print(f"[DeepSeek] 未使用：{msg}")
