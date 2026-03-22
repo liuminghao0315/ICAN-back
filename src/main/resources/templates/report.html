@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <style type="text/css">
+        /*
+         * PDF 模板样式 —— 针对 Flying Saucer (XHTML→PDF) 渲染引擎优化
+         * Flying Saucer 对 margin collapsing 处理不佳，优先使用 padding
+         * 换算基准: 前端 14px ≈ PDF 10.5pt
+         */
+        @page { size: A4; margin: 20mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "SimSun", "Songti SC", "Microsoft YaHei", "PingFang SC", serif;
+            font-size: 10.5pt;
+            line-height: 1.8;
+            color: #333333;
+        }
+
+        /* ===== 封面 ===== */
+        .cover { page-break-after: always; text-align: center; padding-top: 60px; }
+        .cover-rule-thick { height: 3px; background-color: #333333; }
+        .cover-rule-thin { height: 1px; background-color: #333333; margin-top: 2px; margin-bottom: 2px; }
+        .cover-confidential { padding-top: 40px; font-size: 10pt; color: #888888; letter-spacing: 6px; }
+        .cover h1 {
+            font-size: 22pt; font-weight: 800; letter-spacing: 8px;
+            padding-top: 36px; padding-bottom: 8px; color: #000000;
+            font-family: "SimHei", "Microsoft YaHei", sans-serif;
+        }
+        .cover-subtitle { font-size: 10pt; color: #999999; letter-spacing: 2px; padding-bottom: 52px; }
+        .cover-table {
+            margin-left: auto; margin-right: auto;
+            border-collapse: collapse; font-size: 10.5pt; text-align: left;
+        }
+        .cover-table td { padding: 10px 8px; color: #333333; }
+        .cover-table .ct-key {
+            font-weight: 600; color: #1a1a1a; white-space: nowrap;
+            text-align: right; padding-right: 0; letter-spacing: 1px;
+        }
+        .cover-table .ct-sep { padding: 10px 10px 10px 4px; color: #999999; width: 20px; }
+        .cover-info { padding-bottom: 52px; }
+        .cover-org { font-size: 11pt; font-weight: 600; color: #333333; letter-spacing: 2px; padding-bottom: 6px; }
+        .cover-version { font-size: 10pt; color: #999999; padding-bottom: 40px; }
+
+        /* ===== 通用区块 ===== */
+        .section { padding-bottom: 20px; page-break-inside: avoid; }
+        .page-break { page-break-before: always; }
+        .section-heading {
+            font-size: 13pt; font-weight: 700; color: #000000;
+            border-bottom: 2px solid #333333; padding-bottom: 6px;
+            padding-top: 24px; margin-bottom: 12px; letter-spacing: 1px;
+            font-family: "SimHei", "Microsoft YaHei", sans-serif;
+        }
+        .section-heading-first { padding-top: 0; }
+        .section-heading-no-border { border-bottom: none; padding-bottom: 8px; margin-bottom: 0; }
+        .sub-heading {
+            font-size: 11pt; font-weight: 600; color: #1a1a1a;
+            padding-bottom: 6px; padding-top: 10px;
+        }
+        .sub-heading-center { text-align: center; }
+        .body-text { font-size: 10.5pt; color: #333333; line-height: 1.8; padding-bottom: 6px; }
+        .indent-text { text-indent: 2em; }
+        .sub-block { padding-bottom: 12px; }
+
+        /* ===== 三线表 ===== */
+        .info-table {
+            width: 100%; border-collapse: collapse; font-size: 10.5pt;
+            line-height: 1.8; margin-bottom: 10px;
+            border-top: 2px solid #333333; border-bottom: 2px solid #333333;
+        }
+        .info-table th, .info-table td {
+            border: none; padding: 10px 10px; text-align: left; vertical-align: top;
+        }
+        .info-table th {
+            border-bottom: 1px solid #333333; font-weight: 600;
+            color: #000000; padding: 8px 10px;
+        }
+        .info-table .it-key {
+            font-weight: 600; color: #1a1a1a; white-space: nowrap; width: 100px;
+        }
+
+        /* ===== 风险标签 ===== */
+        .risk-tag {
+            display: inline; padding: 2px 12px;
+            font-size: 10.5pt; font-weight: 700;
+        }
+        .risk-high { background-color: #C00000; color: #ffffff; }
+        .risk-mid { background-color: #e8a000; color: #ffffff; }
+        .risk-low { background-color: #2e7d32; color: #ffffff; }
+
+        /* ===== 关键词 ===== */
+        .kw-item {
+            display: inline; padding: 1px 6px; font-size: 9pt;
+            border: 1px solid #d0d0d0; margin-right: 4px; margin-bottom: 3px;
+            white-space: nowrap;
+        }
+        .kw-highlight { border-color: #333333; font-weight: 700; color: #000000; }
+
+        /* ===== 两栏布局表格 ===== */
+        .two-col-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .two-col-table td { width: 50%; vertical-align: top; }
+        .two-col-table .col-left { padding-right: 6px; }
+        .two-col-table .col-right { padding-left: 6px; vertical-align: top; }
+
+        /* ===== 雷达数据表 ===== */
+        .radar-table {
+            width: 100%; border-collapse: collapse; font-size: 10pt;
+            border-top: 1.5pt solid #333333; border-bottom: 1.5pt solid #333333;
+            margin-top: 8px; table-layout: fixed;
+        }
+        .radar-table th {
+            padding: 6px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
+            border-bottom: 1pt solid #333333; white-space: nowrap;
+        }
+        .radar-table td { padding: 6px 8px; border: none; vertical-align: middle; }
+        .radar-table .name-cell { width: 34%; white-space: nowrap; }
+        .radar-table .bar-cell { width: 48%; }
+        .radar-table .score-cell {
+            width: 18%; text-align: center; font-weight: 600; white-space: nowrap;
+            word-break: keep-all;
+        }
+        .radar-bar-bg { background-color: #eeeeee; height: 8px; width: 100%; margin-top: 1px; }
+        .radar-bar-fill { height: 8px; background-color: #555555; }
+
+        /* ===== 贡献度条 ===== */
+        .contrib-list { margin-top: 75px; }
+        .contrib-row { white-space: nowrap; padding: 8px 0; }
+        .contrib-label {
+            display: inline-block;
+            width: 72px;
+            font-size: 10pt;
+            font-weight: 600;
+            color: #1a1a1a;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .contrib-bar-bg {
+            display: inline-block;
+            width: 165px;
+            height: 8px;
+            background-color: #eeeeee;
+            vertical-align: middle;
+        }
+        .contrib-bar-fill { height: 8px; }
+        .fill-video { background-color: #444444; }
+        .fill-audio { background-color: #777777; }
+        .fill-text { background-color: #aaaaaa; }
+        .contrib-num {
+            display: inline-block;
+            width: 52px;
+            padding-left: 4px;
+            font-size: 9pt;
+            color: #555555;
+            text-align: right;
+            white-space: nowrap;
+            word-break: keep-all;
+            vertical-align: middle;
+        }
+
+        /* ===== 风险走势表 ===== */
+        .trend-table {
+            width: 100%; border-collapse: collapse; font-size: 10pt; line-height: 1.8;
+            border-top: 1.5pt solid #333333; border-bottom: 1.5pt solid #333333;
+        }
+        .trend-table th {
+            padding: 6px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
+            background-color: #f9f9f9;
+            border-bottom: 1pt solid #333333;
+        }
+        .trend-table td { padding: 4px 8px; border: none; color: #333333; vertical-align: middle; }
+        .trend-bar-cell { width: 40%; }
+        .trend-bar-bg { background-color: #eeeeee; height: 6px; width: 100%; }
+        .trend-bar-fill { height: 6px; }
+        .trend-fill-low { background-color: #2e7d32; }
+        .trend-fill-mid { background-color: #e8a000; }
+        .trend-fill-high { background-color: #C00000; }
+
+        /* ===== 提示框 ===== */
+        .note-box {
+            padding: 10px 14px; margin-top: 12px;
+            border-left: 3px solid #C00000;
+            font-size: 10.5pt; color: #333333; line-height: 1.8;
+            page-break-inside: avoid;
+        }
+        .note-strong { color: #C00000; font-weight: 700; }
+
+        /* ===== 人物特征 ===== */
+        .char-item { font-size: 10.5pt; color: #333333; line-height: 1.8; padding-bottom: 2px; }
+        .char-key { font-weight: 700; color: #1a1a1a; }
+
+        /* ===== 六大维度卡片 ===== */
+        .dim-grid { width: 100%; border-collapse: collapse; }
+        .dim-grid td { width: 50%; padding: 8px; vertical-align: top; }
+        .dim-card { border-top: 1px solid #e0e0e0; padding-top: 6px; page-break-inside: avoid; }
+        .dim-header { padding-bottom: 4px; }
+        .dim-title { font-size: 10.5pt; font-weight: 700; color: #000000; }
+        .dim-score { font-size: 9pt; font-weight: 600; padding: 1px 6px; margin-left: 8px; }
+        .sc-high { background-color: #f5e0e0; color: #C00000; }
+        .sc-mid { background-color: #fdf0d5; color: #9a5f00; }
+        .sc-low { background-color: #e0f0e0; color: #1b5e20; }
+        .dim-body { padding-top: 4px; font-size: 10pt; line-height: 1.8; }
+        .dim-row { padding-bottom: 3px; }
+        .dim-row-key { font-weight: 600; color: #333333; margin-right: 4px; }
+        .dim-modality { padding-top: 6px; font-size: 9pt; color: #555555; }
+        .dim-evidence { text-align: right; font-size: 9pt; color: #999999; padding-top: 3px; }
+
+        /* ===== 证据表格 ===== */
+        .ev-table {
+            width: 100%; border-collapse: collapse; font-size: 10pt; line-height: 1.8;
+            border-top: 1.5pt solid #333333; border-bottom: 1.5pt solid #333333;
+        }
+        .ev-table th {
+            padding: 8px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
+            background-color: #f9f9f9;
+            border-bottom: 1.5pt solid #333333;
+        }
+        .ev-table td { padding: 8px 8px; border: none; color: #333333; vertical-align: top; }
+        .center { text-align: center; }
+        .tag-danger {
+            display: inline; padding: 1px 4px; background-color: #C00000;
+            color: #ffffff; font-size: 8pt; font-weight: 700; margin-right: 4px;
+        }
+        .ev-kw { color: #777777; font-size: 9pt; }
+        .score-critical { font-weight: 700; color: #C00000; }
+
+        /* ===== 签章区 ===== */
+        .sign-area {
+            padding-top: 60px;
+            border-top: 1px solid #999999; page-break-inside: avoid;
+        }
+        .sign-table { width: 100%; border-collapse: collapse; }
+        .sign-table td { padding: 10px 0; width: 50%; }
+        .sign-label { font-size: 10.5pt; font-weight: 600; color: #1a1a1a; white-space: nowrap; }
+
+        /* ===== 页脚 ===== */
+        .report-foot { padding-top: 30px; page-break-inside: avoid; }
+        .foot-rule { height: 1px; background-color: #999999; margin-bottom: 6px; }
+        .foot-row { font-size: 8pt; color: #999999; padding-bottom: 2px; }
+    </style>
+</head>
+<body>
+
+<!-- ==================== 封面 ==================== -->
+<div class="cover">
+    <div class="cover-rule-thick"></div>
+    <div class="cover-rule-thin"></div>
+    <div class="cover-confidential">内部资料 · 仅供参考</div>
+    <h1>视频内容分析报告</h1>
+    <div class="cover-subtitle">Video Content Analysis Report</div>
+    <div class="cover-info">
+    <table class="cover-table">
+        <tr><td class="ct-key">报告编号</td><td class="ct-sep">：</td><td th:text="${videoId}">-</td></tr>
+        <tr><td class="ct-key">视频文件</td><td class="ct-sep">：</td><td th:text="${fileName}">-</td></tr>
+        <tr><td class="ct-key">视频时长</td><td class="ct-sep">：</td><td th:text="${duration}">-</td></tr>
+        <tr><td class="ct-key">来源渠道</td><td class="ct-sep">：</td><td th:text="${uploadSource}">-</td></tr>
+        <tr th:if="${sourceUrl != null}"><td class="ct-key">视频链接</td><td class="ct-sep">：</td><td th:text="${sourceUrl}">-</td></tr>
+        <tr><td class="ct-key">生成时间</td><td class="ct-sep">：</td><td th:text="${reportTime}">-</td></tr>
+    </table>
+    </div>
+    <div class="cover-org">基于多模态深度学习的高校内容创作者行为分析平台</div>
+    <div class="cover-version">系统版本 v1.0</div>
+    <div class="cover-rule-thin"></div>
+    <div class="cover-rule-thick"></div>
+</div>
+
+<!-- ==================== 综合结论 ==================== -->
+<div class="section">
+    <div class="section-heading section-heading-no-border section-heading-first">综合结论</div>
+    <table class="info-table">
+        <tr>
+            <td class="it-key">最终建议</td>
+            <td><span class="risk-tag" th:classappend="${actionFinalScore >= 67 ? 'risk-high' : (actionFinalScore >= 34 ? 'risk-mid' : 'risk-low')}" th:text="${actionSuggestion != null ? actionSuggestion : '—'}">—</span></td>
+        </tr>
+        <tr><td class="it-key">详细说明</td><td th:text="${actionDetail != null ? actionDetail : '—'}">—</td></tr>
+        <tr><td class="it-key">身份判定</td><td><span th:text="${identityLabel}">—</span>（置信度 <span th:text="${identityFinalScore}">0</span>%）</td></tr>
+        <tr><td class="it-key">涉及高校</td><td><span th:text="${universityName}">—</span>（关联度 <span th:text="${universityFinalScore}">0</span>%）</td></tr>
+    </table>
+</div>
+
+<!-- ==================== 一、视频概览 ==================== -->
+<div class="section">
+    <div class="section-heading">一、视频概览</div>
+    <div th:if="${aiDescription != null}" class="sub-block">
+        <div class="sub-heading">AI 内容摘要</div>
+        <p class="body-text indent-text" th:text="${aiDescription}">-</p>
+    </div>
+    <div th:if="${mainCharacter != null}" class="sub-block">
+        <div class="sub-heading">人物特征</div>
+        <p th:if="${mainCharacter['gender'] != null}" class="char-item"><span class="char-key">性别：</span><span th:text="${mainCharacter['gender']}">-</span></p>
+        <p th:if="${mainCharacter['ageRange'] != null}" class="char-item"><span class="char-key">年龄段：</span><span th:text="${mainCharacter['ageRange']}">-</span></p>
+        <p th:if="${mainCharacter['voiceProfile'] != null}" class="char-item"><span class="char-key">语音特征：</span><span th:text="${mainCharacter['voiceProfile']}">-</span></p>
+        <p th:if="${mainCharacter['clothing'] != null}" class="char-item"><span class="char-key">着装：</span><span th:text="${mainCharacter['clothing']}">-</span></p>
+    </div>
+    <div th:if="${detectedKeywords != null and !detectedKeywords.isEmpty()}" class="sub-block">
+        <div class="sub-heading">检测到的关键词</div>
+        <span th:each="kw : ${detectedKeywords}" class="kw-item" th:classappend="${kw['isUniversityRelated'] == true ? 'kw-highlight' : ''}" th:text="${kw['word']}">-</span>
+    </div>
+</div>
+
+<!-- ==================== 二、风险画像 ==================== -->
+<div class="section page-break">
+    <div class="section-heading">二、风险画像</div>
+    <table class="two-col-table">
+        <tr>
+            <td class="col-left">
+                <div class="sub-heading sub-heading-center">综合风险评估</div>
+                <table class="radar-table">
+                    <tr><th class="name-cell">维度</th><th class="bar-cell">&#160;</th><th class="score-cell">得分</th></tr>
+                    <tr th:each="rd : ${radarRows}">
+                        <td class="name-cell" th:text="${rd['name']}">-</td>
+                        <td class="bar-cell"><div class="radar-bar-bg"><div class="radar-bar-fill" th:style="'width:' + ${rd['value']} + '%'"></div></div></td>
+                        <td class="score-cell" th:text="${rd['value']}">0</td>
+                    </tr>
+                </table>
+            </td>
+            <td class="col-right">
+                <div class="sub-heading sub-heading-center">多模态分析贡献度</div>
+                <div class="contrib-list">
+                    <div class="contrib-row">
+                        <span class="contrib-label">视频模态</span>
+                        <span class="contrib-bar-bg"><span class="contrib-bar-fill fill-video" th:style="'display:inline-block;width:' + ${contribVideo} + '%'">&#160;</span></span>
+                        <span class="contrib-num"><span th:text="${contribVideo}">0</span>%</span>
+                    </div>
+                    <div class="contrib-row">
+                        <span class="contrib-label">音频模态</span>
+                        <span class="contrib-bar-bg"><span class="contrib-bar-fill fill-audio" th:style="'display:inline-block;width:' + ${contribAudio} + '%'">&#160;</span></span>
+                        <span class="contrib-num"><span th:text="${contribAudio}">0</span>%</span>
+                    </div>
+                    <div class="contrib-row">
+                        <span class="contrib-label">文本模态</span>
+                        <span class="contrib-bar-bg"><span class="contrib-bar-fill fill-text" th:style="'display:inline-block;width:' + ${contribText} + '%'">&#160;</span></span>
+                        <span class="contrib-num"><span th:text="${contribText}">0</span>%</span>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- ==================== 三、风险走势分析 ==================== -->
+<div class="section">
+    <div class="section-heading">三、风险走势分析</div>
+    <table class="trend-table" th:if="${riskTrend != null and !riskTrend.isEmpty()}">
+        <thead><tr><th style="width:18%;">时间段</th><th class="trend-bar-cell">风险强度</th><th style="width:12%;text-align:center;">数值</th><th style="width:12%;text-align:center;">等级</th></tr></thead>
+        <tbody>
+        <tr th:each="point : ${riskTrend}">
+            <td th:text="${point['timeLabel']}">-</td>
+            <td class="trend-bar-cell">
+                <div class="trend-bar-bg">
+                    <div th:classappend="${point['intensityNum'] >= 0.667 ? 'trend-fill-high' : (point['intensityNum'] >= 0.333 ? 'trend-fill-mid' : 'trend-fill-low')}"
+                         class="trend-bar-fill" th:style="'width:' + ${#numbers.formatDecimal(point['intensityNum'] * 100, 1, 1)} + '%'"></div>
+                </div>
+            </td>
+            <td class="center" th:text="${point['intensity']}">-</td>
+            <td class="center">
+                <span th:if="${point['intensityNum'] >= 0.667}" class="tag-danger">高风险</span>
+                <span th:if="${point['intensityNum'] >= 0.333 and point['intensityNum'] &lt; 0.667}">中风险</span>
+                <span th:if="${point['intensityNum'] &lt; 0.333}">低风险</span>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <div class="note-box" th:if="${riskPeakTime != null}">
+        <span th:if="${riskPeakIntensity >= 0.9}" class="note-strong">【极高风险红色预警】</span>
+        <span th:if="${riskPeakIntensity &lt; 0.9}" class="note-strong">风险峰值分析：</span>
+        本视频风险峰值出现在 <span th:text="${riskPeakTime}">-</span>，风险强度达到 <span th:text="${riskPeakPercent}">-</span>%，主要由 <span th:text="${riskPeakTrigger}">-</span> 触发。
+    </div>
+</div>
+
+<!-- ==================== 四、六大维度分析详情 ==================== -->
+<div class="section page-break">
+    <div class="section-heading">四、六大维度分析详情</div>
+    <table class="dim-grid">
+        <tr th:each="pair : ${dimensionPairs}">
+            <td th:each="dim : ${pair}">
+                <div class="dim-card">
+                    <div class="dim-header">
+                        <span class="dim-title" th:text="${dim['title']}">-</span>
+                        <span class="dim-score" th:classappend="${dim['scoreClass']}" th:text="${dim['scoreLabel']}">-</span>
+                    </div>
+                    <div class="dim-body">
+                        <div th:each="row : ${dim['rows']}" class="dim-row">
+                            <span class="dim-row-key" th:text="${row['label']}">-</span>
+                            <span th:text="${row['value']}">-</span>
+                        </div>
+                        <div th:if="${dim['video'] != null}" class="dim-modality">
+                            视频 <span th:text="${dim['video']}">0</span>
+                            &#160;&#160;音频 <span th:text="${dim['audio']}">0</span>
+                            &#160;&#160;文本 <span th:text="${dim['text']}">0</span>
+                        </div>
+                        <div class="dim-evidence">证据 <span th:text="${dim['evidenceCount']}">0</span> 条</div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- ==================== 五、详细证据清单 ==================== -->
+<div class="section page-break">
+    <div class="section-heading section-heading-no-border">五、详细证据清单</div>
+    <table class="ev-table" th:if="${timelineEvents != null and !timelineEvents.isEmpty()}">
+        <thead>
+            <tr>
+                <th style="width:14%;">时间段</th>
+                <th style="width:8%;">模态</th>
+                <th style="width:52%;">具体内容</th>
+                <th style="width:13%;text-align:center;">风险分数</th>
+                <th style="width:13%;text-align:center;">置信度</th>
+            </tr>
+        </thead>
+        <tbody>
+        <tr th:each="ev : ${timelineEvents}">
+            <td th:text="${ev['timeRange']}">-</td>
+            <td th:text="${ev['modalityText']}">-</td>
+            <td>
+                <span th:if="${ev['riskScore'] > 66.7}" class="tag-danger">高危</span>
+                <span th:text="${ev['content']}">-</span>
+            </td>
+            <td class="center" th:classappend="${ev['riskScore'] > 80 ? 'score-critical' : ''}"><span th:text="${T(java.lang.Math).round(ev['riskScore'])}">-</span>%</td>
+            <td class="center"><span th:text="${T(java.lang.Math).round(ev['confidence'])}">-</span>%</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ==================== 六、场景识别轨迹 ==================== -->
+<div class="section page-break">
+    <div class="section-heading section-heading-no-border">六、场景识别轨迹</div>
+    <table class="info-table" th:if="${sceneRecognition != null and !sceneRecognition.isEmpty()}">
+        <thead><tr><th>序号</th><th>场景名称</th><th>时间段</th><th>置信度</th></tr></thead>
+        <tbody>
+        <tr th:each="scene,iter : ${sceneRecognition}">
+            <td th:text="${iter.index + 1}">1</td>
+            <td th:text="${scene['name']}">-</td>
+            <td th:text="${scene['timeRange']}">-</td>
+            <td th:text="${scene['confidenceText']}">-</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ==================== 分析标准说明 ==================== -->
+<div class="section">
+    <div class="section-heading">分析标准说明</div>
+    <p class="body-text">本报告由多模态深度学习分析系统自动生成，综合视频、音频、文本三种模态的分析结果，经融合算法计算得出。</p>
+    <p class="body-text">报告结果仅供参考，具体处置决策需结合实际情况由相关部门人工审核后确定。</p>
+</div>
+
+<!-- ==================== 签章区 ==================== -->
+<div class="sign-area">
+    <table class="sign-table">
+        <tr>
+            <td><span class="sign-label">分析员：</span>________________</td>
+            <td><span class="sign-label">审核员：</span>________________</td>
+        </tr>
+        <tr>
+            <td><span class="sign-label">签发日期：</span>________________</td>
+            <td></td>
+        </tr>
+    </table>
+</div>
+
+<!-- ==================== 页脚 ==================== -->
+<div class="report-foot">
+    <div class="foot-rule"></div>
+    <div class="foot-row">生成时间：<span th:text="${reportTime}">-</span>&#160;&#160;&#160;&#160;报告编号：<span th:text="${videoId}">-</span></div>
+    <div class="foot-row">系统版本：多模态高校内容创作者行为分析系统 v1.0</div>
+</div>
+
+</body>
+</html>

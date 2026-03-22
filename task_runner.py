@@ -136,6 +136,45 @@ def convert_url_to_tunnel(original_url: str) -> str:
         return original_url
 
 
+def _probe_media_duration(video_info: dict, logger=None) -> float:
+    """优先在媒体探测阶段给出时长，供后续模块统一使用。"""
+    fallback = 0.0
+    try:
+        fallback = float(video_info.get("videoDuration") or 0.0)
+    except (TypeError, ValueError):
+        fallback = 0.0
+
+    video_source = video_info.get("videoUrlInternal") or video_info.get("videoUrl")
+    if not video_source:
+        return fallback
+
+    cap = None
+    try:
+        import cv2  # 延迟导入，避免主进程启动时增加依赖负担
+
+        cap = cv2.VideoCapture(video_source)
+        if not cap.isOpened():
+            return fallback
+
+        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        frame_count = float(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0)
+        if fps > 0 and frame_count > 0:
+            duration = frame_count / fps
+            if duration > 0:
+                return round(duration, 2)
+    except Exception as e:
+        if logger:
+            logger.warning(f"媒体探测阶段读取 duration 失败，回退兜底值: {e}")
+    finally:
+        try:
+            if cap is not None:
+                cap.release()
+        except Exception:
+            pass
+
+    return fallback
+
+
 # ═══════════════════════════════════════════════════════════════
 #  分析流水线（从 algorithm_simulator.py 迁移，去掉 threading）
 # ═══════════════════════════════════════════════════════════════
@@ -145,10 +184,12 @@ def _step_media_split(task_id: str, video_info: dict, logger) -> dict:
     logger.info("Step 1: 开始媒体分割...")
     process_time = 1.2
     time.sleep(process_time)
+    probed_duration = _probe_media_duration(video_info, logger)
     result = {
         "visualStreamReady": True,
         "audioStreamReady": True,
         "splitDuration": round(process_time, 2),
+        "duration": probed_duration,
         "videoFilePath": video_info.get("videoUrl", ""),
         "fileSize": video_info.get("fileSize", 0)
     }
@@ -518,7 +559,11 @@ def run_task(task_id: str, task_message: dict):
                 logger.info("保留原始视频URL用于分析，隧道URL仅调试使用")
 
         # Step 1: 媒体分割
-        _step_media_split(task_id, task_message, logger)
+        media_split_result = _step_media_split(task_id, task_message, logger)
+        split_duration = _to_float(media_split_result.get("duration"), 0.0)
+        if split_duration > 0:
+            task_message["videoDuration"] = split_duration
+            logger.info("媒体探测阶段已提供时长: %.2fs", split_duration)
 
         # Step 2a: 视频分析
         video_result = _step_video_analysis(task_id, task_message, logger)

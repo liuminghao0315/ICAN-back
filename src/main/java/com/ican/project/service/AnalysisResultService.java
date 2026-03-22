@@ -79,5 +79,13 @@ public interface AnalysisResultService {
      * @return 分析结果实体
      */
     AnalysisResult getEntityById(String resultId);
+
+    /**
+     * 公开分享场景使用：根据结果ID获取分析结果，不做用户权限校验。
+     * @param resultId 结果ID
+     * @return 分析结果VO
+     */
+    AnalysisResultVO getResultByIdForShare(String resultId);
 }
+
 

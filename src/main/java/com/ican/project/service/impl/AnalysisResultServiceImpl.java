@@ -554,6 +554,21 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
     public AnalysisResult getEntityById(String resultId) {
         return analysisResultMapper.selectById(resultId);
     }
+
+    @Override
+    public AnalysisResultVO getResultByIdForShare(String resultId) {
+        AnalysisResult result = analysisResultMapper.selectById(resultId);
+        if (result == null) {
+            throw new BusinessException("分析结果不存在");
+        }
+
+        Video video = null;
+        if (result.getVideoId() != null) {
+            video = videoMapper.selectById(result.getVideoId());
+        }
+
+        return convertToVO(result, video);
+    }
     
     /**
      * 转换为VO（全新实现，适配新前端数据结构）
@@ -829,4 +844,5 @@ public class AnalysisResultServiceImpl implements AnalysisResultService {
         }
     }
 }
+
 

@@ -843,7 +843,12 @@ def process_video(task_id: str, video_info: Dict[str, Any]) -> Dict[str, Any]:
         # 使用OpenCV进行真实视频分析
         opencv_result = analyze_video_with_opencv(video_url_internal or video_url, task_id)
         
-        duration = opencv_result.get("duration", 60.0)
+        upstream_duration = video_info.get("videoDuration")
+        duration = upstream_duration if upstream_duration not in [None, ""] else opencv_result.get("duration", 60.0)
+        try:
+            duration = float(duration)
+        except (TypeError, ValueError):
+            duration = float(opencv_result.get("duration", 60.0) or 60.0)
         scene_type = opencv_result.get("sceneType", "未知")
         has_person = opencv_result.get("hasPerson", False)
         quality_score = opencv_result.get("qualityScore", 0.7)

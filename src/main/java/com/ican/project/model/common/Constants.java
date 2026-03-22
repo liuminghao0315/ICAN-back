@@ -29,6 +29,9 @@ public class Constants {
 
         /** 修改密码验证码 Redis Key 前缀（value 存 userId） */
         public static final String VERIFY_CODE_CHANGE_PWD_PREFIX = "verifyCodeToChangePwd:";
+
+        /** 分析结果分享 Redis Key 前缀 */
+        public static final String ANALYSIS_SHARE_PREFIX = "analysisShare:";
     }
 
     /**

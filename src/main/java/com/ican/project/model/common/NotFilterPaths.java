@@ -22,7 +22,8 @@ public class NotFilterPaths {
             "/swagger-ui/",
             "/v3/api-docs/",
             "/ws/",                    // WebSocket路径
-            "/api/algorithm/"          // 算法回调路径（生产环境应加安全验证）
+            "/api/algorithm/",         // 算法回调路径（生产环境应加安全验证）
+            "/public/analysis/share/"  // 公开分享分析结果
     };
     public String[] startWithPathsInConfig;
 
